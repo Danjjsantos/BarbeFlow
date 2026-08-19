@@ -1,0 +1,6 @@
+{
+  "name": "BarberHub - Gestão e Agendamento de Barbearias",
+  "description": "Sistema completo de agendamento para barbearias com pagamento PIX, painel do barbeiro para gestão de agenda e rendimentos, página pública de apresentação e captação, e painel do administrador geral com gestão de planos mensal, semestral e anual.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
