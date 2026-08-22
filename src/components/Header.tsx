@@ -9,6 +9,7 @@ import {
   DollarSign,
   Settings,
   Menu,
+  Link2,
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -28,6 +29,7 @@ export const Header: React.FC<HeaderProps> = () => {
     setIsBarberDrawerOpen,
     newAppointmentsCount,
     markAppointmentsAsSeen,
+    openAccessLinksModal,
   } = useApp();
 
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
@@ -115,14 +117,24 @@ export const Header: React.FC<HeaderProps> = () => {
               </div>
             </div>
 
-            {/* Right: QR Code Icon-only & Logout Icon-only */}
+            {/* Right: Links, QR Code & Logout */}
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+              {/* Access Links Button */}
+              <button
+                onClick={openAccessLinksModal}
+                title="Links de Acesso do Sistema (Admin, Barbeiro, Agendamento)"
+                className="p-2 sm:p-2.5 bg-slate-900 hover:bg-slate-800 text-amber-400 border border-slate-800 hover:border-amber-500/40 rounded-xl transition shadow-xs active:scale-95 shrink-0 flex items-center justify-center cursor-pointer"
+                aria-label="Links de Acesso"
+              >
+                <Link2 className="w-5 h-5" />
+              </button>
+
               {/* QR Code Icon-only Button */}
               {userShop && (
                 <button
                   onClick={() => setIsQrModalOpen(true)}
                   title="Abrir QR Code da Barbearia"
-                  className="p-2 sm:p-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl transition shadow-md shadow-amber-500/20 active:scale-95 shrink-0 flex items-center justify-center"
+                  className="p-2 sm:p-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl transition shadow-md shadow-amber-500/20 active:scale-95 shrink-0 flex items-center justify-center cursor-pointer"
                   aria-label="QR Code da Barbearia"
                 >
                   <QrCode className="w-5 h-5 text-slate-950" />
@@ -132,7 +144,7 @@ export const Header: React.FC<HeaderProps> = () => {
               {/* Logout Icon-only Button */}
               <button
                 onClick={logoutUser}
-                className="p-2 sm:p-2.5 bg-rose-600/20 hover:bg-rose-600/35 border border-rose-500/40 text-rose-300 hover:text-white rounded-xl transition shadow-sm active:scale-95 shrink-0 flex items-center justify-center"
+                className="p-2 sm:p-2.5 bg-rose-600/20 hover:bg-rose-600/35 border border-rose-500/40 text-rose-300 hover:text-white rounded-xl transition shadow-sm active:scale-95 shrink-0 flex items-center justify-center cursor-pointer"
                 title="Sair do painel"
                 aria-label="Sair"
               >

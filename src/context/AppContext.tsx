@@ -60,6 +60,11 @@ interface AppContextType {
   setRegisterPlanId: (planId: string) => void;
   openRegisterModal: (planId?: string) => void;
 
+  // Access Links Modal
+  isAccessLinksModalOpen: boolean;
+  setIsAccessLinksModalOpen: (isOpen: boolean) => void;
+  openAccessLinksModal: () => void;
+
   // Login Modal State & Auth
   isLoginModalOpen: boolean;
   setIsLoginModalOpen: (isOpen: boolean) => void;
@@ -328,20 +333,58 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [activeBarberTab, setActiveBarberTab] = useState<'schedule' | 'financial' | 'services' | 'settings'>('schedule');
   const [isBarberDrawerOpen, setIsBarberDrawerOpen] = useState<boolean>(false);
 
-  // Handle URL Hash navigation only on true user hashchange or initial direct link mount (not on barbershops state mutations)
+  // Access Links Modal State
+  const [isAccessLinksModalOpen, setIsAccessLinksModalOpen] = useState<boolean>(false);
+  const openAccessLinksModal = () => setIsAccessLinksModalOpen(true);
+
+  // Handle URL Hash navigation on user hashchange or initial direct link mount
   useEffect(() => {
     const handleHashNavigation = () => {
-      const hash = window.location.hash.replace('#', '').trim();
-      if (!hash) return;
+      const rawHash = window.location.hash.replace('#', '').trim();
+      if (!rawHash) return;
+      const hash = rawHash.toLowerCase();
 
-      if (hash === 'planos' || hash === 'cadastro') {
+      // Super Admin Direct Links (e.g. #admin, #superadmin, #administrador, #super-admin, #master)
+      if (['admin', 'superadmin', 'administrador', 'super-admin', 'painel-admin', 'master', 'geral'].includes(hash)) {
+        if (currentUser.role === 'super_admin') {
+          setCurrentView('super_admin_dashboard');
+        } else {
+          openLoginModal('super_admin');
+        }
+        return;
+      }
+
+      // Barber Direct Links (e.g. #barbeiro, #login-barbeiro, #painel, #painel-barbeiro, #barber, #gestao)
+      if (['barbeiro', 'login-barbeiro', 'painel-barbeiro', 'barber', 'painel', 'gestao'].includes(hash)) {
+        if (currentUser.role === 'barber' || currentUser.role === 'super_admin') {
+          setCurrentView('barber_dashboard');
+        } else {
+          openLoginModal('barber');
+        }
+        return;
+      }
+
+      // Landing / Plans / Presentation Direct Links (e.g. #planos, #cadastro, #apresentacao, #home, #precos)
+      if (['planos', 'cadastro', 'apresentacao', 'home', 'institucional', 'precos', 'sobre'].includes(hash)) {
         setCurrentView('landing_page');
+        return;
+      }
+
+      // Access Links helper modal (e.g. #links, #acesso, #atalhos)
+      if (['links', 'acesso', 'atalhos', 'rotas'].includes(hash)) {
+        setIsAccessLinksModalOpen(true);
+        return;
+      }
+
+      // Appointments list
+      if (['agendamentos', 'meus-agendamentos'].includes(hash)) {
+        setCurrentView('client_appointments');
         return;
       }
 
       // Check if hash matches a barbershop slug or id
       const matchedShop = barbershops.find(
-        (s) => s.slug.toLowerCase() === hash.toLowerCase() || s.id.toLowerCase() === hash.toLowerCase()
+        (s) => s.slug.toLowerCase() === hash || s.id.toLowerCase() === hash
       );
 
       if (matchedShop) {
@@ -356,9 +399,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     };
 
+    handleHashNavigation();
     window.addEventListener('hashchange', handleHashNavigation);
     return () => window.removeEventListener('hashchange', handleHashNavigation);
-  }, [barbershops]);
+  }, [barbershops, currentUser]);
 
   // Track last seen appointment time for accurate "new appointment" notification
   const [lastSeenAppointmentTime, setLastSeenAppointmentTime] = useState<string>(() => {
@@ -1152,6 +1196,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         registerPlanId,
         setRegisterPlanId,
         openRegisterModal,
+        isAccessLinksModalOpen,
+        setIsAccessLinksModalOpen,
+        openAccessLinksModal,
         isLoginModalOpen,
         setIsLoginModalOpen,
         loginModalRole,
