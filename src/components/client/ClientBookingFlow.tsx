@@ -232,10 +232,10 @@ export const ClientBookingFlow: React.FC = () => {
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-6" id="client-booking-view">
       {/* Top Client Header Navigation Bar with BarberClock Logo & Aligned Button Links */}
-      <header className="bg-slate-950/90 backdrop-blur-xl border border-slate-800 rounded-2xl p-3 sm:p-4 shadow-xl flex items-center justify-between gap-3">
+      <header className="bg-slate-950/90 backdrop-blur-xl border border-slate-800 rounded-2xl p-3 sm:p-4 shadow-xl flex items-center justify-between gap-2.5 sm:gap-3 flex-wrap md:flex-nowrap">
         {/* Brand & Logo */}
         <div
-          className="flex items-center gap-3 cursor-pointer group shrink-0"
+          className="flex items-center gap-2.5 sm:gap-3 cursor-pointer group shrink-0"
           onClick={() => setCurrentView('landing_page')}
           title="Ver página de apresentação"
         >
@@ -258,32 +258,34 @@ export const ClientBookingFlow: React.FC = () => {
         </div>
 
         {/* Aligned Navigation Links as Buttons with Justified Text */}
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 ml-auto sm:ml-0">
           <button
             onClick={() => setCurrentView('client_appointments')}
-            className="px-3 sm:px-3.5 py-2 rounded-xl text-center flex items-center justify-center gap-1.5 font-bold text-xs bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-amber-500/40 text-slate-200 hover:text-white transition shadow-xs"
+            className="px-2.5 sm:px-3.5 py-2 rounded-xl text-center flex items-center justify-center gap-1.5 font-bold text-xs bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-amber-500/40 text-slate-200 hover:text-white transition shadow-xs whitespace-nowrap"
             title="Consultar meus agendamentos marcados"
           >
             <Calendar className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-            <span className="w-full text-center hidden xs:inline">Meus Agendamentos</span>
+            <span className="hidden sm:inline">Meus Agendamentos</span>
+            <span className="sm:hidden">Agendamentos</span>
           </button>
 
           <button
             onClick={() => setCurrentView('landing_page')}
-            className="px-3 sm:px-3.5 py-2 rounded-xl text-center flex items-center justify-center gap-1.5 font-bold text-xs bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-amber-500/40 text-slate-200 hover:text-white transition shadow-xs"
+            className="px-2.5 sm:px-3.5 py-2 rounded-xl text-center flex items-center justify-center gap-1.5 font-bold text-xs bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-amber-500/40 text-slate-200 hover:text-white transition shadow-xs whitespace-nowrap"
             title="Conhecer a plataforma e planos para barbearias"
           >
             <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-            <span className="w-full text-center hidden sm:inline">Apresentação</span>
+            <span className="hidden md:inline">Apresentação</span>
+            <span className="md:hidden">Planos</span>
           </button>
 
           <button
             onClick={() => openLoginModal('barber')}
-            className="px-3 sm:px-3.5 py-2 rounded-xl text-center flex items-center justify-center gap-1.5 font-bold text-xs bg-amber-500 hover:bg-amber-400 text-slate-950 font-black transition shadow-md shadow-amber-500/20 active:scale-95"
+            className="px-3 sm:px-3.5 py-2 rounded-xl text-center flex items-center justify-center gap-1.5 font-bold text-xs bg-amber-500 hover:bg-amber-400 text-slate-950 font-black transition shadow-md shadow-amber-500/20 active:scale-95 whitespace-nowrap shrink-0"
             title="Área do Barbeiro ou Administrador"
           >
             <KeyRound className="w-3.5 h-3.5 text-slate-950 shrink-0" />
-            <span className="w-full text-center whitespace-nowrap">Área do Barbeiro</span>
+            <span>Área do Barbeiro</span>
           </button>
         </div>
       </header>

@@ -187,7 +187,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [subscriptionPlans, setSubscriptionPlans] = useState<SubscriptionPlan[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.PLANS);
-    return saved ? JSON.parse(saved) : INITIAL_SUBSCRIPTION_PLANS;
+    if (!saved) return INITIAL_SUBSCRIPTION_PLANS;
+    try {
+      const parsed: SubscriptionPlan[] = JSON.parse(saved);
+      // Ensure 'trial' plan is always present
+      const hasTrial = parsed.some((p) => p.id === 'trial');
+      if (!hasTrial) {
+        const trialPlan = INITIAL_SUBSCRIPTION_PLANS.find((p) => p.id === 'trial');
+        if (trialPlan) {
+          const merged = [trialPlan, ...parsed];
+          localStorage.setItem(STORAGE_KEYS.PLANS, JSON.stringify(merged));
+          return merged;
+        }
+      }
+      return parsed;
+    } catch {
+      return INITIAL_SUBSCRIPTION_PLANS;
+    }
   });
 
   const [landingPageContent, setLandingPageContent] = useState<LandingPageContent>(() => {

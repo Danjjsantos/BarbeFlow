@@ -27,7 +27,7 @@ const AppContent: React.FC = () => {
   } = useApp();
 
   return (
-    <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans antialiased selection:bg-amber-500 selection:text-white">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans antialiased selection:bg-amber-500 selection:text-white w-full overflow-x-hidden">
       {/* Main Content Area */}
       <main className="flex-1">
         {currentView === 'landing_page' && (

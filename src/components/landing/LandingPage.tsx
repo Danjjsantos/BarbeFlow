@@ -29,6 +29,9 @@ import {
   LogIn,
   KeyRound,
   Lock,
+  Tag,
+  Menu,
+  X,
 } from 'lucide-react';
 
 interface LandingPageProps {
@@ -47,7 +50,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenRegister, onOpen
     openLoginModal,
   } = useApp();
 
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   const handleOpenLogin = (role: 'barber' | 'super_admin' = 'barber') => {
+    setMobileMenuOpen(false);
     if (onOpenLogin) {
       onOpenLogin(role);
     } else {
@@ -68,6 +74,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenRegister, onOpen
   const recoveredLossEstimate = Math.round(monthlyGrossEstimate * 0.18); // 18% recovered from no-shows & late bookings
 
   const handleSelectPlanAndRegister = (planId: string) => {
+    setMobileMenuOpen(false);
     if (onOpenRegister) {
       onOpenRegister(planId);
     } else {
@@ -75,14 +82,23 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenRegister, onOpen
     }
   };
 
+  const navItems = [
+    { href: '#video-demo', label: 'Como Funciona' },
+    { href: '#diferenciais', label: 'Diferenciais' },
+    { href: '#galeria', label: 'Demonstração' },
+    { href: '#planos', label: 'Planos & Preços' },
+    { href: '#calculadora', label: 'Simulador' },
+    { href: '#depoimentos', label: 'Depoimentos' },
+  ];
+
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 selection:bg-orange-600 selection:text-white" id="landing-presentation-page">
+    <div className="min-h-screen bg-slate-950 text-slate-100 selection:bg-orange-600 selection:text-white w-full overflow-x-hidden" id="landing-presentation-page">
       {/* Top Floating Navigation */}
-      <header className="sticky top-0 z-40 bg-slate-950/90 backdrop-blur-xl border-b border-slate-800/80 shadow-2xl">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between gap-3">
+      <header className="sticky top-0 z-50 w-full bg-slate-950/95 backdrop-blur-xl border-b border-slate-800/80 shadow-2xl">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-3">
           {/* Logo & Brand */}
           <div
-            className="flex items-center gap-3 cursor-pointer group shrink-0"
+            className="flex items-center gap-2.5 sm:gap-3 cursor-pointer group shrink-0"
             onClick={() => setCurrentView('client_booking')}
             title="Ir para o agendamento da Barbearia BarberClock"
           >
@@ -90,12 +106,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenRegister, onOpen
               <img
                 src="/barber_clock_logo.jpg"
                 alt="BarberClock Logo"
-                className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl object-cover border-2 border-amber-500/80 shadow-lg shadow-amber-500/25 group-hover:scale-105 transition shrink-0 bg-slate-900"
+                className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl object-cover border-2 border-amber-500/80 shadow-lg shadow-amber-500/25 group-hover:scale-105 transition shrink-0 bg-slate-900"
               />
-              <span className="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-slate-950"></span>
+              <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-slate-950"></span>
             </div>
             <div>
-              <span className="text-lg sm:text-xl font-black tracking-tight text-white block leading-tight">
+              <span className="text-base sm:text-lg font-black tracking-tight text-white block leading-tight">
                 BarberClock
               </span>
               <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-amber-400 block">
@@ -104,39 +120,77 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenRegister, onOpen
             </div>
           </div>
 
-          {/* Centered / Aligned Navigation Button Pills with Justified Text */}
-          <nav className="hidden md:flex items-center gap-2 xl:gap-2.5">
-            {[
-              { href: '#video-demo', label: 'Como Funciona' },
-              { href: '#diferenciais', label: 'Diferenciais' },
-              { href: '#galeria', label: 'Demonstração' },
-              { href: '#planos', label: 'Planos & Preços' },
-              { href: '#calculadora', label: 'Simulador' },
-              { href: '#depoimentos', label: 'Depoimentos' },
-            ].map((item) => (
+          {/* Desktop Navigation Links */}
+          <nav className="hidden lg:flex items-center gap-1.5 xl:gap-2">
+            {navItems.map((item) => (
               <a
                 key={item.href}
                 href={item.href}
-                className="px-3.5 py-2 rounded-xl text-center flex items-center justify-center font-bold text-xs bg-slate-900/90 hover:bg-slate-800 border border-slate-800 hover:border-amber-500/50 text-slate-300 hover:text-white transition shadow-xs whitespace-nowrap min-w-[92px]"
+                className="px-2.5 xl:px-3 py-1.5 xl:py-2 rounded-xl text-center flex items-center justify-center font-bold text-xs bg-slate-900/90 hover:bg-slate-800 border border-slate-800 hover:border-amber-500/50 text-slate-300 hover:text-white transition shadow-xs whitespace-nowrap"
               >
-                <span className="w-full text-center tracking-tight">{item.label}</span>
+                <span className="tracking-tight">{item.label}</span>
               </a>
             ))}
           </nav>
 
-          {/* Action Button */}
+          {/* Action Buttons */}
           <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={() => handleOpenLogin('barber')}
-              className="p-2.5 sm:px-4 sm:py-2.5 rounded-xl text-center flex items-center justify-center gap-2 font-bold text-xs text-slate-100 hover:text-white bg-slate-900 hover:bg-slate-800 border border-slate-700/80 hover:border-amber-500/50 transition shadow-md active:scale-95"
+              className="px-3.5 sm:px-4 py-2 rounded-xl text-center flex items-center justify-center gap-2 font-black text-xs text-slate-100 hover:text-white bg-slate-900 hover:bg-slate-800 border border-slate-700/90 hover:border-amber-500/70 transition shadow-md active:scale-95 cursor-pointer whitespace-nowrap"
               title="Entrar com login e senha (Barbeiro ou Admin Geral)"
               aria-label="Acessar Conta"
             >
               <KeyRound className="w-4 h-4 text-amber-400 shrink-0" />
-              <span className="hidden sm:inline whitespace-nowrap">Acessar Conta</span>
+              <span className="whitespace-nowrap">Acessar Conta</span>
+            </button>
+
+            {/* Mobile Menu Toggle Button */}
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="lg:hidden p-2 rounded-xl text-slate-300 hover:text-white bg-slate-900 hover:bg-slate-800 border border-slate-800 transition cursor-pointer shrink-0"
+              aria-label="Abrir menu de navegação"
+            >
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
           </div>
         </div>
+
+        {/* Mobile Dropdown Navigation Menu */}
+        {mobileMenuOpen && (
+          <div className="lg:hidden bg-slate-950/98 border-t border-slate-800/80 px-4 py-4 space-y-2 shadow-2xl animate-in slide-in-from-top duration-200">
+            <div className="grid grid-cols-2 gap-2 pb-2">
+              {navItems.map((item) => (
+                <a
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="px-3 py-2.5 rounded-xl text-center font-bold text-xs bg-slate-900 border border-slate-800 text-slate-200 hover:text-amber-400 hover:border-amber-500/40 transition block"
+                >
+                  {item.label}
+                </a>
+              ))}
+            </div>
+
+            <div className="pt-2 border-t border-slate-800/80 flex flex-col gap-2">
+              <button
+                onClick={() => handleSelectPlanAndRegister('trial')}
+                className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-extrabold text-xs rounded-xl shadow-lg flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Sparkles className="w-4 h-4 text-amber-300" />
+                <span>Experimentar 30 Dias Grátis</span>
+              </button>
+
+              <button
+                onClick={() => handleOpenLogin('barber')}
+                className="w-full py-2.5 bg-slate-900 border border-amber-500/40 text-amber-300 font-black text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <KeyRound className="w-4 h-4 text-amber-400" />
+                <span>Entrar na Área do Barbeiro</span>
+              </button>
+            </div>
+          </div>
+        )}
       </header>
 
       {/* Hero Section */}
@@ -147,9 +201,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenRegister, onOpen
 
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
           {/* Highlight Badge */}
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-extrabold bg-orange-950/80 text-orange-300 border border-orange-800/80 shadow-md mb-6 animate-in fade-in slide-in-from-bottom-3">
-            <Sparkles className="w-3.5 h-3.5 text-orange-400 animate-pulse" />
-            {landingPageContent.heroTag}
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-extrabold bg-emerald-950/80 text-emerald-300 border border-emerald-700/80 shadow-md mb-6 animate-in fade-in slide-in-from-bottom-3">
+            <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+            <span>🎉 Experimente 30 Dias Grátis • Sem Cartão de Crédito • Sem Fidelidade</span>
           </div>
 
           {/* Main Title */}
@@ -165,20 +219,42 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenRegister, onOpen
           {/* Action CTAs */}
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
             <button
-              onClick={() => handleSelectPlanAndRegister('annual')}
-              className="w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-orange-600 via-amber-600 to-orange-600 hover:opacity-95 text-white text-sm sm:text-base font-black rounded-2xl shadow-xl shadow-orange-600/30 transition flex items-center justify-center gap-3 transform hover:-translate-y-0.5"
+              onClick={() => handleSelectPlanAndRegister('trial')}
+              className="w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 hover:opacity-95 text-white text-sm sm:text-base font-black rounded-2xl shadow-xl shadow-emerald-600/30 transition flex items-center justify-center gap-3 transform hover:-translate-y-0.5 cursor-pointer ring-2 ring-emerald-400/40"
             >
-              <span>{landingPageContent.heroCtaText}</span>
+              <Sparkles className="w-5 h-5 text-amber-300" />
+              <span>Experimentar 30 Dias Grátis</span>
               <ArrowRight className="w-5 h-5" />
             </button>
+
+            <a
+              href="#planos"
+              className="w-full sm:w-auto px-6 py-4 bg-gradient-to-r from-orange-600 to-amber-600 hover:opacity-95 text-white text-sm font-black rounded-2xl shadow-lg transition flex items-center justify-center gap-2"
+            >
+              <Tag className="w-4 h-4" />
+              <span>Ver Todos os Planos</span>
+            </a>
 
             <a
               href="#video-demo"
               className="w-full sm:w-auto px-6 py-4 bg-slate-900/90 hover:bg-slate-800 text-slate-200 text-sm font-bold rounded-2xl border border-slate-700/80 shadow-md transition flex items-center justify-center gap-2.5"
             >
               <Play className="w-4 h-4 text-orange-400 fill-orange-400" />
-              <span>Ver Vídeo da Funcionalidade</span>
+              <span>Como Funciona</span>
             </a>
+          </div>
+
+          {/* Free Trial Highlight Box */}
+          <div className="mt-8 max-w-2xl mx-auto p-4 rounded-2xl bg-gradient-to-r from-emerald-950/40 via-slate-900/80 to-emerald-950/40 border border-emerald-500/30 text-xs text-slate-300 flex items-center justify-center gap-3 shadow-lg">
+            <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+              <Sparkles className="w-4 h-4 text-amber-400" />
+            </div>
+            <div className="text-left">
+              <span className="font-extrabold text-emerald-300 block">Teste Grátis por 1 Mês Completo</span>
+              <span className="text-slate-400 text-[11px]">
+                Cadastre sua barbearia em 1 minuto e comece a receber agendamentos imediatamente sem pagar nada no primeiro mês.
+              </span>
+            </div>
           </div>
 
           {/* Trust Numbers */}
@@ -466,7 +542,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenRegister, onOpen
 
       {/* Pricing & Subscription Plans Presentation */}
       <section id="planos" className="py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center max-w-3xl mx-auto mb-16">
+        <div className="text-center max-w-3xl mx-auto mb-12">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-orange-950/70 text-orange-400 border border-orange-800 mb-3">
             <Award className="w-3.5 h-3.5" />
             Planos de Credenciamento Acessíveis
@@ -475,83 +551,145 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenRegister, onOpen
             Escolha o melhor plano para sua barbearia
           </h2>
           <p className="text-xs sm:text-sm text-slate-400 mt-3">
-            Sem contratos de fidelidade abusivos. Liberação imediata após confirmação via PIX.
+            Você pode começar agora mesmo com o <strong>Teste Grátis de 30 Dias</strong> ou escolher um plano anual com desconto máximo.
           </p>
         </div>
 
+        {/* Free Trial Spotlight Banner */}
+        <div className="mb-12 p-6 sm:p-8 rounded-3xl bg-gradient-to-r from-emerald-950/80 via-slate-900 to-teal-950/80 border-2 border-emerald-500/50 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="flex items-start sm:items-center gap-4 text-left">
+            <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center shrink-0 shadow-inner">
+              <Sparkles className="w-7 h-7 text-amber-400" />
+            </div>
+            <div>
+              <div className="flex flex-wrap items-center gap-2 mb-1">
+                <span className="px-2.5 py-0.5 rounded-full bg-emerald-500 text-slate-950 text-[10px] font-black uppercase tracking-wider">
+                  Opção Recomendada para Começar
+                </span>
+                <span className="text-xs font-bold text-emerald-400">R$ 0,00 por 30 dias</span>
+              </div>
+              <h3 className="text-xl sm:text-2xl font-black text-white">
+                Experimente o BarberClock por 30 Dias Grátis
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-2xl">
+                Acesso completo a todas as ferramentas, agenda online pública, pagamentos diretos no seu PIX e painel financeiro. Sem taxa de adesão e sem dados de cartão de crédito.
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => handleSelectPlanAndRegister('trial')}
+            className="w-full md:w-auto px-8 py-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs sm:text-sm font-black rounded-2xl shadow-xl shadow-emerald-500/25 transition flex items-center justify-center gap-2 whitespace-nowrap active:scale-95 cursor-pointer shrink-0"
+          >
+            <span>Ativar Meu Teste Grátis de 30 Dias</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
+
         {/* Subscription Plans Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch">
           {subscriptionPlans.map((plan) => {
             const isPopular = plan.isPopular;
-            const isAnnual = plan.billingCycle === 'annual';
-            const monthlyEquiv = isAnnual
+            const isTrial = plan.id === 'trial';
+            const isAnnual = plan.billingCycle === 'annual' || plan.id === 'annual';
+            const monthlyEquiv = isTrial
+              ? 0
+              : isAnnual
               ? plan.price / 12
-              : plan.billingCycle === 'semiannual'
+              : plan.billingCycle === 'semiannual' || plan.id === 'semiannual'
               ? plan.price / 6
               : plan.price;
 
             return (
               <div
                 key={plan.id}
-                className={`rounded-3xl p-8 flex flex-col justify-between transition-all duration-300 relative ${
-                  isPopular
+                className={`rounded-3xl p-6 sm:p-7 flex flex-col justify-between transition-all duration-300 relative ${
+                  isTrial
+                    ? 'bg-gradient-to-b from-emerald-950/40 via-slate-900 to-slate-900 border-2 border-emerald-500/80 shadow-2xl shadow-emerald-950/50'
+                    : isPopular
                     ? 'bg-gradient-to-b from-orange-900/40 via-slate-900 to-slate-900 border-2 border-orange-500 shadow-2xl shadow-orange-950/70 md:-translate-y-2'
                     : 'bg-slate-900/80 border border-slate-800 hover:border-slate-700'
                 }`}
               >
-                {/* Popular Tag */}
-                {isPopular && (
-                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-gradient-to-r from-orange-600 to-amber-600 text-white text-[11px] font-black uppercase tracking-wider shadow-lg">
-                    {plan.badgeText || 'Mais Escolhido pelos Barbeiros'}
+                {/* Popular / Trial Tag */}
+                {isTrial ? (
+                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-[11px] font-black uppercase tracking-wider shadow-lg whitespace-nowrap">
+                    1 Mês de Degustação
                   </div>
-                )}
+                ) : isPopular ? (
+                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-gradient-to-r from-orange-600 to-amber-600 text-white text-[11px] font-black uppercase tracking-wider shadow-lg whitespace-nowrap">
+                    {plan.badgeText || 'Mais Escolhido'}
+                  </div>
+                ) : null}
 
                 <div>
                   <div className="flex items-center justify-between mb-4">
                     <div>
-                      <h3 className="text-xl font-black text-white">{plan.name}</h3>
+                      <h3 className="text-lg font-black text-white">{plan.name}</h3>
                       <p className="text-xs text-slate-400 mt-0.5">{plan.description}</p>
                     </div>
-                    {plan.discountPercentage && (
+                    {isTrial ? (
+                      <span className="px-2 py-0.5 rounded-lg text-xs font-black bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                        GRÁTIS
+                      </span>
+                    ) : plan.discountPercentage ? (
                       <span className="px-2.5 py-1 rounded-lg text-xs font-black bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                         -{plan.discountPercentage}% OFF
                       </span>
-                    )}
+                    ) : null}
                   </div>
 
                   {/* Pricing Number */}
-                  <div className="my-6 p-4 rounded-2xl bg-slate-950/70 border border-slate-800/80">
-                    <div className="flex items-baseline gap-1.5">
-                      <span className="text-xs font-bold text-slate-400">R$</span>
-                      <span className="text-4xl font-black text-white">
-                        {monthlyEquiv.toFixed(2).replace('.', ',')}
-                      </span>
-                      <span className="text-xs font-bold text-slate-400">/mês</span>
-                    </div>
-
-                    {isAnnual ? (
-                      <div className="text-[11px] text-orange-400 font-semibold mt-1">
-                        Cobrado {formatCurrency(plan.price)} anualmente (Economia máxima)
-                      </div>
-                    ) : plan.billingCycle === 'semiannual' ? (
-                      <div className="text-[11px] text-orange-400 font-semibold mt-1">
-                        Cobrado {formatCurrency(plan.price)} a cada 6 meses
+                  <div className="my-5 p-4 rounded-2xl bg-slate-950/70 border border-slate-800/80">
+                    {isTrial ? (
+                      <div>
+                        <div className="flex items-baseline gap-1.5">
+                          <span className="text-3xl sm:text-4xl font-black text-emerald-400">
+                            R$ 0,00
+                          </span>
+                          <span className="text-xs font-bold text-slate-400">/ 30 dias</span>
+                        </div>
+                        <div className="text-[11px] text-emerald-300 font-semibold mt-1">
+                          Sem cobrança e sem fidelidade
+                        </div>
                       </div>
                     ) : (
-                      <div className="text-[11px] text-slate-400 font-semibold mt-1">
-                        Cobrado mensalmente via PIX
+                      <div>
+                        <div className="flex items-baseline gap-1.5">
+                          <span className="text-xs font-bold text-slate-400">R$</span>
+                          <span className="text-3xl sm:text-4xl font-black text-white">
+                            {monthlyEquiv.toFixed(2).replace('.', ',')}
+                          </span>
+                          <span className="text-xs font-bold text-slate-400">/mês</span>
+                        </div>
+
+                        {isAnnual ? (
+                          <div className="text-[11px] text-orange-400 font-semibold mt-1">
+                            Cobrado {formatCurrency(plan.price)} anualmente
+                          </div>
+                        ) : plan.billingCycle === 'semiannual' || plan.id === 'semiannual' ? (
+                          <div className="text-[11px] text-orange-400 font-semibold mt-1">
+                            Cobrado {formatCurrency(plan.price)} semestralmente
+                          </div>
+                        ) : (
+                          <div className="text-[11px] text-slate-400 font-semibold mt-1">
+                            Cobrado mensalmente via PIX
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
 
                   {/* Features Checklist */}
-                  <div className="space-y-3 pt-2">
-                    <span className="text-xs font-extrabold uppercase tracking-wider text-slate-300 block mb-3">
-                      O que está incluso:
+                  <div className="space-y-2.5 pt-2">
+                    <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-300 block mb-2">
+                      Incluso neste plano:
                     </span>
                     {plan.features.map((feat, i) => (
-                      <div key={i} className="flex items-start gap-2.5 text-xs text-slate-300">
-                        <div className="w-4 h-4 rounded-full bg-orange-600/20 text-orange-400 flex items-center justify-center shrink-0 mt-0.5">
+                      <div key={i} className="flex items-start gap-2 text-xs text-slate-300">
+                        <div className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
+                          isTrial ? 'bg-emerald-600/20 text-emerald-400' : 'bg-orange-600/20 text-orange-400'
+                        }`}>
                           <Check className="w-3 h-3" />
                         </div>
                         <span>{feat}</span>
@@ -560,20 +698,22 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenRegister, onOpen
                   </div>
                 </div>
 
-                <div className="pt-8 mt-8 border-t border-slate-800">
+                <div className="pt-6 mt-6 border-t border-slate-800">
                   <button
                     onClick={() => handleSelectPlanAndRegister(plan.id)}
-                    className={`w-full py-4 rounded-2xl font-black text-xs uppercase tracking-wider transition flex items-center justify-center gap-2 shadow-lg ${
-                      isPopular
+                    className={`w-full py-3.5 rounded-2xl font-black text-xs uppercase tracking-wider transition flex items-center justify-center gap-2 shadow-lg cursor-pointer ${
+                      isTrial
+                        ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/30'
+                        : isPopular
                         ? 'bg-orange-600 hover:bg-orange-500 text-white shadow-orange-600/30'
                         : 'bg-slate-800 hover:bg-slate-700 text-white'
                     }`}
                   >
-                    <span>Começar com {plan.name}</span>
+                    <span>{isTrial ? 'Começar Grátis (30d)' : `Começar com ${plan.name}`}</span>
                     <ArrowRight className="w-4 h-4" />
                   </button>
                   <span className="block text-center text-[10px] text-slate-500 mt-2 font-medium">
-                    Ativação com validação rápida via PIX
+                    {isTrial ? 'Ativação imediata' : 'Liberação instantânea via PIX'}
                   </span>
                 </div>
               </div>
@@ -702,11 +842,19 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenRegister, onOpen
 
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
             <button
+              onClick={() => handleSelectPlanAndRegister('trial')}
+              className="w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:opacity-95 text-white text-sm font-black rounded-2xl shadow-xl shadow-emerald-600/30 transition flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <Sparkles className="w-4 h-4 text-amber-300" />
+              <span>Experimentar 30 Dias Grátis</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+
+            <button
               onClick={() => handleSelectPlanAndRegister('annual')}
-              className="w-full sm:w-auto px-8 py-4 bg-orange-600 hover:bg-orange-500 text-white text-sm font-black rounded-2xl shadow-xl shadow-orange-600/30 transition flex items-center justify-center gap-2"
+              className="w-full sm:w-auto px-8 py-4 bg-orange-600 hover:bg-orange-500 text-white text-sm font-black rounded-2xl shadow-xl shadow-orange-600/30 transition flex items-center justify-center gap-2 cursor-pointer"
             >
               <span>{landingPageContent.ctaButtonText}</span>
-              <ArrowRight className="w-4 h-4" />
             </button>
 
             <button
@@ -716,9 +864,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenRegister, onOpen
                   'Olá! Gostaria de tirar dúvidas sobre o credenciamento da minha barbearia no sistema.'
                 )
               }
-              className="w-full sm:w-auto px-6 py-4 bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-bold rounded-2xl border border-slate-700 transition"
+              className="w-full sm:w-auto px-6 py-4 bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-bold rounded-2xl border border-slate-700 transition cursor-pointer"
             >
-              Falar com Consultor no WhatsApp
+              Falar no WhatsApp
             </button>
           </div>
         </div>

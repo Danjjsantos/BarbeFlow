@@ -399,24 +399,24 @@ export const BarberRegisterModal: React.FC<BarberRegisterModalProps> = ({
     : generatedDataUrl;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 md:p-6 bg-slate-950/80 backdrop-blur-xs overflow-hidden">
       <div
-        className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-2xl overflow-hidden my-8 animate-in zoom-in-95 duration-150"
+        className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-3xl max-h-[94dvh] sm:max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150"
         id="barber-register-modal"
       >
-        {/* Header */}
-        <div className="p-6 bg-gradient-to-r from-amber-950 via-slate-900 to-slate-900 text-white flex items-center justify-between">
+        {/* Header - Fixed at the top */}
+        <div className="p-4 sm:p-5 bg-gradient-to-r from-amber-950 via-slate-900 to-slate-900 text-white flex items-center justify-between shrink-0 border-b border-slate-800">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-amber-500 flex items-center justify-center text-slate-950 font-black shadow-md">
+            <div className="w-10 h-10 rounded-2xl bg-amber-500 flex items-center justify-center text-slate-950 font-black shadow-md shrink-0">
               <Scissors className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-black tracking-tight">
+              <h2 className="text-base sm:text-lg font-black tracking-tight leading-tight">
                 {step === 'form' && 'Credenciamento de Nova Barbearia'}
                 {step === 'payment_pix' && 'Pagamento da Adesão via PIX'}
                 {step === 'approved' && 'Barbearia Credenciada & Ativada!'}
               </h2>
-              <p className="text-xs text-amber-200">
+              <p className="text-[11px] sm:text-xs text-amber-200 leading-tight mt-0.5">
                 {step === 'form' && 'Preencha os dados e escolha seu plano para liberar sua agenda online'}
                 {step === 'payment_pix' && 'Aprovação automática e instantânea pelo Mercado Pago'}
                 {step === 'approved' && 'Tudo pronto! Sua barbearia já pode receber agendamentos'}
@@ -426,307 +426,359 @@ export const BarberRegisterModal: React.FC<BarberRegisterModalProps> = ({
 
           <button
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 transition cursor-pointer"
+            className="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 transition cursor-pointer shrink-0"
             aria-label="Fechar"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* STEP 1: REGISTRATION FORM */}
+        {/* STEP 1: REGISTRATION FORM - Scrollable body with custom scrollbar */}
         {step === 'form' && (
-          <form onSubmit={handleSubmitRegistration} className="p-6 sm:p-8 space-y-6">
-            {/* Error message */}
-            {formError && (
-              <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs font-bold flex items-center gap-2.5 animate-in fade-in">
-                <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
-                <span>{formError}</span>
-              </div>
-            )}
-
-            {/* Plan Selector Bar */}
-            <div>
-              <label className="block text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3 flex items-center justify-between">
-                <span className="flex items-center gap-1.5">
-                  <Tag className="w-3.5 h-3.5 text-amber-500" />
-                  1. Selecione o Plano de Credenciamento
-                </span>
-                <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                  <Sparkles className="w-3 h-3 text-amber-500" />
-                  Experimente 30 dias grátis
-                </span>
-              </label>
-
-              {trialWarning && (
-                <div className="mb-3 p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-700/80 text-amber-900 dark:text-amber-200 text-xs font-medium flex items-start gap-2.5 animate-in fade-in">
-                  <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-                  <div className="space-y-1">
-                    <p className="font-bold text-amber-800 dark:text-amber-300">
-                      Período de Teste Grátis já utilizado
-                    </p>
-                    <p className="text-[11px] text-amber-700 dark:text-amber-400">
-                      {trialWarning} Selecione um dos planos pagos abaixo (Mensal, Semestral ou Anual) para continuar.
-                    </p>
-                  </div>
+          <form onSubmit={handleSubmitRegistration} className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-7 overscroll-contain custom-modal-scrollbar space-y-5 flex flex-col justify-between">
+            <div className="space-y-5">
+              {/* Error message */}
+              {formError && (
+                <div className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs font-bold flex items-center gap-2.5 animate-in fade-in">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+                  <span>{formError}</span>
                 </div>
               )}
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
-                {subscriptionPlans.map((plan) => {
-                  const isSelected = selectedPlanId === plan.id;
-                  const isTrial = plan.id === 'trial';
-                  const isAnnual = plan.billingCycle === 'annual' || plan.periodMonths === 12;
-                  const monthlyVal = isTrial
-                    ? 0
-                    : isAnnual
-                    ? plan.price / 12
-                    : plan.billingCycle === 'semiannual' || plan.periodMonths === 6
-                    ? plan.price / 6
-                    : plan.price;
+              {/* Plan Selector Bar */}
+              <div>
+                <label className="block text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2.5 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Tag className="w-3.5 h-3.5 text-amber-500" />
+                    1. Selecione o Plano de Credenciamento
+                  </span>
+                  <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                    <Sparkles className="w-3 h-3 text-amber-500" />
+                    Experimente 30 dias grátis
+                  </span>
+                </label>
 
-                  return (
-                    <div
-                      key={plan.id}
-                      onClick={() => setSelectedPlanId(plan.id)}
-                      className={`p-3 rounded-2xl border-2 cursor-pointer transition flex flex-col justify-between relative ${
-                        isSelected
-                          ? isTrial
-                            ? 'border-emerald-500 bg-emerald-500/10 text-slate-900 dark:text-white shadow-md ring-2 ring-emerald-500/30'
-                            : 'border-amber-500 bg-amber-500/10 text-slate-900 dark:text-white shadow-md ring-2 ring-amber-500/30'
-                          : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40 text-slate-700 dark:text-slate-300'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-1 mb-1">
-                        <span className="font-black text-xs leading-tight">{plan.name}</span>
-                        {isTrial ? (
-                          <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 shrink-0">
-                            1 Mês Grátis
-                          </span>
-                        ) : plan.discountPercentage ? (
-                          <span className="text-[10px] font-black px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 shrink-0">
-                            -{plan.discountPercentage}%
-                          </span>
-                        ) : plan.badge ? (
-                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-600 dark:text-amber-400 shrink-0">
-                            {plan.badge}
-                          </span>
-                        ) : null}
-                      </div>
-
-                      <div className="mt-2">
-                        {isTrial ? (
-                          <div>
-                            <span className="text-base font-black text-emerald-600 dark:text-emerald-400">
-                              GRÁTIS
-                            </span>
-                            <span className="block text-[10px] text-slate-500 dark:text-slate-400 font-medium">
-                              30 dias sem custo
-                            </span>
-                          </div>
-                        ) : (
-                          <div>
-                            <span className="text-base font-black">
-                              {formatCurrency(monthlyVal)}
-                              <span className="text-[10px] font-normal text-slate-500">/mês</span>
-                            </span>
-                            <span className="block text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium">
-                              Total: {formatCurrency(plan.price)} ({getPlanDurationDays(plan.periodMonths, plan.id)} dias)
-                            </span>
-                          </div>
-                        )}
-                      </div>
+                {trialWarning && (
+                  <div className="mb-3 p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-700/80 text-amber-900 dark:text-amber-200 text-xs font-medium flex items-start gap-2.5 animate-in fade-in">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                    <div className="space-y-1">
+                      <p className="font-bold text-amber-800 dark:text-amber-300">
+                        Período de Teste Grátis já utilizado
+                      </p>
+                      <p className="text-[11px] text-amber-700 dark:text-amber-400">
+                        {trialWarning} Selecione um dos planos pagos abaixo (Mensal, Semestral ou Anual) para continuar.
+                      </p>
                     </div>
-                  );
-                })}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
+                  {(() => {
+                    // Ensure trial is always present in the display list
+                    let plansToDisplay = [...subscriptionPlans];
+                    if (!plansToDisplay.some((p) => p.id === 'trial')) {
+                      const trialObj = {
+                        id: 'trial' as any,
+                        name: 'EXPERIMENTE 30 DIAS GRÁTIS',
+                        periodMonths: 1,
+                        price: 0,
+                        monthlyEquivalent: 0,
+                        discountPercent: 100,
+                        description: 'Acesso total por 30 dias grátis sem cartão.',
+                        badge: '1 Mês Grátis',
+                        isPopular: false,
+                        active: true,
+                        features: [],
+                      };
+                      plansToDisplay = [trialObj, ...plansToDisplay];
+                    }
+
+                    // Sort order: trial, monthly, semiannual, annual
+                    const orderMap: Record<string, number> = {
+                      trial: 1,
+                      monthly: 2,
+                      semiannual: 3,
+                      annual: 4,
+                    };
+                    plansToDisplay.sort((a, b) => (orderMap[a.id] || 99) - (orderMap[b.id] || 99));
+
+                    return plansToDisplay.map((plan) => {
+                      const isSelected = selectedPlanId === plan.id;
+                      const isTrial = plan.id === 'trial';
+                      const isMonthly = plan.id === 'monthly';
+                      const isSemiannual = plan.id === 'semiannual';
+                      const isAnnual = plan.billingCycle === 'annual' || plan.periodMonths === 12 || plan.id === 'annual';
+                      const discountValue = plan.discountPercent ?? (plan as any).discountPercentage;
+                      const monthlyVal = isTrial
+                        ? 0
+                        : isAnnual
+                        ? plan.price / 12
+                        : isSemiannual || plan.periodMonths === 6
+                        ? plan.price / 6
+                        : plan.price;
+
+                      const displayName = isTrial ? 'EXPERIMENTE 30 DIAS GRÁTIS' : plan.name;
+                      const subLabel = isTrial
+                        ? 'Degustação total'
+                        : isMonthly
+                        ? 'Sem fidelidade'
+                        : isSemiannual
+                        ? 'Cobrança semestral'
+                        : 'Economia máxima';
+
+                      return (
+                        <div
+                          key={plan.id}
+                          onClick={() => setSelectedPlanId(plan.id)}
+                          className={`p-3 rounded-2xl border-2 cursor-pointer transition flex flex-col justify-between relative min-w-0 select-none ${
+                            isSelected
+                              ? isTrial
+                                ? 'border-emerald-500 bg-emerald-500/10 text-slate-900 dark:text-white shadow-md ring-2 ring-emerald-500/30'
+                                : 'border-amber-500 bg-amber-500/10 text-slate-900 dark:text-white shadow-md ring-2 ring-amber-500/30'
+                              : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40 text-slate-700 dark:text-slate-300'
+                          }`}
+                        >
+                          <div className="flex flex-col gap-1 w-full min-w-0">
+                            <div className="flex items-start justify-between gap-1 min-w-0">
+                              <span
+                                className="font-black text-xs leading-tight text-slate-900 dark:text-white"
+                                title={displayName}
+                              >
+                                {displayName}
+                              </span>
+                              {isTrial ? (
+                                <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 shrink-0 whitespace-nowrap leading-none text-center">
+                                  GRÁTIS
+                                </span>
+                              ) : discountValue && discountValue > 0 ? (
+                                <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 shrink-0 whitespace-nowrap leading-none text-center">
+                                  -{discountValue}%
+                                </span>
+                              ) : null}
+                            </div>
+
+                            {/* Subtitle placed directly below the plan title */}
+                            <span className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold leading-tight">
+                              {subLabel}
+                            </span>
+                          </div>
+
+                          <div className="mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-800/60 min-w-0">
+                            {isTrial ? (
+                              <div>
+                                <span className="text-sm sm:text-base font-black text-emerald-600 dark:text-emerald-400 block leading-tight">
+                                  R$ 0,00
+                                </span>
+                                <span className="block text-[10px] text-slate-500 dark:text-slate-400 font-medium mt-0.5 truncate">
+                                  30 dias sem custo
+                                </span>
+                              </div>
+                            ) : (
+                              <div>
+                                <span className="text-sm sm:text-base font-black text-slate-900 dark:text-white block leading-tight">
+                                  {formatCurrency(monthlyVal)}
+                                  <span className="text-[10px] font-normal text-slate-500">/mês</span>
+                                </span>
+                                <span className="block text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium truncate">
+                                  Total: {formatCurrency(plan.price)}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
               </div>
-            </div>
 
-            {/* Shop Details */}
-            <div className="space-y-4">
-              <span className="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block border-b border-slate-100 dark:border-slate-800 pb-2">
-                2. Dados da Barbearia & Responsável
-              </span>
+              {/* Shop Details */}
+              <div className="space-y-3.5">
+                <span className="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block border-b border-slate-100 dark:border-slate-800 pb-1.5">
+                  2. Dados da Barbearia & Responsável
+                </span>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Nome da Barbearia *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Ex: Barbearia Dom Pedro"
-                    value={shopName}
-                    onChange={(e) => setShopName(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-amber-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Nome do Barbeiro / Proprietário *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Ex: Pedro Henrique"
-                    value={ownerName}
-                    onChange={(e) => setOwnerName(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-amber-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    WhatsApp para Notificações *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="(11) 99999-9999"
-                    value={ownerPhone}
-                    onChange={(e) => setOwnerPhone(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-amber-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Cidade / Bairro
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Ex: São Paulo - SP"
-                    value={city}
-                    onChange={(e) => setCity(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-amber-500"
-                  />
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    E-mail para Acesso / Login *
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    placeholder="seuemail@barbearia.com.br"
-                    value={ownerEmail}
-                    onChange={(e) => setOwnerEmail(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-amber-500"
-                  />
-                </div>
-
-                {/* Password Fields */}
-                <div className="sm:col-span-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                      <Lock className="w-3.5 h-3.5 text-amber-500" />
-                      Crie sua Senha de Acesso Exclusiva *
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      Nome da Barbearia *
                     </label>
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="text-[11px] font-bold text-amber-500 hover:text-amber-400 flex items-center gap-1 cursor-pointer"
+                    <input
+                      type="text"
+                      required
+                      placeholder="Ex: Barbearia Dom Pedro"
+                      value={shopName}
+                      onChange={(e) => setShopName(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-amber-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      Nome do Barbeiro / Proprietário *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Ex: Pedro Henrique"
+                      value={ownerName}
+                      onChange={(e) => setOwnerName(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-amber-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      WhatsApp para Notificações *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="(11) 99999-9999"
+                      value={ownerPhone}
+                      onChange={(e) => setOwnerPhone(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-amber-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      Cidade / Bairro
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Ex: São Paulo - SP"
+                      value={city}
+                      onChange={(e) => setCity(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-amber-500"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      E-mail para Acesso / Login *
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      placeholder="seuemail@barbearia.com.br"
+                      value={ownerEmail}
+                      onChange={(e) => setOwnerEmail(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-amber-500"
+                    />
+                  </div>
+
+                  {/* Password Fields */}
+                  <div className="sm:col-span-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                        <Lock className="w-3.5 h-3.5 text-amber-500" />
+                        Crie sua Senha de Acesso Exclusiva *
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="text-[11px] font-bold text-amber-500 hover:text-amber-400 flex items-center gap-1 cursor-pointer"
+                      >
+                        {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                        <span>{showPassword ? 'Ocultar' : 'Mostrar'}</span>
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
+                          Senha de Acesso (Mínimo 5 dígitos) *
+                        </label>
+                        <input
+                          type={showPassword ? 'text' : 'password'}
+                          required
+                          placeholder="Digite sua senha"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-amber-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
+                          Confirmar Senha *
+                        </label>
+                        <input
+                          type={showPassword ? 'text' : 'password'}
+                          required
+                          placeholder="Repita sua senha"
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-amber-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="mt-2 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-700 dark:text-amber-300 flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4 text-amber-500 shrink-0" />
+                      <span>
+                        Apenas você terá acesso ao painel exclusivo da sua barbearia com suas credenciais protegidas.
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Barber PIX Info (where the client pays the barber) */}
+              <div className="space-y-3.5">
+                <span className="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block border-b border-slate-100 dark:border-slate-800 pb-1.5">
+                  3. Sua Chave PIX (Para Receber dos Seus Clientes)
+                </span>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      Tipo de Chave PIX
+                    </label>
+                    <select
+                      value={pixKeyType}
+                      onChange={(e) => setPixKeyType(e.target.value as any)}
+                      className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold"
                     >
-                      {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                      <span>{showPassword ? 'Ocultar' : 'Mostrar'}</span>
-                    </button>
+                      <option value="phone">Telefone</option>
+                      <option value="cpf">CPF</option>
+                      <option value="cnpj">CNPJ</option>
+                      <option value="email">E-mail</option>
+                      <option value="random">Chave Aleatória</option>
+                    </select>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
-                        Senha de Acesso (Mínimo 5 dígitos) *
-                      </label>
-                      <input
-                        type={showPassword ? 'text' : 'password'}
-                        required
-                        placeholder="Digite sua senha"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-amber-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
-                        Confirmar Senha *
-                      </label>
-                      <input
-                        type={showPassword ? 'text' : 'password'}
-                        required
-                        placeholder="Repita sua senha"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-amber-500"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="mt-2.5 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-700 dark:text-amber-300 flex items-center gap-2">
-                    <ShieldCheck className="w-4 h-4 text-amber-500 shrink-0" />
-                    <span>
-                      Apenas você terá acesso ao painel exclusivo da sua barbearia com suas credenciais protegidas.
-                    </span>
+                  <div className="sm:col-span-2">
+                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      Chave PIX da Sua Barbearia *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Sua chave PIX para os clientes pagarem a você"
+                      value={pixKey}
+                      onChange={(e) => setPixKey(e.target.value)}
+                      className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono font-bold focus:outline-hidden focus:ring-2 focus:ring-amber-500"
+                    />
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Barber PIX Info (where the client pays the barber) */}
-            <div className="space-y-4">
-              <span className="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block border-b border-slate-100 dark:border-slate-800 pb-2">
-                3. Sua Chave PIX (Para Receber dos Seus Clientes)
-              </span>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Tipo de Chave PIX
-                  </label>
-                  <select
-                    value={pixKeyType}
-                    onChange={(e) => setPixKeyType(e.target.value as any)}
-                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold"
-                  >
-                    <option value="phone">Telefone</option>
-                    <option value="cpf">CPF</option>
-                    <option value="cnpj">CNPJ</option>
-                    <option value="email">E-mail</option>
-                    <option value="random">Chave Aleatória</option>
-                  </select>
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Chave PIX da Sua Barbearia *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Sua chave PIX para os clientes pagarem a você"
-                    value={pixKey}
-                    onChange={(e) => setPixKey(e.target.value)}
-                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono font-bold focus:outline-hidden focus:ring-2 focus:ring-amber-500"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+            {/* Actions - Sticky at bottom with clear touch targets */}
+            <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-col-reverse sm:flex-row items-center justify-between gap-3 shrink-0">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2.5 text-xs font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 cursor-pointer"
+                className="w-full sm:w-auto px-4 py-2.5 text-xs font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 cursor-pointer text-center"
               >
                 Cancelar
               </button>
 
               <button
                 type="submit"
-                className={`px-6 py-3 font-black text-xs rounded-xl shadow-lg transition flex items-center gap-2 cursor-pointer active:scale-95 ${
+                className={`w-full sm:w-auto px-6 py-3.5 font-black text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-2 cursor-pointer active:scale-95 ${
                   isTrialSelected
                     ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/25'
                     : 'bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-amber-500/25'
@@ -750,7 +802,7 @@ export const BarberRegisterModal: React.FC<BarberRegisterModalProps> = ({
 
         {/* STEP 2: AUTOMATED MERCADO PAGO PIX PAYMENT */}
         {step === 'payment_pix' && (
-          <div className="p-6 sm:p-8 space-y-6">
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 overscroll-contain custom-modal-scrollbar space-y-5">
             {/* Header with Title & Price */}
             <div className="text-center">
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold text-xs border border-emerald-500/20 mb-2">
@@ -800,10 +852,10 @@ export const BarberRegisterModal: React.FC<BarberRegisterModalProps> = ({
                 <img
                   src={qrImageSrc}
                   alt="QR Code PIX Mercado Pago"
-                  className="w-56 h-56 sm:w-60 sm:h-60 bg-white p-3 rounded-xl shadow-xs object-contain border border-slate-100"
+                  className="w-52 h-52 sm:w-60 sm:h-60 bg-white p-3 rounded-xl shadow-xs object-contain border border-slate-100"
                 />
               ) : (
-                <div className="w-56 h-56 sm:w-60 sm:h-60 bg-white p-3 rounded-xl shadow-xs flex items-center justify-center text-xs text-slate-400">
+                <div className="w-52 h-52 sm:w-60 sm:h-60 bg-white p-3 rounded-xl shadow-xs flex items-center justify-center text-xs text-slate-400">
                   Carregando QR Code...
                 </div>
               )}
@@ -813,7 +865,7 @@ export const BarberRegisterModal: React.FC<BarberRegisterModalProps> = ({
             </div>
 
             {/* Beneficiary Details */}
-            <div className="bg-slate-100 dark:bg-slate-800/80 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs space-y-1.5 text-slate-700 dark:text-slate-300">
+            <div className="bg-slate-100 dark:bg-slate-800/80 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs space-y-1.5 text-slate-700 dark:text-slate-300 text-left">
               <div className="flex justify-between">
                 <span className="text-slate-500">Beneficiário da Plataforma:</span>
                 <span className="font-bold text-slate-900 dark:text-slate-100">{platformSettings.platformPixReceiverName}</span>
@@ -891,9 +943,9 @@ export const BarberRegisterModal: React.FC<BarberRegisterModalProps> = ({
 
         {/* STEP 3: PAYMENT CONFIRMED & BARBERSHOP ACTIVE */}
         {step === 'approved' && createdShop && (
-          <div className="p-6 sm:p-8 space-y-6 text-center animate-in fade-in zoom-in-95 duration-300">
-            <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-950/80 text-emerald-600 dark:text-emerald-400 rounded-2xl flex items-center justify-center mx-auto mb-2 border border-emerald-300 dark:border-emerald-700 shadow-xl shadow-emerald-500/20">
-              <CheckCircle2 className="w-10 h-10" />
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 overscroll-contain custom-modal-scrollbar space-y-5 text-center animate-in fade-in zoom-in-95 duration-300">
+            <div className="w-14 h-14 sm:w-16 sm:h-16 bg-emerald-100 dark:bg-emerald-950/80 text-emerald-600 dark:text-emerald-400 rounded-2xl flex items-center justify-center mx-auto mb-1 border border-emerald-300 dark:border-emerald-700 shadow-xl shadow-emerald-500/20">
+              <CheckCircle2 className="w-8 h-8 sm:w-10 sm:h-10" />
             </div>
 
             <div>
@@ -903,7 +955,7 @@ export const BarberRegisterModal: React.FC<BarberRegisterModalProps> = ({
                   ? 'Teste Grátis de 30 Dias Ativado'
                   : 'Adesão Concluída com Sucesso'}
               </span>
-              <h3 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
+              <h3 className="text-xl sm:text-3xl font-black text-slate-900 dark:text-white">
                 {createdShop.subscriptionPlanId === 'trial'
                   ? 'Barbearia Credenciada & Teste Liberado!'
                   : 'Barbearia Ativada & Pronta!'}
