@@ -4,11 +4,21 @@ export type PixKeyType = 'cpf' | 'cnpj' | 'email' | 'phone' | 'random';
 
 export type SubscriptionStatus = 'pending' | 'active' | 'overdue' | 'suspended';
 
-export type SubscriptionPlanPeriod = 'monthly' | 'semiannual' | 'annual';
+export type SubscriptionPlanPeriod = 'trial' | 'monthly' | 'semiannual' | 'annual';
 
 export type AppointmentStatus = 'pending_pix' | 'confirmed' | 'completed' | 'cancelled';
 
 export type ServiceCategory = 'cabelo' | 'barba' | 'combo' | 'sobrancelha' | 'quimica' | 'outros';
+
+export interface TrialUserRecord {
+  id: string;
+  name: string;
+  phone: string;
+  email?: string;
+  barbershopId?: string;
+  barbershopName?: string;
+  registeredAt: string;
+}
 
 export interface SubscriptionPlan {
   id: SubscriptionPlanPeriod;

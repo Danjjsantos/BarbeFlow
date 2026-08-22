@@ -34,7 +34,8 @@ export const BarberSubscriptionPayModal: React.FC<BarberSubscriptionPayModalProp
     getBarbershopById,
     platformSettings,
     submitSubscriptionPaymentProof,
-    updateBarbershopSubscription,
+    approveBarbershopSubscription,
+    updateBarbershop,
   } = useApp();
 
   const shop = getBarbershopById(barbershopId);
@@ -169,16 +170,7 @@ export const BarberSubscriptionPayModal: React.FC<BarberSubscriptionPayModalProp
     });
 
     if (shop) {
-      // Calculate next validity date (30 days from now)
-      const now = new Date();
-      now.setDate(now.getDate() + 30);
-      const validUntil = now.toISOString().split('T')[0];
-
-      updateBarbershopSubscription(shop.id, {
-        subscriptionStatus: 'active',
-        subscriptionValidUntil: validUntil,
-        subscriptionLastPaymentDate: getTodayDateString(),
-      });
+      approveBarbershopSubscription(shop.id, 30);
     }
 
     setTimeout(() => {

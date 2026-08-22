@@ -6,6 +6,7 @@ import {
   PlatformSettings,
   SubscriptionPlan,
   LandingPageContent,
+  TrialUserRecord,
 } from '../types';
 import { getTodayDateString } from '../utils/formatters';
 
@@ -35,7 +36,39 @@ export const INITIAL_PLATFORM_SETTINGS: PlatformSettings = {
   mercadoPagoEnabled: true,
 };
 
+export const INITIAL_TRIAL_RECORDS: TrialUserRecord[] = [
+  {
+    id: 'trial_rec_demo_1',
+    name: 'Carlos Henrique Silva',
+    phone: '11988776655',
+    email: 'carlos.navalha@gmail.com',
+    barbershopName: 'Navalha de Ouro',
+    registeredAt: '2026-07-20',
+  },
+];
+
 export const INITIAL_SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
+  {
+    id: 'trial',
+    name: 'Teste Grátis (30 Dias)',
+    periodMonths: 1,
+    price: 0,
+    monthlyEquivalent: 0,
+    discountPercent: 100,
+    description: 'Experimente todas as funcionalidades da plataforma por 30 dias sem pagar nada e sem cadastrar cartão.',
+    badge: '1 Mês Grátis',
+    isPopular: false,
+    active: true,
+    features: [
+      '30 dias de acesso total e irrestrito',
+      'Agenda pública online 24h personalizada',
+      'Recebimento direto via PIX na sua chave',
+      'Painel financeiro em tempo real',
+      'Catálogo ilimitado de serviços e preços',
+      'QR Code de balcão para imprimir',
+      'Sem necessidade de cartão de crédito',
+    ],
+  },
   {
     id: 'monthly',
     name: 'Plano Mensal',
@@ -244,6 +277,15 @@ export const INITIAL_LANDING_CONTENT: LandingPageContent = {
 };
 
 export const INITIAL_USERS: User[] = [
+  {
+    id: 'user_superadmin_dan',
+    name: 'Danilo Santos (Admin Geral)',
+    phone: '11999998888',
+    email: 'danjjsantos@gmail.com',
+    password: 'admin123',
+    role: 'super_admin',
+    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+  },
   {
     id: 'user_superadmin',
     name: 'Roberto Mendes (Admin Geral)',

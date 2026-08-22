@@ -148,6 +148,25 @@ export const supabaseService = {
     }
   },
 
+  async deleteBarbershop(id: string): Promise<boolean> {
+    if (!supabase) return false;
+    try {
+      // Cascading delete for related appointments, services, and associated user accounts
+      await supabase.from('appointments').delete().eq('barbershop_id', id);
+      await supabase.from('services').delete().eq('barbershop_id', id);
+      await supabase.from('users').delete().eq('barbershop_id', id);
+      const { error } = await supabase.from('barbershops').delete().eq('id', id);
+      if (error) {
+        console.warn('Erro ao deletar barbearia no Supabase:', error.message);
+        return false;
+      }
+      return true;
+    } catch (err) {
+      console.warn('Erro deleteBarbershop:', err);
+      return false;
+    }
+  },
+
   // SERVICES
   async getServices(): Promise<Service[] | null> {
     if (!supabase) return null;

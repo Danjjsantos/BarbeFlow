@@ -44,6 +44,8 @@ import {
   Lock,
   LogOut,
   Database,
+  Trash2,
+  AlertTriangle,
 } from 'lucide-react';
 
 export const SuperAdminDashboard: React.FC = () => {
@@ -52,6 +54,7 @@ export const SuperAdminDashboard: React.FC = () => {
     approveBarbershopSubscription,
     rejectBarbershopSubscription,
     updateBarbershopSubscriptionStatus,
+    deleteBarbershop,
     platformSettings,
     setActiveBarbershopId,
     setCurrentView,
@@ -68,6 +71,8 @@ export const SuperAdminDashboard: React.FC = () => {
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [shopToDelete, setShopToDelete] = useState<Barbershop | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Filter pending barbershops that need approval
   const pendingBarbershops = barbershops.filter(
@@ -514,6 +519,8 @@ export const SuperAdminDashboard: React.FC = () => {
                                 ? 'Plano Anual'
                                 : shop.subscriptionPlanId === 'semiannual'
                                 ? 'Plano Semestral'
+                                : shop.subscriptionPlanId === 'trial'
+                                ? 'Teste Grátis (30d)'
                                 : 'Plano Mensal'}
                             </span>
                             <h4 className="text-lg font-black text-slate-900 dark:text-white">
@@ -568,9 +575,18 @@ export const SuperAdminDashboard: React.FC = () => {
                         <button
                           onClick={() => handleReject(shop)}
                           className="p-2.5 bg-rose-100 hover:bg-rose-200 dark:bg-rose-950/50 dark:hover:bg-rose-900/50 text-rose-800 dark:text-rose-300 rounded-xl transition text-xs font-bold flex items-center gap-1"
+                          title="Recusar comprovante"
                         >
                           <X className="w-3.5 h-3.5" />
                           Recusar
+                        </button>
+
+                        <button
+                          onClick={() => setShopToDelete(shop)}
+                          className="p-2.5 bg-slate-100 hover:bg-rose-100 dark:bg-slate-800 dark:hover:bg-rose-950/50 text-slate-600 hover:text-rose-700 dark:text-slate-400 dark:hover:text-rose-300 rounded-xl transition text-xs font-bold flex items-center gap-1"
+                          title="Excluir cadastro da barbearia"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
 
                         <button
@@ -674,6 +690,8 @@ export const SuperAdminDashboard: React.FC = () => {
                                 ? 'Plano Anual'
                                 : shop.subscriptionPlanId === 'semiannual'
                                 ? 'Plano Semestral'
+                                : shop.subscriptionPlanId === 'trial'
+                                ? 'Teste Grátis (30d)'
                                 : 'Plano Mensal'}
                             </span>
                           </td>
@@ -745,10 +763,20 @@ export const SuperAdminDashboard: React.FC = () => {
                                   setActiveBarbershopId(shop.id);
                                   setCurrentView('client_booking');
                                 }}
-                                className="p-1 text-slate-400 hover:text-orange-500 transition"
+                                className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition"
                                 title="Abrir Agenda Pública da Barbearia"
+                                aria-label={`Abrir agenda pública de ${shop.name}`}
                               >
                                 <ExternalLink className="w-3.5 h-3.5" />
+                              </button>
+
+                              <button
+                                onClick={() => setShopToDelete(shop)}
+                                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition"
+                                title="Excluir barbearia da plataforma"
+                                aria-label={`Excluir barbearia ${shop.name}`}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
                               </button>
                             </div>
                           </td>
@@ -762,6 +790,121 @@ export const SuperAdminDashboard: React.FC = () => {
           </div>
         )}
       </main>
+
+      {/* Delete Barbershop Confirmation Modal */}
+      {shopToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs animate-in fade-in">
+          <div
+            className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150"
+            id="delete-barbershop-modal"
+          >
+            <div className="p-6 bg-rose-500/10 dark:bg-rose-950/30 border-b border-rose-200 dark:border-rose-900/50 flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-rose-500 text-white flex items-center justify-center font-bold shadow-lg shadow-rose-500/25 shrink-0">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div className="flex-1">
+                <span className="text-[10px] font-black uppercase tracking-wider text-rose-600 dark:text-rose-400">
+                  Ação do Administrador Geral
+                </span>
+                <h3 className="text-lg font-black text-slate-900 dark:text-white leading-tight">
+                  Excluir Barbearia Credenciada
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  Confirme para remover permanentemente a conta
+                </p>
+              </div>
+              <button
+                onClick={() => setShopToDelete(null)}
+                disabled={isDeleting}
+                className="p-1 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700/80 space-y-2">
+                <div className="flex items-center gap-3">
+                  {shopToDelete.logoUrl ? (
+                    <img
+                      src={shopToDelete.logoUrl}
+                      alt={shopToDelete.name}
+                      className="w-10 h-10 rounded-xl object-cover border border-slate-300 dark:border-slate-600 shrink-0"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded-xl bg-slate-700 text-white flex items-center justify-center font-bold">
+                      <Building2 className="w-5 h-5" />
+                    </div>
+                  )}
+                  <div className="overflow-hidden">
+                    <h4 className="text-sm font-black text-slate-900 dark:text-white truncate">
+                      {shopToDelete.name}
+                    </h4>
+                    <p className="text-xs text-slate-500 truncate">
+                      Proprietário: {shopToDelete.ownerName} • {shopToDelete.city}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-[11px] text-slate-500 font-mono pt-2 border-t border-slate-200/60 dark:border-slate-700/60 flex justify-between">
+                  <span>Chave PIX: {shopToDelete.pixKey}</span>
+                  <span className="uppercase font-bold text-slate-600 dark:text-slate-300">
+                    {shopToDelete.subscriptionStatus}
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-3.5 bg-rose-50 dark:bg-rose-950/20 rounded-xl border border-rose-200 dark:border-rose-900/40 text-xs text-rose-900 dark:text-rose-200 space-y-1.5">
+                <p className="font-bold flex items-center gap-1.5">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                  Consequências da exclusão:
+                </p>
+                <ul className="list-disc list-inside space-y-0.5 text-[11px] text-rose-800 dark:text-rose-300 pl-1">
+                  <li>Todos os serviços e agendamentos serão excluídos;</li>
+                  <li>O acesso do barbeiro à plataforma será revogado;</li>
+                  <li>O link público e QR Code da barbearia deixarão de funcionar.</li>
+                </ul>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShopToDelete(null)}
+                  disabled={isDeleting}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-bold text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setIsDeleting(true);
+                    try {
+                      deleteBarbershop(shopToDelete.id);
+                      setShopToDelete(null);
+                    } finally {
+                      setIsDeleting(false);
+                    }
+                  }}
+                  disabled={isDeleting}
+                  className="px-4 py-2.5 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-black text-xs rounded-xl shadow-lg shadow-rose-600/30 transition flex items-center gap-2 disabled:opacity-50"
+                >
+                  {isDeleting ? (
+                    <>
+                      <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                      <span>Excluindo...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-4 h-4" />
+                      <span>Sim, Excluir Barbearia</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Platform Settings Modal */}
       <PlatformSettingsModal

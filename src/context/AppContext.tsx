@@ -10,6 +10,7 @@ import {
   SubscriptionPlan,
   SubscriptionPlanPeriod,
   LandingPageContent,
+  TrialUserRecord,
 } from '../types';
 import {
   INITIAL_USERS,
@@ -19,8 +20,9 @@ import {
   INITIAL_PLATFORM_SETTINGS,
   INITIAL_SUBSCRIPTION_PLANS,
   INITIAL_LANDING_CONTENT,
+  INITIAL_TRIAL_RECORDS,
 } from '../data/initialData';
-import { generateId, getTodayDateString } from '../utils/formatters';
+import { generateId, getTodayDateString, formatPhone } from '../utils/formatters';
 import { supabaseService, isSupabaseConfigured } from '../lib/supabase';
 
 interface AppContextType {
@@ -33,6 +35,7 @@ interface AppContextType {
   platformSettings: PlatformSettings;
   subscriptionPlans: SubscriptionPlan[];
   landingPageContent: LandingPageContent;
+  trialRecords: TrialUserRecord[];
   activeBarbershopId: string;
   setActiveBarbershopId: (id: string) => void;
   currentView: 'client_booking' | 'client_appointments' | 'barber_dashboard' | 'super_admin_dashboard' | 'landing_page';
@@ -82,9 +85,10 @@ interface AppContextType {
   submitSubscriptionPaymentProof: (barbershopId: string, proofNote: string) => void;
   
   // Super Admin Actions
-  approveBarbershopSubscription: (barbershopId: string, daysValid?: number) => void;
+  approveBarbershopSubscription: (barbershopId: string, daysValid?: number, upgradedPlanId?: SubscriptionPlanPeriod) => void;
   rejectBarbershopSubscription: (barbershopId: string) => void;
   updateBarbershopSubscriptionStatus: (barbershopId: string, status: SubscriptionStatus) => void;
+  deleteBarbershop: (id: string) => void;
   updatePlatformSettings: (settings: Partial<PlatformSettings>) => void;
   updateSubscriptionPlan: (id: SubscriptionPlanPeriod, updates: Partial<SubscriptionPlan>) => void;
   updateLandingPageContent: (updates: Partial<LandingPageContent>) => void;
@@ -102,6 +106,11 @@ interface AppContextType {
     bio?: string;
     planId?: SubscriptionPlanPeriod;
   }) => Barbershop;
+
+  // Trial and Expiration Helpers
+  checkTrialEligibility: (name: string, phone: string, email?: string) => { isEligible: boolean; reason?: string; matchedField?: 'email' | 'phone' | 'name' };
+  isSubscriptionExpired: (barbershop: Barbershop) => boolean;
+  getRemainingDays: (validUntil: string) => number;
 
   // Helpers
   getBarbershopById: (id: string) => Barbershop | undefined;
@@ -121,6 +130,7 @@ const STORAGE_KEYS = {
   SETTINGS: 'barberhub_settings_v2',
   PLANS: 'barberhub_plans_v2',
   LANDING: 'barberhub_landing_v2',
+  TRIAL_RECORDS: 'barberhub_trial_records_v2',
   CURRENT_USER_ID: 'barberhub_current_user_id_v2',
   ACTIVE_SHOP_ID: 'barberhub_active_shop_id_v2',
   CURRENT_VIEW: 'barberhub_view_v2',
@@ -129,7 +139,21 @@ const STORAGE_KEYS = {
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [users, setUsers] = useState<User[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.USERS);
-    return saved ? JSON.parse(saved) : INITIAL_USERS;
+    if (!saved) return INITIAL_USERS;
+    try {
+      const parsed: User[] = JSON.parse(saved);
+      // Ensure all INITIAL_USERS exist in the user list
+      const merged = [...parsed];
+      INITIAL_USERS.forEach((initUser) => {
+        const exists = merged.some((u) => u.email?.toLowerCase() === initUser.email?.toLowerCase() || u.id === initUser.id);
+        if (!exists) {
+          merged.push(initUser);
+        }
+      });
+      return merged;
+    } catch {
+      return INITIAL_USERS;
+    }
   });
 
   const [currentUser, setCurrentUser] = useState<User>(() => {
@@ -169,6 +193,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [landingPageContent, setLandingPageContent] = useState<LandingPageContent>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.LANDING);
     return saved ? JSON.parse(saved) : INITIAL_LANDING_CONTENT;
+  });
+
+  const [trialRecords, setTrialRecords] = useState<TrialUserRecord[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.TRIAL_RECORDS);
+    return saved ? JSON.parse(saved) : INITIAL_TRIAL_RECORDS;
   });
 
   const [activeBarbershopId, setActiveBarbershopId] = useState<string>(() => {
@@ -481,6 +510,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem(STORAGE_KEYS.CURRENT_VIEW, currentView);
   }, [currentView]);
 
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.TRIAL_RECORDS, JSON.stringify(trialRecords));
+  }, [trialRecords]);
+
   // Adjust view automatically when switching user role if necessary
   const handleSetCurrentUser = (newUser: User) => {
     setCurrentUser(newUser);
@@ -678,8 +711,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
-  // Super Admin: Approve Barber Subscription
-  const approveBarbershopSubscription = (barbershopId: string, daysValid = 30) => {
+  // Super Admin / Auto-Pay: Approve Barber Subscription
+  const approveBarbershopSubscription = (
+    barbershopId: string,
+    daysValid = 30,
+    upgradedPlanId?: SubscriptionPlanPeriod
+  ) => {
     const validDate = new Date();
     validDate.setDate(validDate.getDate() + daysValid);
     const validUntil = validDate.toISOString().split('T')[0];
@@ -688,8 +725,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setBarbershops((prev) =>
       prev.map((shop) => {
         if (shop.id !== barbershopId) return shop;
+        const finalPlanId = upgradedPlanId || (shop.subscriptionPlanId === 'trial' ? 'monthly' : shop.subscriptionPlanId);
+        const planObj = subscriptionPlans.find((p) => p.id === finalPlanId);
         const updated: Barbershop = {
           ...shop,
+          subscriptionPlanId: finalPlanId,
+          subscriptionMonthlyFee: planObj ? planObj.price : shop.subscriptionMonthlyFee,
           subscriptionStatus: 'active',
           subscriptionValidUntil: validUntil,
           subscriptionLastPaymentDate: todayStr,
@@ -727,6 +768,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
+  const deleteBarbershop = (id: string) => {
+    // 1. Remove from barbershops state
+    setBarbershops((prev) => {
+      const remaining = prev.filter((shop) => shop.id !== id);
+      if (activeBarbershopId === id && remaining.length > 0) {
+        setActiveBarbershopId(remaining[0].id);
+      }
+      return remaining;
+    });
+
+    // 2. Cascade delete services of this barbershop
+    setServices((prev) => prev.filter((srv) => srv.barbershopId !== id));
+
+    // 3. Cascade delete appointments of this barbershop
+    setAppointments((prev) => prev.filter((apt) => apt.barbershopId !== id));
+
+    // 4. Cascade delete user accounts belonging to this barbershop
+    setUsers((prev) => prev.filter((u) => u.barbershopId !== id));
+
+    // 5. Cascade delete in Supabase
+    supabaseService.deleteBarbershop(id);
+  };
+
   const updatePlatformSettings = (settings: Partial<PlatformSettings>) => {
     setPlatformSettings((prev) => ({ ...prev, ...settings }));
   };
@@ -739,6 +803,121 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const updateLandingPageContent = (updates: Partial<LandingPageContent>) => {
     setLandingPageContent((prev) => ({ ...prev, ...updates }));
+  };
+
+  // Helper to verify if user has already consumed free trial
+  const checkTrialEligibility = (
+    name: string,
+    phone: string,
+    email?: string
+  ): { isEligible: boolean; reason?: string; matchedField?: 'email' | 'phone' | 'name' } => {
+    const cleanPhone = phone.replace(/\D/g, '');
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const cleanName = name
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+
+    // 1. Check in trial records
+    for (const rec of trialRecords) {
+      const recPhone = (rec.phone || '').replace(/\D/g, '');
+      const recEmail = (rec.email || '').trim().toLowerCase();
+      const recName = (rec.name || '')
+        .trim()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+
+      if (cleanPhone.length >= 8 && recPhone === cleanPhone) {
+        return {
+          isEligible: false,
+          matchedField: 'phone',
+          reason: `O telefone informado (${formatPhone(phone)}) já foi utilizado para ativar o teste grátis anteriormente.`,
+        };
+      }
+      if (cleanEmail && recEmail && recEmail === cleanEmail) {
+        return {
+          isEligible: false,
+          matchedField: 'email',
+          reason: `O e-mail "${email}" já foi cadastrado no período de teste grátis.`,
+        };
+      }
+      if (cleanName.length >= 3 && recName === cleanName) {
+        return {
+          isEligible: false,
+          matchedField: 'name',
+          reason: `O usuário com o nome "${name}" já usufruiu do período de teste grátis.`,
+        };
+      }
+    }
+
+    // 2. Check in existing barbershops
+    for (const shop of barbershops) {
+      const shopPhone = (shop.phone || shop.ownerPhone || '').replace(/\D/g, '');
+      const shopOwner = (shop.ownerName || '')
+        .trim()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+
+      if (shop.subscriptionPlanId === 'trial') {
+        if (cleanPhone.length >= 8 && shopPhone === cleanPhone) {
+          return {
+            isEligible: false,
+            matchedField: 'phone',
+            reason: `O telefone ${formatPhone(phone)} já possui uma barbearia com teste grátis cadastrada (${shop.name}).`,
+          };
+        }
+        if (cleanName.length >= 3 && shopOwner === cleanName) {
+          return {
+            isEligible: false,
+            matchedField: 'name',
+            reason: `O barbeiro "${name}" já possui registro com teste grátis na barbearia "${shop.name}".`,
+          };
+        }
+      }
+    }
+
+    // 3. Check in users
+    for (const user of users) {
+      if (user.role === 'barber') {
+        const userEmail = (user.email || '').trim().toLowerCase();
+        const shop = user.barbershopId ? barbershops.find((s) => s.id === user.barbershopId) : null;
+        if (shop && shop.subscriptionPlanId === 'trial') {
+          if (cleanEmail && userEmail && userEmail === cleanEmail) {
+            return {
+              isEligible: false,
+              matchedField: 'email',
+              reason: `O e-mail "${email}" já pertence a uma conta de barbeiro que usufruiu do teste grátis.`,
+            };
+          }
+        }
+      }
+    }
+
+    return { isEligible: true };
+  };
+
+  // Helper to check if a shop's subscription is overdue or expired
+  const isSubscriptionExpired = (shop: Barbershop): boolean => {
+    if (!shop) return false;
+    if (shop.subscriptionStatus === 'overdue' || shop.subscriptionStatus === 'suspended') return true;
+    if (!shop.subscriptionValidUntil) return false;
+    const todayStr = getTodayDateString();
+    return shop.subscriptionValidUntil < todayStr;
+  };
+
+  // Helper to calculate days left
+  const getRemainingDays = (validUntil: string): number => {
+    if (!validUntil) return 0;
+    const [y, m, d] = validUntil.split('-').map(Number);
+    const target = new Date(y, m - 1, d);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    target.setHours(0, 0, 0, 0);
+    const diffMs = target.getTime() - today.getTime();
+    return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
   };
 
   // Register New Barbershop
@@ -766,6 +945,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       .replace(/^-+|-+$/g, '');
 
     const selectedPlan = subscriptionPlans.find((p) => p.id === data.planId) || subscriptionPlans[0];
+    const isTrial = selectedPlan.id === 'trial';
+
+    // Calculate trial expiration date (exactly 30 days)
+    const validDate = new Date();
+    validDate.setDate(validDate.getDate() + (isTrial ? 30 : 30));
+    const validUntilDateStr = validDate.toISOString().split('T')[0];
 
     const newUser: User = {
       id: newUserId,
@@ -797,11 +982,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       pixKeyType: data.pixKeyType || 'phone',
       pixReceiverName: data.barberName.toUpperCase(),
       subscriptionPlanId: selectedPlan.id,
-      subscriptionStatus: 'pending', // Requires Super Admin approval!
+      // Trial is automatically activated for 30 days! Paid plans start in pending status until PIX is confirmed
+      subscriptionStatus: isTrial ? 'active' : 'pending',
       subscriptionMonthlyFee: selectedPlan.price,
-      subscriptionValidUntil: getTodayDateString(),
+      subscriptionValidUntil: isTrial ? validUntilDateStr : getTodayDateString(),
       subscriptionRequestedAt: getTodayDateString(),
-      subscriptionProofUrl: `Comprovante PIX Adesão ${selectedPlan.name} (R$ ${selectedPlan.price.toFixed(2)})`,
+      subscriptionLastPaymentDate: isTrial ? getTodayDateString() : undefined,
+      subscriptionProofUrl: isTrial
+        ? 'Ativação Automática - Teste Grátis (30 Dias)'
+        : `Comprovante PIX Adesão ${selectedPlan.name} (R$ ${selectedPlan.price.toFixed(2)})`,
       slotIntervalMinutes: 30,
       bookingWindowDays: 15,
       workingHours: {
@@ -814,6 +1003,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         6: { isOpen: true, openTime: '08:30', closeTime: '19:00', breakStart: '12:00', breakEnd: '13:00' },
       },
     };
+
+    // If trial plan, record usage to prevent duplicate registration
+    if (isTrial) {
+      const newTrialRecord: TrialUserRecord = {
+        id: generateId('trial_rec'),
+        name: data.barberName,
+        phone: data.phone,
+        email: data.email,
+        barbershopId: newShopId,
+        barbershopName: data.shopName,
+        registeredAt: getTodayDateString(),
+      };
+      setTrialRecords((prev) => [...prev, newTrialRecord]);
+    }
 
     // Default starter services for this shop
     const defaultServices: Service[] = [
@@ -889,6 +1092,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setPlatformSettings(INITIAL_PLATFORM_SETTINGS);
     setSubscriptionPlans(INITIAL_SUBSCRIPTION_PLANS);
     setLandingPageContent(INITIAL_LANDING_CONTENT);
+    setTrialRecords(INITIAL_TRIAL_RECORDS);
     setCurrentUser(INITIAL_USERS[4]);
     setActiveBarbershopId('shop_navalha');
     setCurrentView('client_booking');
@@ -906,6 +1110,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         platformSettings,
         subscriptionPlans,
         landingPageContent,
+        trialRecords,
         activeBarbershopId,
         setActiveBarbershopId,
         currentView,
@@ -946,10 +1151,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         approveBarbershopSubscription,
         rejectBarbershopSubscription,
         updateBarbershopSubscriptionStatus,
+        deleteBarbershop,
         updatePlatformSettings,
         updateSubscriptionPlan,
         updateLandingPageContent,
         registerNewBarbershop,
+        checkTrialEligibility,
+        isSubscriptionExpired,
+        getRemainingDays,
         getBarbershopById,
         getServicesForBarbershop,
         getAppointmentsForBarbershop,
