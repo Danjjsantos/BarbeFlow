@@ -340,7 +340,7 @@ export const BarberScheduleView: React.FC<BarberScheduleViewProps> = ({ barbersh
                     {apt.status === 'cancelled' && (
                       <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300 dark:border-rose-800">
                         <XCircle className="w-3 h-3" />
-                        {apt.cancelledBy === 'barber' ? 'Cancelado pelo Barbeiro' : 'Cancelado'}
+                        {apt.cancelledBy === 'client' ? 'Cancelado pelo Cliente (Horário Liberado)' : apt.cancelledBy === 'barber' ? 'Cancelado pelo Barbeiro' : 'Cancelado (Horário Liberado)'}
                       </span>
                     )}
                   </div>

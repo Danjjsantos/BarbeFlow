@@ -362,6 +362,7 @@ export const INITIAL_BARBERSHOPS: Barbershop[] = [
     subscriptionLastPaymentDate: '2026-08-01',
     slotIntervalMinutes: 30,
     bookingWindowDays: 15,
+    confirmationMode: 'pix',
     workingHours: {
       0: { isOpen: false, openTime: '09:00', closeTime: '14:00' }, // Dom
       1: { isOpen: true, openTime: '09:00', closeTime: '19:30', breakStart: '12:30', breakEnd: '13:30' }, // Seg
@@ -397,6 +398,7 @@ export const INITIAL_BARBERSHOPS: Barbershop[] = [
     subscriptionLastPaymentDate: '2026-08-05',
     slotIntervalMinutes: 45,
     bookingWindowDays: 30,
+    confirmationMode: 'whatsapp',
     workingHours: {
       0: { isOpen: false, openTime: '09:00', closeTime: '14:00' },
       1: { isOpen: false, openTime: '09:00', closeTime: '19:00' },
@@ -431,6 +433,8 @@ export const INITIAL_BARBERSHOPS: Barbershop[] = [
     subscriptionRequestedAt: '2026-08-17',
     subscriptionProofUrl: 'Comprovante PIX Taxa BarberHub - R$ 49,90 (Enviado em 17/08/2026)',
     slotIntervalMinutes: 30,
+    bookingWindowDays: 15,
+    confirmationMode: 'pix',
     workingHours: {
       0: { isOpen: false, openTime: '09:00', closeTime: '14:00' },
       1: { isOpen: true, openTime: '09:00', closeTime: '19:00' },

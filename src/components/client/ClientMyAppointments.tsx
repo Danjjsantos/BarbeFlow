@@ -10,6 +10,7 @@ import {
   openWhatsApp,
 } from '../../utils/formatters';
 import { PixPaymentModal } from './PixPaymentModal';
+import { ClientCancelAppointmentModal } from './ClientCancelAppointmentModal';
 import {
   Calendar,
   Clock,
@@ -23,6 +24,8 @@ import {
   Search,
   MessageSquare,
   Sparkles,
+  ArrowRight,
+  Check,
 } from 'lucide-react';
 
 export const ClientMyAppointments: React.FC = () => {
@@ -35,23 +38,32 @@ export const ClientMyAppointments: React.FC = () => {
     setCurrentView,
   } = useApp();
 
-  const [phoneSearch, setPhoneSearch] = useState(
-    currentUser.role === 'client' ? currentUser.phone : '11981234567'
-  );
+  const [phoneSearch, setPhoneSearch] = useState<string>('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [selectedPixApt, setSelectedPixApt] = useState<Appointment | null>(null);
+  const [selectedCancelApt, setSelectedCancelApt] = useState<Appointment | null>(null);
+  const [successBanner, setSuccessBanner] = useState<{
+    serviceName: string;
+    date: string;
+    time: string;
+  } | null>(null);
 
-  const clientPhoneClean = cleanPhone(phoneSearch);
+  const queryClean = phoneSearch.trim().toLowerCase();
+  const queryDigits = cleanPhone(phoneSearch);
 
-  // Filter appointments for this phone
-  const clientAppointments = appointments.filter((apt) => {
-    const aptPhoneClean = cleanPhone(apt.clientPhone);
-    const matchesPhone = !clientPhoneClean || aptPhoneClean.includes(clientPhoneClean);
-    if (!matchesPhone) return false;
+  // Privacy Protection: Only filter and show appointments when the client enters their phone number (min 8 digits)
+  const isSearchActive = queryDigits.length >= 8;
 
-    if (filterStatus === 'all') return true;
-    return apt.status === filterStatus;
-  });
+  const clientAppointments = isSearchActive
+    ? appointments.filter((apt) => {
+        const aptPhoneClean = cleanPhone(apt.clientPhone);
+        const matchesPhone = aptPhoneClean.includes(queryDigits);
+        if (!matchesPhone) return false;
+
+        if (filterStatus === 'all') return true;
+        return apt.status === filterStatus;
+      })
+    : [];
 
   const getStatusBadge = (status: Appointment['status']) => {
     switch (status) {
@@ -86,14 +98,61 @@ export const ClientMyAppointments: React.FC = () => {
     }
   };
 
-  const handleCancelClick = (apt: Appointment) => {
-    if (window.confirm(`Deseja realmente cancelar o agendamento de ${apt.serviceName} em ${formatDateBr(apt.date)}?`)) {
-      cancelAppointment(apt.id, 'Cancelado pelo cliente no painel');
+  const handleOpenCancelModal = (apt: Appointment) => {
+    setSelectedCancelApt(apt);
+  };
+
+  const handleConfirmCancelAppointment = (aptId: string, reason: string) => {
+    const targetApt = appointments.find((a) => a.id === aptId);
+    cancelAppointment(aptId, reason, 'client');
+    if (targetApt) {
+      setSuccessBanner({
+        serviceName: targetApt.serviceName,
+        date: targetApt.date,
+        time: targetApt.time,
+      });
+      // Scroll to top to see feedback
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6" id="client-appointments-view">
+      {/* Cancellation Success Feedback Banner */}
+      {successBanner && (
+        <div className="p-4 sm:p-5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-900 dark:text-emerald-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg animate-fade-in">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500 text-slate-950 flex items-center justify-center font-bold shrink-0 shadow-md">
+              <Check className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="font-extrabold text-sm text-slate-900 dark:text-white">
+                Agendamento de {successBanner.serviceName} cancelado com sucesso!
+              </p>
+              <p className="text-xs text-emerald-700 dark:text-emerald-400 font-medium">
+                O horário das <strong>{successBanner.time}</strong> do dia <strong>{formatDateBr(successBanner.date)}</strong> foi liberado e já está disponível novamente na agenda da barbearia.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => setCurrentView('client_booking')}
+              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition shadow-xs flex items-center gap-1.5 cursor-pointer"
+            >
+              <span>Agendar Novo Horário</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => setSuccessBanner(null)}
+              className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition cursor-pointer"
+            >
+              <XCircle className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -118,14 +177,24 @@ export const ClientMyAppointments: React.FC = () => {
       {/* Phone filter bar */}
       <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
         <div className="flex-1 max-w-md relative">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+          <Search className="w-4 h-4 text-slate-500 absolute left-3 top-3.5" />
           <input
             type="text"
-            placeholder="Filtrar por Telefone / WhatsApp..."
+            placeholder="Digite seu WhatsApp/Telefone para consultar seus horários..."
             value={phoneSearch}
             onChange={(e) => setPhoneSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs focus:outline-hidden focus:ring-2 focus:ring-amber-500"
+            className="w-full pl-9 pr-9 py-2.5 bg-white border-2 border-slate-300 dark:border-slate-600 rounded-xl text-xs font-bold text-black placeholder:text-slate-400 shadow-xs focus:outline-hidden focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
           />
+          {phoneSearch && (
+            <button
+              type="button"
+              onClick={() => setPhoneSearch('')}
+              className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer p-0.5"
+              title="Limpar pesquisa"
+            >
+              <XCircle className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
         {/* Status filters */}
@@ -158,14 +227,18 @@ export const ClientMyAppointments: React.FC = () => {
             <Scissors className="w-8 h-8" />
           </div>
           <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200">
-            Nenhum agendamento encontrado
+            {!isSearchActive
+              ? 'Consulte seus agendamentos'
+              : 'Nenhum agendamento encontrado'}
           </h3>
           <p className="text-xs text-slate-500 max-w-md mx-auto">
-            Não encontramos nenhum horário marcado para o telefone informado. Verifique o número ou faça um novo agendamento.
+            {!isSearchActive
+              ? 'Por privacidade, digite o número do seu telefone/WhatsApp no campo acima para localizar apenas os seus horários agendados.'
+              : 'Não encontramos nenhum horário marcado para o telefone informado. Verifique o número digitado ou faça um novo agendamento.'}
           </p>
           <button
             onClick={() => setCurrentView('client_booking')}
-            className="px-5 py-2.5 bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs rounded-xl shadow-md transition inline-flex items-center gap-2"
+            className="px-5 py-2.5 bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs rounded-xl shadow-md transition inline-flex items-center gap-2 cursor-pointer"
           >
             <PlusCircle className="w-4 h-4" />
             Agendar Horário na Barbearia
@@ -280,10 +353,12 @@ export const ClientMyAppointments: React.FC = () => {
 
                   {apt.status !== 'cancelled' && apt.status !== 'completed' && (
                     <button
-                      onClick={() => handleCancelClick(apt)}
-                      className="px-3 py-2 text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-xs font-semibold rounded-xl transition"
+                      onClick={() => handleOpenCancelModal(apt)}
+                      className="px-3.5 py-2 text-rose-600 hover:text-white hover:bg-rose-600 dark:hover:bg-rose-600 border border-rose-200 dark:border-rose-900/60 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+                      title="Cancelar este agendamento e liberar o horário na barbearia"
                     >
-                      Cancelar
+                      <XCircle className="w-3.5 h-3.5" />
+                      <span>Cancelar</span>
                     </button>
                   )}
                 </div>
@@ -291,6 +366,17 @@ export const ClientMyAppointments: React.FC = () => {
             );
           })}
         </div>
+      )}
+
+      {/* Client Cancellation Modal */}
+      {selectedCancelApt && (
+        <ClientCancelAppointmentModal
+          isOpen={true}
+          onClose={() => setSelectedCancelApt(null)}
+          appointment={selectedCancelApt}
+          barbershop={getBarbershopById(selectedCancelApt.barbershopId)}
+          onConfirmCancel={handleConfirmCancelAppointment}
+        />
       )}
 
       {/* PIX Modal for selected appointment */}

@@ -145,6 +145,7 @@ export interface Barbershop {
   workingHours: BarbershopWorkingHours;
   slotIntervalMinutes: number; // 30 or 45 or 60 min
   bookingWindowDays?: number; // e.g. 8, 15, 30 (1 month), 60 (2 months)
+  confirmationMode?: 'pix' | 'whatsapp'; // 'pix' = auto/prepaid via PIX; 'whatsapp' = direct booking & WhatsApp notification
 }
 
 export interface Service {

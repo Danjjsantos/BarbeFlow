@@ -134,24 +134,25 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenRegister, onOpen
           </nav>
 
           {/* Action Buttons */}
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <button
               onClick={() => handleOpenLogin('barber')}
-              className="px-3.5 sm:px-4 py-2 rounded-xl text-center flex items-center justify-center gap-2 font-black text-xs text-slate-100 hover:text-white bg-slate-900 hover:bg-slate-800 border border-slate-700/90 hover:border-amber-500/70 transition shadow-md active:scale-95 cursor-pointer whitespace-nowrap"
-              title="Entrar com login e senha (Barbeiro ou Admin Geral)"
+              className="p-2 sm:px-4 sm:py-2 rounded-xl text-center flex items-center justify-center gap-2 font-black text-xs text-slate-100 hover:text-white bg-slate-900 hover:bg-slate-800 border border-slate-700/90 hover:border-amber-500/70 transition shadow-md active:scale-95 cursor-pointer"
+              title="Acessar Conta (Barbeiro ou Admin Geral)"
               aria-label="Acessar Conta"
             >
               <KeyRound className="w-4 h-4 text-amber-400 shrink-0" />
-              <span className="whitespace-nowrap">Acessar Conta</span>
+              <span className="hidden sm:inline whitespace-nowrap">Acessar Conta</span>
             </button>
 
-            {/* Mobile Menu Toggle Button */}
+            {/* Mobile Menu Toggle Button (3 horizontal lines icon) */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="lg:hidden p-2 rounded-xl text-slate-300 hover:text-white bg-slate-900 hover:bg-slate-800 border border-slate-800 transition cursor-pointer shrink-0"
-              aria-label="Abrir menu de navegação"
+              className="lg:hidden p-2 rounded-xl text-slate-300 hover:text-white bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-amber-500/50 transition shadow-md active:scale-95 cursor-pointer shrink-0 flex items-center justify-center"
+              aria-label={mobileMenuOpen ? "Fechar menu de navegação" : "Abrir menu de navegação"}
+              title="Menu"
             >
-              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              {mobileMenuOpen ? <X className="w-4 h-4 text-amber-400" /> : <Menu className="w-4 h-4" />}
             </button>
           </div>
         </div>

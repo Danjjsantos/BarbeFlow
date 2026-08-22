@@ -316,10 +316,10 @@ export const BarberDashboard: React.FC = () => {
       <header className="sticky top-0 z-40 bg-slate-950/95 backdrop-blur-xl border-b border-slate-800 shadow-xl">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-3">
           {/* Left: Brand Logo & Barber Shop Details */}
-          <div className="flex items-center gap-3 overflow-hidden">
+          <div className="flex items-center gap-2.5 sm:gap-3 overflow-hidden min-w-0">
             <button
               onClick={() => setIsBarberDrawerOpen(true)}
-              className="p-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-amber-500/50 text-amber-400 hover:text-white transition shrink-0 active:scale-95 flex items-center justify-center"
+              className="p-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-amber-500/50 text-amber-400 hover:text-white transition shrink-0 active:scale-95 flex items-center justify-center cursor-pointer"
               title="Abrir menu lateral completo"
               aria-label="Abrir Menu"
             >
@@ -327,28 +327,28 @@ export const BarberDashboard: React.FC = () => {
             </button>
 
             <div
-              className="flex items-center gap-2.5 cursor-pointer group shrink-0"
+              className="flex items-center gap-2.5 cursor-pointer group min-w-0"
               onClick={() => setActiveBarberTab('schedule')}
-              title="Painel BarberClock"
+              title="Painel BarberClock - Clique para voltar à Agenda"
             >
-              <div className="relative">
+              <div className="relative shrink-0">
                 <img
                   src={userShop.logoUrl || '/barber_clock_logo.jpg'}
                   alt={userShop.name}
-                  className="w-10 h-10 rounded-xl object-cover border-2 border-amber-500/80 shadow-md shadow-amber-500/20 group-hover:scale-105 transition shrink-0 bg-slate-900"
+                  className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl object-cover border-2 border-amber-500/80 shadow-md shadow-amber-500/20 group-hover:scale-105 transition shrink-0 bg-slate-900"
                 />
-                <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-slate-950"></span>
+                <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-emerald-500 border-2 border-slate-950"></span>
               </div>
-              <div className="hidden xs:block overflow-hidden">
-                <div className="flex items-center gap-2">
-                  <h1 className="font-black text-sm sm:text-base text-white tracking-tight leading-tight truncate">
+              <div className="min-w-0 overflow-hidden flex flex-col justify-center">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <h1 className="font-black text-xs sm:text-base text-white tracking-tight leading-tight truncate">
                     {userShop.name}
                   </h1>
-                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 shrink-0">
+                  <span className="text-[8px] sm:text-[9px] font-extrabold px-1.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 shrink-0">
                     Ativa
                   </span>
                 </div>
-                <p className="text-[10px] text-slate-400 truncate">
+                <p className="text-[10px] text-amber-400/90 font-medium truncate hidden sm:block">
                   Painel de Gestão
                 </p>
               </div>

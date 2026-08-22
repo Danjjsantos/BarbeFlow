@@ -29,6 +29,8 @@ import {
   Eye,
   EyeOff,
   AlertTriangle,
+  MessageSquare,
+  Smartphone,
 } from 'lucide-react';
 
 interface BarberSettingsViewProps {
@@ -73,6 +75,9 @@ export const BarberSettingsView: React.FC<BarberSettingsViewProps> = ({ barbersh
   );
   const [bookingWindowDays, setBookingWindowDays] = useState<number>(
     barbershop.bookingWindowDays || 15
+  );
+  const [confirmationMode, setConfirmationMode] = useState<'pix' | 'whatsapp'>(
+    barbershop.confirmationMode || 'pix'
   );
   const [workingHours, setWorkingHours] = useState(barbershop.workingHours);
 
@@ -149,17 +154,30 @@ export const BarberSettingsView: React.FC<BarberSettingsViewProps> = ({ barbersh
       mercadoPagoAccessToken: mercadoPagoAccessToken.trim(),
       slotIntervalMinutes,
       bookingWindowDays,
+      confirmationMode,
       workingHours,
     });
     setSavedSuccess(true);
-    setTimeout(() => setSavedSuccess(false), 2500);
+    setTimeout(() => setSavedSuccess(false), 3500);
   };
 
   const isSubscriptionActive = barbershop.subscriptionStatus === 'active';
   const isSubscriptionPending = barbershop.subscriptionStatus === 'pending';
 
   return (
-    <div className="space-y-6" id="barber-settings-view">
+    <div className="space-y-6 relative" id="barber-settings-view">
+      {/* Floating Success Notification on Save */}
+      {savedSuccess && (
+        <div className="fixed bottom-6 right-6 z-50 bg-emerald-600 text-white px-5 py-3.5 rounded-2xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-bottom-5 duration-200 border border-emerald-400">
+          <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+            <CheckCircle2 className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <p className="font-bold text-sm">Informações Salvas com Sucesso!</p>
+            <p className="text-xs text-emerald-100">Todas as alterações foram gravadas e continuam ativas.</p>
+          </div>
+        </div>
+      )}
       {/* Subscription Status Callout Banner */}
       <div
         className={`p-6 rounded-3xl border shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4 ${
@@ -447,7 +465,150 @@ export const BarberSettingsView: React.FC<BarberSettingsViewProps> = ({ barbersh
           </div>
         </div>
 
-        {/* SECTION 2: PIX Settings */}
+        {/* SECTION 2: Confirmation Mode for Clients */}
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Settings className="w-4 h-4 text-amber-500" />
+                Forma de Confirmação do Agendamento pelo Cliente
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                Escolha como os agendamentos dos seus clientes serão processados e confirmados.
+              </p>
+            </div>
+
+            <span
+              className={`text-[11px] font-extrabold px-3 py-1 rounded-full border self-start sm:self-auto flex items-center gap-1.5 ${
+                confirmationMode === 'pix'
+                  ? 'bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border-amber-300 dark:border-amber-800'
+                  : 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
+              }`}
+            >
+              {confirmationMode === 'pix' ? (
+                <>
+                  <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
+                  <span>Modo: Automático via PIX</span>
+                </>
+              ) : (
+                <>
+                  <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Modo: Direto + WhatsApp</span>
+                </>
+              )}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Option 1: Automatic via PIX */}
+            <div
+              onClick={() => setConfirmationMode('pix')}
+              className={`p-5 rounded-2xl border-2 transition cursor-pointer relative flex flex-col justify-between ${
+                confirmationMode === 'pix'
+                  ? 'bg-amber-50/50 dark:bg-amber-950/30 border-amber-500 shadow-sm'
+                  : 'bg-white dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 hover:border-slate-300'
+              }`}
+            >
+              <div>
+                <div className="flex items-center justify-between gap-2 mb-2.5">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-10 h-10 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center font-bold shrink-0 shadow-xs">
+                      <CreditCard className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-extrabold text-slate-900 dark:text-white">
+                        Automático via PIX
+                      </h4>
+                      <span className="text-[10px] text-amber-700 dark:text-amber-400 font-bold uppercase tracking-wider">
+                        Pagamento Antecipado Obrigatório
+                      </span>
+                    </div>
+                  </div>
+
+                  <div
+                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                      confirmationMode === 'pix'
+                        ? 'border-amber-600 bg-amber-600 text-white'
+                        : 'border-slate-300 dark:border-slate-600'
+                    }`}
+                  >
+                    {confirmationMode === 'pix' && <Check className="w-3 h-3 stroke-[3]" />}
+                  </div>
+                </div>
+
+                <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed font-medium">
+                  O cliente escolhe o serviço e horário, gera o <strong>QR Code e Copia e Cola do PIX</strong> da sua barbearia e o agendamento só é confirmado após a validação do pagamento.
+                </p>
+
+                <div className="mt-3.5 pt-3 border-t border-slate-200 dark:border-slate-700/80 space-y-1.5 text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                  <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-bold">
+                    <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
+                    <span>Zera calotes e horários perdidos por faltas</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Zap className="w-3.5 h-3.5 text-sky-500 shrink-0" />
+                    <span>Suporta confirmação automática Mercado Pago</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Option 2: Direct Booking with WhatsApp Message */}
+            <div
+              onClick={() => setConfirmationMode('whatsapp')}
+              className={`p-5 rounded-2xl border-2 transition cursor-pointer relative flex flex-col justify-between ${
+                confirmationMode === 'whatsapp'
+                  ? 'bg-emerald-50/50 dark:bg-emerald-950/30 border-emerald-500 shadow-sm'
+                  : 'bg-white dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 hover:border-slate-300'
+              }`}
+            >
+              <div>
+                <div className="flex items-center justify-between gap-2 mb-2.5">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shrink-0 shadow-xs">
+                      <MessageSquare className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-extrabold text-slate-900 dark:text-white">
+                        Agendamento Direto + WhatsApp
+                      </h4>
+                      <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-bold uppercase tracking-wider">
+                        Sem Pagamento Antecipado
+                      </span>
+                    </div>
+                  </div>
+
+                  <div
+                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                      confirmationMode === 'whatsapp'
+                        ? 'border-emerald-600 bg-emerald-600 text-white'
+                        : 'border-slate-300 dark:border-slate-600'
+                    }`}
+                  >
+                    {confirmationMode === 'whatsapp' && <Check className="w-3 h-3 stroke-[3]" />}
+                  </div>
+                </div>
+
+                <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed font-medium">
+                  O cliente realiza o agendamento de forma simples e rápida em <strong>1 clique</strong>. O horário é confirmado na hora na agenda e o sistema abre o <strong>WhatsApp</strong> com a mensagem pronta de agendamento para envio.
+                </p>
+
+                <div className="mt-3.5 pt-3 border-t border-slate-200 dark:border-slate-700/80 space-y-1.5 text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                  <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-bold">
+                    <Check className="w-3.5 h-3.5 shrink-0" />
+                    <span>Agendamento simples sem fricção de pagamento inicial</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Smartphone className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                    <span>Cliente paga presencialmente no balcão da barbearia</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* SECTION 3: PIX Settings */}
         <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
           <div>
             <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -461,13 +622,13 @@ export const BarberSettingsView: React.FC<BarberSettingsViewProps> = ({ barbersh
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              <label className="block text-xs font-bold text-slate-900 dark:text-slate-200 mb-1">
                 Tipo de Chave PIX
               </label>
               <select
                 value={pixKeyType}
                 onChange={(e) => setPixKeyType(e.target.value as PixKeyType)}
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold"
+                className="w-full px-3 py-2.5 bg-white border-2 border-slate-300 dark:border-slate-600 rounded-xl text-xs font-bold text-black shadow-xs focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
               >
                 <option value="phone">Telefone</option>
                 <option value="cpf">CPF</option>
@@ -478,7 +639,7 @@ export const BarberSettingsView: React.FC<BarberSettingsViewProps> = ({ barbersh
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              <label className="block text-xs font-bold text-slate-900 dark:text-slate-200 mb-1">
                 Chave PIX *
               </label>
               <input
@@ -486,12 +647,13 @@ export const BarberSettingsView: React.FC<BarberSettingsViewProps> = ({ barbersh
                 required
                 value={pixKey}
                 onChange={(e) => setPixKey(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono font-bold"
+                placeholder="Informe sua chave PIX"
+                className="w-full px-3 py-2.5 bg-white border-2 border-slate-300 dark:border-slate-600 rounded-xl text-xs font-mono font-bold text-black placeholder:text-slate-400 shadow-xs focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              <label className="block text-xs font-bold text-slate-900 dark:text-slate-200 mb-1">
                 Nome do Titular da Conta PIX *
               </label>
               <input
@@ -499,7 +661,8 @@ export const BarberSettingsView: React.FC<BarberSettingsViewProps> = ({ barbersh
                 required
                 value={pixReceiverName}
                 onChange={(e) => setPixReceiverName(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold"
+                placeholder="Nome completo do beneficiário"
+                className="w-full px-3 py-2.5 bg-white border-2 border-slate-300 dark:border-slate-600 rounded-xl text-xs font-bold text-black placeholder:text-slate-400 shadow-xs focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
               />
             </div>
           </div>
@@ -532,12 +695,12 @@ export const BarberSettingsView: React.FC<BarberSettingsViewProps> = ({ barbersh
                   placeholder="APP_USR-..."
                   value={mercadoPagoAccessToken}
                   onChange={(e) => setMercadoPagoAccessToken(e.target.value)}
-                  className="w-full px-3 py-2 pr-16 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono"
+                  className="w-full px-3 py-2.5 pr-16 bg-white border-2 border-slate-300 dark:border-slate-600 rounded-xl text-xs font-mono font-bold text-black placeholder:text-slate-400"
                 />
                 <button
                   type="button"
                   onClick={() => setShowMpToken(!showMpToken)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 text-slate-400 hover:text-slate-600 text-[10px]"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 text-slate-500 hover:text-slate-800 text-[10px] font-bold"
                 >
                   {showMpToken ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                 </button>

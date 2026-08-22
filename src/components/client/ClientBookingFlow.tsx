@@ -34,6 +34,7 @@ import {
   Eye,
   ArrowLeft,
   KeyRound,
+  MessageSquare,
 } from 'lucide-react';
 
 export const ClientBookingFlow: React.FC = () => {
@@ -74,7 +75,10 @@ export const ClientBookingFlow: React.FC = () => {
 
   // PIX Modal State
   const [isPixModalOpen, setIsPixModalOpen] = useState(false);
+  const [isWhatsappSuccessModalOpen, setIsWhatsappSuccessModalOpen] = useState(false);
   const [createdAppointment, setCreatedAppointment] = useState<Appointment | null>(null);
+
+  const isWhatsappMode = currentShop?.confirmationMode === 'whatsapp';
 
   // Generate days list according to barber's configured booking window
   const bookingWindowDays = currentShop?.bookingWindowDays || 15;
@@ -205,7 +209,39 @@ export const ClientBookingFlow: React.FC = () => {
       return;
     }
 
-    // Create the appointment (status pending_pix)
+    if (isWhatsappMode) {
+      // Direct booking with instant confirmation & WhatsApp notification
+      const newApt = createAppointment({
+        barbershopId: currentShop.id,
+        barberName: currentShop.ownerName,
+        clientName: clientName.trim(),
+        clientPhone: clientPhone.trim(),
+        serviceId: selectedService.id,
+        serviceName: selectedService.name,
+        servicePrice: selectedService.price,
+        durationMinutes: selectedService.durationMinutes,
+        date: selectedDate,
+        time: selectedTime,
+        pixKeyUsed: currentShop.pixKey,
+        notes: notes.trim(),
+        paymentMethod: 'presencial',
+        status: 'confirmed',
+      });
+
+      setCreatedAppointment(newApt);
+      setIsWhatsappSuccessModalOpen(true);
+
+      // Trigger pre-formatted WhatsApp message
+      const [y, m, d] = selectedDate.split('-').map(Number);
+      const dayOfWeekIdx = new Date(y, m - 1, d).getDay();
+      const dayName = getDayOfWeekName(dayOfWeekIdx);
+      const text = `Olá *${currentShop.name}*! 👋\n\nAcabei de realizar um agendamento:\n\n✂️ *Serviço:* ${selectedService.name}\n📅 *Data:* ${formatDateBr(selectedDate)} (${dayName})\n⏰ *Horário:* ${selectedTime}\n👤 *Cliente:* ${clientName.trim()}\n📱 *WhatsApp:* ${formatPhone(clientPhone.trim())}\n💰 *Valor:* ${formatCurrency(selectedService.price)} (Pagamento no local)\n${notes.trim() ? `📝 *Observações:* ${notes.trim()}\n` : ''}\nFavor confirmar o recebimento. Obrigado!`;
+
+      openWhatsApp(currentShop.phone, text);
+      return;
+    }
+
+    // PIX Mode:
     const newApt = createAppointment({
       barbershopId: currentShop.id,
       barberName: currentShop.ownerName,
@@ -231,91 +267,6 @@ export const ClientBookingFlow: React.FC = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-6" id="client-booking-view">
-      {/* Top Client Header Navigation Bar with BarberClock Logo & Aligned Button Links */}
-      <header className="bg-slate-950/90 backdrop-blur-xl border border-slate-800 rounded-2xl p-3 sm:p-4 shadow-xl flex items-center justify-between gap-2.5 sm:gap-3 flex-wrap md:flex-nowrap">
-        {/* Brand & Logo */}
-        <div
-          className="flex items-center gap-2.5 sm:gap-3 cursor-pointer group shrink-0"
-          onClick={() => setCurrentView('landing_page')}
-          title="Ver página de apresentação"
-        >
-          <div className="relative">
-            <img
-              src="/barber_clock_logo.jpg"
-              alt="BarberClock Logo"
-              className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl object-cover border-2 border-amber-500/80 shadow-md shadow-amber-500/20 group-hover:scale-105 transition shrink-0 bg-slate-900"
-            />
-            <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-slate-950"></span>
-          </div>
-          <div>
-            <span className="text-base sm:text-lg font-black tracking-tight text-white block leading-tight">
-              BarberClock
-            </span>
-            <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-amber-400 block">
-              Agendamento Online
-            </span>
-          </div>
-        </div>
-
-        {/* Aligned Navigation Links as Buttons with Justified Text */}
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 ml-auto sm:ml-0">
-          <button
-            onClick={() => setCurrentView('client_appointments')}
-            className="px-2.5 sm:px-3.5 py-2 rounded-xl text-center flex items-center justify-center gap-1.5 font-bold text-xs bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-amber-500/40 text-slate-200 hover:text-white transition shadow-xs whitespace-nowrap"
-            title="Consultar meus agendamentos marcados"
-          >
-            <Calendar className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-            <span className="hidden sm:inline">Meus Agendamentos</span>
-            <span className="sm:hidden">Agendamentos</span>
-          </button>
-
-          <button
-            onClick={() => setCurrentView('landing_page')}
-            className="px-2.5 sm:px-3.5 py-2 rounded-xl text-center flex items-center justify-center gap-1.5 font-bold text-xs bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-amber-500/40 text-slate-200 hover:text-white transition shadow-xs whitespace-nowrap"
-            title="Conhecer a plataforma e planos para barbearias"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-            <span className="hidden md:inline">Apresentação</span>
-            <span className="md:hidden">Planos</span>
-          </button>
-
-          <button
-            onClick={() => openLoginModal('barber')}
-            className="px-3 sm:px-3.5 py-2 rounded-xl text-center flex items-center justify-center gap-1.5 font-bold text-xs bg-amber-500 hover:bg-amber-400 text-slate-950 font-black transition shadow-md shadow-amber-500/20 active:scale-95 whitespace-nowrap shrink-0"
-            title="Área do Barbeiro ou Administrador"
-          >
-            <KeyRound className="w-3.5 h-3.5 text-slate-950 shrink-0" />
-            <span>Área do Barbeiro</span>
-          </button>
-        </div>
-      </header>
-      {/* Barber Preview Notification Banner */}
-      {currentUser.role === 'barber' && (
-        <div className="bg-slate-900 border border-amber-500/40 p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-lg">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
-              <Eye className="w-4 h-4" />
-            </div>
-            <div>
-              <p className="font-black text-amber-300">
-                Visualização da Agenda Pública ({currentShop.name})
-              </p>
-              <p className="text-slate-400 text-[11px]">
-                Navegue pelas datas abaixo para verificar a disponibilidade de horários e serviços oferecidos aos seus clientes.
-              </p>
-            </div>
-          </div>
-
-          <button
-            onClick={() => setCurrentView('barber_dashboard')}
-            className="px-3.5 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl font-black text-xs transition shrink-0 active:scale-95 flex items-center justify-center gap-1.5 shadow-md shadow-amber-500/20"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Voltar ao Painel da Barbearia</span>
-          </button>
-        </div>
-      )}
-
       {/* Barbershop Hero Banner Card */}
       <div className="relative rounded-3xl overflow-hidden shadow-xl border border-slate-800 bg-slate-900 text-white">
         <div className="h-44 sm:h-56 w-full relative">
@@ -328,27 +279,6 @@ export const ClientBookingFlow: React.FC = () => {
             className="w-full h-full object-cover brightness-60"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent" />
-
-          {/* Barbershop selector switcher */}
-          <div className="absolute top-4 right-4 z-10">
-            <div className="bg-slate-950/80 backdrop-blur-md border border-slate-700/80 rounded-xl p-1 flex items-center gap-1.5 shadow-lg">
-              <Building2 className="w-3.5 h-3.5 text-amber-400 ml-2" />
-              <select
-                value={activeBarbershopId}
-                onChange={(e) => {
-                  setActiveBarbershopId(e.target.value);
-                  setSelectedTime('');
-                }}
-                className="bg-transparent text-xs font-semibold text-slate-200 py-1 pr-3 focus:outline-hidden cursor-pointer"
-              >
-                {barbershops.map((shop) => (
-                  <option key={shop.id} value={shop.id} className="bg-slate-900 text-white">
-                    {shop.name} ({shop.city})
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
         </div>
 
         {/* Content details over banner */}
@@ -438,35 +368,35 @@ export const ClientBookingFlow: React.FC = () => {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                <label className="block text-xs font-bold text-slate-900 dark:text-slate-200 mb-1">
                   Seu Nome Completo *
                 </label>
                 <div className="relative">
-                  <User className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                  <User className="w-4 h-4 text-slate-500 absolute left-3 top-3.5" />
                   <input
                     type="text"
                     required
                     placeholder="Ex: Lucas Mendes"
                     value={clientName}
                     onChange={(e) => setClientName(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500 font-medium"
+                    className="w-full pl-9 pr-3 py-2.5 bg-white border-2 border-slate-300 dark:border-slate-600 rounded-xl text-sm font-bold text-black placeholder:text-slate-400 shadow-xs focus:outline-hidden focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                <label className="block text-xs font-bold text-slate-900 dark:text-slate-200 mb-1">
                   Telefone / WhatsApp *
                 </label>
                 <div className="relative">
-                  <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                  <Phone className="w-4 h-4 text-slate-500 absolute left-3 top-3.5" />
                   <input
                     type="text"
                     required
                     placeholder="(11) 98765-4321"
                     value={clientPhone}
                     onChange={(e) => setClientPhone(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500 font-medium"
+                    className="w-full pl-9 pr-3 py-2.5 bg-white border-2 border-slate-300 dark:border-slate-600 rounded-xl text-sm font-bold text-black placeholder:text-slate-400 shadow-xs focus:outline-hidden focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
                   />
                 </div>
               </div>
@@ -657,7 +587,7 @@ export const ClientBookingFlow: React.FC = () => {
 
             {/* Notes input */}
             <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              <label className="block text-xs font-bold text-slate-900 dark:text-slate-200 mb-1">
                 Observações para o Barbeiro (Opcional)
               </label>
               <input
@@ -665,7 +595,7 @@ export const ClientBookingFlow: React.FC = () => {
                 placeholder="Ex: Prefiro acabamento mais baixo, pele sensível..."
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-xs focus:outline-hidden focus:ring-2 focus:ring-amber-500"
+                className="w-full px-3.5 py-2.5 bg-white border-2 border-slate-300 dark:border-slate-600 rounded-xl text-xs font-bold text-black placeholder:text-slate-400 shadow-xs focus:outline-hidden focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
               />
             </div>
           </div>
@@ -728,24 +658,43 @@ export const ClientBookingFlow: React.FC = () => {
                   </span>
                 </div>
                 <div className="text-right">
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 px-2 py-0.5 rounded-md">
-                    <ShieldCheck className="w-3 h-3" />
-                    PIX Instantâneo
-                  </span>
+                  {isWhatsappMode ? (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 px-2 py-0.5 rounded-md">
+                      <MessageSquare className="w-3 h-3" />
+                      Pagar no Local
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 px-2 py-0.5 rounded-md">
+                      <ShieldCheck className="w-3 h-3" />
+                      PIX Instantâneo
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
 
-            {/* PIX Explanation Box */}
-            <div className="bg-emerald-50 dark:bg-emerald-950/40 p-3.5 rounded-2xl border border-emerald-200 dark:border-emerald-800/80 text-xs text-emerald-900 dark:text-emerald-300 space-y-1">
-              <div className="font-bold flex items-center gap-1.5 text-emerald-800 dark:text-emerald-300">
-                <ShieldCheck className="w-4 h-4 shrink-0" />
-                Como funciona a confirmação:
+            {/* Explanation Box */}
+            {isWhatsappMode ? (
+              <div className="bg-emerald-50 dark:bg-emerald-950/40 p-3.5 rounded-2xl border border-emerald-200 dark:border-emerald-800/80 text-xs text-emerald-900 dark:text-emerald-300 space-y-1">
+                <div className="font-bold flex items-center gap-1.5 text-emerald-800 dark:text-emerald-300">
+                  <MessageSquare className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                  Agendamento Direto via WhatsApp:
+                </div>
+                <p className="text-[11px] leading-relaxed text-emerald-700 dark:text-emerald-400">
+                  Ao clicar abaixo, seu horário é <strong>confirmado na hora</strong> na agenda e o WhatsApp é aberto com a mensagem pronta de agendamento. O pagamento é realizado diretamente no local.
+                </p>
               </div>
-              <p className="text-[11px] leading-relaxed text-emerald-700 dark:text-emerald-400">
-                Ao clicar no botão abaixo, geramos o QR Code e código Copia e Cola do PIX da barbearia. Após o pagamento, seu horário é confirmado automaticamente.
-              </p>
-            </div>
+            ) : (
+              <div className="bg-emerald-50 dark:bg-emerald-950/40 p-3.5 rounded-2xl border border-emerald-200 dark:border-emerald-800/80 text-xs text-emerald-900 dark:text-emerald-300 space-y-1">
+                <div className="font-bold flex items-center gap-1.5 text-emerald-800 dark:text-emerald-300">
+                  <ShieldCheck className="w-4 h-4 shrink-0" />
+                  Como funciona a confirmação:
+                </div>
+                <p className="text-[11px] leading-relaxed text-emerald-700 dark:text-emerald-400">
+                  Ao clicar no botão abaixo, geramos o QR Code e código Copia e Cola do PIX da barbearia. Após o pagamento, seu horário é confirmado automaticamente.
+                </p>
+              </div>
+            )}
 
             {/* Submit Button */}
             <button
@@ -757,8 +706,17 @@ export const ClientBookingFlow: React.FC = () => {
                   : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/25 hover:scale-[1.01]'
               }`}
             >
-              <span>Agendar e Pagar com PIX</span>
-              <ArrowRight className="w-4 h-4" />
+              {isWhatsappMode ? (
+                <>
+                  <MessageSquare className="w-4 h-4" />
+                  <span>Confirmar e Enviar no WhatsApp</span>
+                </>
+              ) : (
+                <>
+                  <span>Agendar e Pagar com PIX</span>
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
             </button>
 
             <button
@@ -772,13 +730,90 @@ export const ClientBookingFlow: React.FC = () => {
         </div>
       </form>
 
+      {/* WhatsApp Success Modal */}
+      {isWhatsappSuccessModalOpen && createdAppointment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-5 text-center relative">
+            <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-950/80 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto shadow-inner">
+              <CheckCircle2 className="w-8 h-8" />
+            </div>
+
+            <div>
+              <span className="inline-block px-3 py-1 bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 text-xs font-black rounded-full mb-2 border border-emerald-300 dark:border-emerald-800">
+                Horário Agendado com Sucesso!
+              </span>
+              <h3 className="text-xl font-black text-slate-900 dark:text-white">
+                Agendamento Confirmado
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                Seu horário já está reservado e registrado na agenda da <strong>{currentShop.name}</strong>.
+              </p>
+            </div>
+
+            {/* Appointment Details Card */}
+            <div className="bg-slate-50 dark:bg-slate-800/70 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 text-left space-y-2 text-xs">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Serviço:</span>
+                <span className="font-bold text-slate-900 dark:text-white">{createdAppointment.serviceName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Data e Horário:</span>
+                <span className="font-bold text-amber-600 dark:text-amber-400">
+                  {formatDateBr(createdAppointment.date)} às {createdAppointment.time}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Cliente:</span>
+                <span className="font-semibold text-slate-800 dark:text-slate-200">{createdAppointment.clientName}</span>
+              </div>
+              <div className="flex justify-between border-t border-slate-200 dark:border-slate-700 pt-2">
+                <span className="text-slate-500 font-bold">Valor (Pagar no Local):</span>
+                <span className="font-black text-emerald-600 dark:text-emerald-400 text-sm">
+                  {formatCurrency(createdAppointment.servicePrice)}
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  const [y, m, d] = createdAppointment.date.split('-').map(Number);
+                  const dayOfWeekIdx = new Date(y, m - 1, d).getDay();
+                  const dayName = getDayOfWeekName(dayOfWeekIdx);
+                  const text = `Olá *${currentShop.name}*! 👋\n\nAcabei de realizar um agendamento:\n\n✂️ *Serviço:* ${createdAppointment.serviceName}\n📅 *Data:* ${formatDateBr(createdAppointment.date)} (${dayName})\n⏰ *Horário:* ${createdAppointment.time}\n👤 *Cliente:* ${createdAppointment.clientName}\n📱 *WhatsApp:* ${formatPhone(createdAppointment.clientPhone)}\n💰 *Valor:* ${formatCurrency(createdAppointment.servicePrice)} (Pagamento no local)\n${createdAppointment.notes ? `📝 *Observações:* ${createdAppointment.notes}\n` : ''}\nFavor confirmar o recebimento. Obrigado!`;
+                  openWhatsApp(currentShop.phone, text);
+                }}
+                className="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-xl transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/25 cursor-pointer"
+              >
+                <MessageSquare className="w-4 h-4" />
+                <span>Reenviar Mensagem no WhatsApp</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setIsWhatsappSuccessModalOpen(false);
+                  setSelectedTime('');
+                  setNotes('');
+                }}
+                className="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs rounded-xl transition cursor-pointer"
+              >
+                Concluir Agendamento
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* PIX Payment Modal */}
       {createdAppointment && (
         <PixPaymentModal
           isOpen={isPixModalOpen}
           onClose={() => {
             setIsPixModalOpen(false);
-            setCurrentView('client_appointments');
+            setSelectedTime('');
+            setNotes('');
           }}
           title={`Pagamento: ${createdAppointment.serviceName}`}
           amount={createdAppointment.servicePrice}

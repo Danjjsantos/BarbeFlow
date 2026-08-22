@@ -167,13 +167,13 @@ export const PlatformSettingsModal: React.FC<PlatformSettingsModalProps> = ({
             </div>
 
             <div>
-              <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              <label className="block font-bold text-slate-900 dark:text-slate-200 mb-1">
                 Tipo da Chave PIX Master
               </label>
               <select
                 value={platformPixKeyType}
                 onChange={(e) => setPlatformPixKeyType(e.target.value as PixKeyType)}
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold"
+                className="w-full px-3 py-2.5 bg-white border-2 border-slate-300 dark:border-slate-600 rounded-xl text-xs font-bold text-black"
               >
                 <option value="email">E-mail</option>
                 <option value="phone">Telefone</option>
@@ -186,7 +186,7 @@ export const PlatformSettingsModal: React.FC<PlatformSettingsModalProps> = ({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              <label className="block font-bold text-slate-900 dark:text-slate-200 mb-1">
                 Chave PIX da Plataforma (Admin) *
               </label>
               <input
@@ -194,12 +194,13 @@ export const PlatformSettingsModal: React.FC<PlatformSettingsModalProps> = ({
                 required
                 value={platformPixKey}
                 onChange={(e) => setPlatformPixKey(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono font-bold"
+                placeholder="Chave PIX do administrador"
+                className="w-full px-3 py-2.5 bg-white border-2 border-slate-300 dark:border-slate-600 rounded-xl text-xs font-mono font-bold text-black placeholder:text-slate-400"
               />
             </div>
 
             <div>
-              <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              <label className="block font-bold text-slate-900 dark:text-slate-200 mb-1">
                 Nome do Beneficiário no PIX *
               </label>
               <input
@@ -207,7 +208,8 @@ export const PlatformSettingsModal: React.FC<PlatformSettingsModalProps> = ({
                 required
                 value={platformPixReceiverName}
                 onChange={(e) => setPlatformPixReceiverName(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold"
+                placeholder="Nome do titular da conta"
+                className="w-full px-3 py-2.5 bg-white border-2 border-slate-300 dark:border-slate-600 rounded-xl text-xs font-bold text-black placeholder:text-slate-400"
               />
             </div>
           </div>

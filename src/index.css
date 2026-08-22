@@ -8,6 +8,8 @@ body,
   min-height: 100vh;
   margin: 0;
   padding: 0;
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
 }
 
 html {
@@ -15,45 +17,23 @@ html {
   scroll-behavior: smooth;
 }
 
-/* Custom Sleek Scrollbar for modals and pages */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+/* Hide scrollbars globally across all browsers while allowing full scrolling */
+* {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
 }
 
-::-webkit-scrollbar-track {
-  background: rgba(15, 23, 42, 0.4);
-  border-radius: 6px;
+*::-webkit-scrollbar {
+  display: none; /* Chrome, Safari and Opera */
+  width: 0 !important;
+  height: 0 !important;
 }
 
-::-webkit-scrollbar-thumb {
-  background: rgba(245, 158, 11, 0.4);
-  border-radius: 6px;
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(245, 158, 11, 0.7);
-}
-
-.custom-modal-scrollbar {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(245, 158, 11, 0.5) rgba(15, 23, 42, 0.2);
-}
-
-.custom-modal-scrollbar::-webkit-scrollbar {
-  width: 7px;
-}
-
-.custom-modal-scrollbar::-webkit-scrollbar-track {
-  background: rgba(15, 23, 42, 0.1);
-  border-radius: 8px;
-}
-
-.custom-modal-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(217, 119, 6, 0.5);
-  border-radius: 8px;
-}
-
-.custom-modal-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(217, 119, 6, 0.8);
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

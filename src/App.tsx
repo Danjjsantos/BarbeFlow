@@ -54,8 +54,8 @@ const AppContent: React.FC = () => {
         onOpenRegister={openRegisterModal}
       />
 
-      {/* Bottom Footer & Global Platform Bar (Hidden or Cleaned for Barber Dashboard) */}
-      {currentView !== 'barber_dashboard' && (
+      {/* Bottom Footer & Global Platform Bar (Displayed strictly on landing page) */}
+      {currentView === 'landing_page' && (
         <footer className="bg-slate-900 border-t border-slate-800 py-6 px-4 text-xs text-slate-400">
           <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-5">
             <div className="flex items-center gap-3 text-center sm:text-left">
@@ -82,13 +82,9 @@ const AppContent: React.FC = () => {
             <div className="flex items-center justify-end w-full sm:w-auto text-xs shrink-0">
               <button
                 onClick={() => setCurrentView('landing_page')}
-                className={`px-4 py-2 rounded-xl font-bold transition flex items-center gap-2 ${
-                  currentView === 'landing_page'
-                    ? 'bg-orange-600 text-white shadow-md'
-                    : 'bg-slate-800/80 text-slate-300 hover:text-white hover:bg-slate-800 border border-slate-700/60'
-                }`}
+                className="px-4 py-2 rounded-xl font-bold transition flex items-center gap-2 bg-orange-600 text-white shadow-md cursor-pointer"
               >
-                <Eye className="w-4 h-4 text-orange-400" />
+                <Eye className="w-4 h-4 text-orange-200" />
                 <span>Apresentação & Planos</span>
               </button>
             </div>

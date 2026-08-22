@@ -17,6 +17,7 @@ import {
   UserCheck,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { ForgotPasswordModal } from './ForgotPasswordModal';
 
 interface AuthLoginModalProps {
   isOpen: boolean;
@@ -40,6 +41,7 @@ export const AuthLoginModal: React.FC<AuthLoginModalProps> = ({
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -200,7 +202,7 @@ export const AuthLoginModal: React.FC<AuthLoginModalProps> = ({
               {activeTab === 'barber' ? 'E-mail ou WhatsApp da Barbearia' : 'E-mail do Administrador'}
             </label>
             <div className="relative">
-              <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <Mail className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 required
@@ -211,7 +213,7 @@ export const AuthLoginModal: React.FC<AuthLoginModalProps> = ({
                 }
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
-                className="w-full pl-10 pr-3.5 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs sm:text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-amber-500 transition text-slate-900 dark:text-slate-100"
+                className="w-full pl-10 pr-3.5 py-3 bg-white border-2 border-slate-300 dark:border-slate-600 rounded-xl text-xs sm:text-sm font-bold text-black placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-amber-500 transition"
               />
             </div>
           </div>
@@ -224,30 +226,26 @@ export const AuthLoginModal: React.FC<AuthLoginModalProps> = ({
               </label>
               <button
                 type="button"
-                onClick={() =>
-                  alert(
-                    'Para recuperar seu acesso, solicite a redefinição de senha ao suporte do Administrador Geral.'
-                  )
-                }
-                className="text-[11px] text-amber-500 hover:text-amber-400 hover:underline font-semibold"
+                onClick={() => setIsForgotModalOpen(true)}
+                className="text-[11px] text-amber-500 hover:text-amber-400 hover:underline font-semibold cursor-pointer"
               >
                 Esqueceu a senha?
               </button>
             </div>
             <div className="relative">
-              <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
                 type={showPassword ? 'text' : 'password'}
                 required
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-10 pr-10 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs sm:text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-amber-500 transition text-slate-900 dark:text-slate-100"
+                className="w-full pl-10 pr-10 py-3 bg-white border-2 border-slate-300 dark:border-slate-600 rounded-xl text-xs sm:text-sm font-bold text-black placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-amber-500 transition"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-800"
               >
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
@@ -300,6 +298,14 @@ export const AuthLoginModal: React.FC<AuthLoginModalProps> = ({
           </div>
         </form>
       </div>
+
+      {/* Forgot Password Modal */}
+      <ForgotPasswordModal
+        isOpen={isForgotModalOpen}
+        onClose={() => setIsForgotModalOpen(false)}
+        initialIdentifier={identifier}
+        onBackToLogin={() => setIsForgotModalOpen(false)}
+      />
     </div>
   );
 };

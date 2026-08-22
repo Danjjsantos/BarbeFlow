@@ -320,7 +320,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   }, []);
 
-  // Handle URL Hash navigation (e.g. #navalha-de-ouro or #estilo-urbano)
+  const [currentView, setCurrentView] = useState<'client_booking' | 'client_appointments' | 'barber_dashboard' | 'super_admin_dashboard' | 'landing_page'>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.CURRENT_VIEW);
+    return (saved as any) || 'client_booking';
+  });
+
+  const [activeBarberTab, setActiveBarberTab] = useState<'schedule' | 'financial' | 'services' | 'settings'>('schedule');
+  const [isBarberDrawerOpen, setIsBarberDrawerOpen] = useState<boolean>(false);
+
+  // Handle URL Hash navigation only on true user hashchange or initial direct link mount (not on barbershops state mutations)
   useEffect(() => {
     const handleHashNavigation = () => {
       const hash = window.location.hash.replace('#', '').trim();
@@ -338,22 +346,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       if (matchedShop) {
         setActiveBarbershopId(matchedShop.id);
-        setCurrentView('client_booking');
+        // Do not kick the barber out of their dashboard when updating settings or saving
+        setCurrentView((prev) => {
+          if (prev === 'barber_dashboard' || prev === 'super_admin_dashboard') {
+            return prev;
+          }
+          return 'client_booking';
+        });
       }
     };
 
-    handleHashNavigation();
     window.addEventListener('hashchange', handleHashNavigation);
     return () => window.removeEventListener('hashchange', handleHashNavigation);
   }, [barbershops]);
-
-  const [currentView, setCurrentView] = useState<'client_booking' | 'client_appointments' | 'barber_dashboard' | 'super_admin_dashboard' | 'landing_page'>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.CURRENT_VIEW);
-    return (saved as any) || 'client_booking';
-  });
-
-  const [activeBarberTab, setActiveBarberTab] = useState<'schedule' | 'financial' | 'services' | 'settings'>('schedule');
-  const [isBarberDrawerOpen, setIsBarberDrawerOpen] = useState<boolean>(false);
 
   // Track last seen appointment time for accurate "new appointment" notification
   const [lastSeenAppointmentTime, setLastSeenAppointmentTime] = useState<string>(() => {
@@ -1009,6 +1014,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         : `Comprovante PIX Adesão ${selectedPlan.name} (R$ ${selectedPlan.price.toFixed(2)})`,
       slotIntervalMinutes: 30,
       bookingWindowDays: 15,
+      confirmationMode: 'pix',
       workingHours: {
         0: { isOpen: false, openTime: '09:00', closeTime: '14:00' },
         1: { isOpen: true, openTime: '09:00', closeTime: '19:00', breakStart: '12:00', breakEnd: '13:00' },
