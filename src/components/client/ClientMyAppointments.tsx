@@ -306,6 +306,10 @@ export const ClientMyAppointments: React.FC = () => {
           description={`Agendamento ${formatDateBr(selectedPixApt.date)} às ${selectedPixApt.time}`}
           txId={selectedPixApt.pixTransactionCode}
           barberPhone={getBarbershopById(selectedPixApt.barbershopId)?.phone}
+          appointmentId={selectedPixApt.id}
+          barberAccessToken={getBarbershopById(selectedPixApt.barbershopId)?.mercadoPagoAccessToken}
+          clientEmail={selectedPixApt.clientPhone + '@cliente.com'}
+          clientName={selectedPixApt.clientName}
           isConfirmed={selectedPixApt.status === 'confirmed'}
           onConfirmSuccess={() => {
             confirmAppointmentPix(selectedPixApt.id);

@@ -46,14 +46,8 @@ export const AuthLoginModal: React.FC<AuthLoginModalProps> = ({
       setActiveTab(initialRole);
       setErrorMessage('');
       setSuccessMessage('');
-      // Pre-fill with reasonable sample depending on tab
-      if (initialRole === 'super_admin') {
-        setIdentifier('admin@barberhub.com.br');
-        setPassword('admin123');
-      } else {
-        setIdentifier('carlos@navalhadouro.com.br');
-        setPassword('123456');
-      }
+      setIdentifier('');
+      setPassword('');
     }
   }, [isOpen, initialRole]);
 
@@ -63,19 +57,8 @@ export const AuthLoginModal: React.FC<AuthLoginModalProps> = ({
     setActiveTab(tab);
     setErrorMessage('');
     setSuccessMessage('');
-    if (tab === 'super_admin') {
-      setIdentifier('admin@barberhub.com.br');
-      setPassword('admin123');
-    } else {
-      setIdentifier('carlos@navalhadouro.com.br');
-      setPassword('123456');
-    }
-  };
-
-  const handleFillDemo = (email: string, pass: string) => {
-    setIdentifier(email);
-    setPassword(pass);
-    setErrorMessage('');
+    setIdentifier('');
+    setPassword('');
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -106,7 +89,7 @@ export const AuthLoginModal: React.FC<AuthLoginModalProps> = ({
           return;
         }
 
-        setSuccessMessage(`Bem-vindo de volta, ${result.user.name.split(' ')[0]}!`);
+        setSuccessMessage(`Autenticado com sucesso. Bem-vindo(a), ${result.user.name.split(' ')[0]}!`);
         confetti({
           particleCount: 70,
           spread: 60,
@@ -115,7 +98,7 @@ export const AuthLoginModal: React.FC<AuthLoginModalProps> = ({
 
         setTimeout(() => {
           onClose();
-        }, 600);
+        }, 500);
       } else {
         setErrorMessage(result.message || 'Credenciais inválidas. Verifique seu e-mail e senha.');
       }
@@ -138,16 +121,16 @@ export const AuthLoginModal: React.FC<AuthLoginModalProps> = ({
         id="auth-login-modal"
       >
         {/* Modal Top Header */}
-        <div className="p-6 bg-gradient-to-r from-orange-950 via-slate-900 to-slate-900 text-white flex items-center justify-between border-b border-orange-800/40 relative">
+        <div className="p-6 bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 text-white flex items-center justify-between border-b border-slate-800 relative">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-orange-600 flex items-center justify-center font-bold text-white shadow-lg shadow-orange-600/30">
-              <KeyRound className="w-5 h-5 text-white" />
+            <div className="w-10 h-10 rounded-2xl bg-amber-500 text-slate-950 flex items-center justify-center font-bold shadow-lg shadow-amber-500/20">
+              <KeyRound className="w-5 h-5" />
             </div>
             <div>
               <h3 className="text-lg font-black tracking-tight text-white">
-                Acesso ao Sistema
+                Acesso Profissional
               </h3>
-              <p className="text-xs text-orange-300 font-medium">
+              <p className="text-xs text-amber-400 font-medium">
                 {activeTab === 'barber'
                   ? 'Painel de Gestão da Barbearia'
                   : 'Administração Geral da Plataforma'}
@@ -171,7 +154,7 @@ export const AuthLoginModal: React.FC<AuthLoginModalProps> = ({
               onClick={() => handleTabChange('barber')}
               className={`py-2.5 px-3 rounded-xl text-xs font-extrabold transition flex items-center justify-center gap-2 ${
                 activeTab === 'barber'
-                  ? 'bg-orange-600 text-white shadow-md'
+                  ? 'bg-amber-500 text-slate-950 font-black shadow-md shadow-amber-500/20'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
@@ -184,7 +167,7 @@ export const AuthLoginModal: React.FC<AuthLoginModalProps> = ({
               onClick={() => handleTabChange('super_admin')}
               className={`py-2.5 px-3 rounded-xl text-xs font-extrabold transition flex items-center justify-center gap-2 ${
                 activeTab === 'super_admin'
-                  ? 'bg-orange-600 text-white shadow-md'
+                  ? 'bg-amber-500 text-slate-950 font-black shadow-md shadow-amber-500/20'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
@@ -214,7 +197,7 @@ export const AuthLoginModal: React.FC<AuthLoginModalProps> = ({
           {/* Email/Login Field */}
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-              {activeTab === 'barber' ? 'E-mail ou WhatsApp do Barbeiro' : 'E-mail do Administrador'}
+              {activeTab === 'barber' ? 'E-mail ou WhatsApp da Barbearia' : 'E-mail do Administrador'}
             </label>
             <div className="relative">
               <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -223,12 +206,12 @@ export const AuthLoginModal: React.FC<AuthLoginModalProps> = ({
                 required
                 placeholder={
                   activeTab === 'barber'
-                    ? 'ex: carlos@navalhadouro.com.br'
+                    ? 'seuemail@suabarbearia.com.br'
                     : 'admin@barberhub.com.br'
                 }
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
-                className="w-full pl-10 pr-3.5 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs sm:text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-orange-500 transition"
+                className="w-full pl-10 pr-3.5 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs sm:text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-amber-500 transition text-slate-900 dark:text-slate-100"
               />
             </div>
           </div>
@@ -243,10 +226,10 @@ export const AuthLoginModal: React.FC<AuthLoginModalProps> = ({
                 type="button"
                 onClick={() =>
                   alert(
-                    'Para redefinir sua senha, entre em contato com o suporte do Administrador Geral pelo WhatsApp.'
+                    'Para recuperar seu acesso, solicite a redefinição de senha ao suporte do Administrador Geral.'
                   )
                 }
-                className="text-[11px] text-orange-600 dark:text-orange-400 hover:underline font-semibold"
+                className="text-[11px] text-amber-500 hover:text-amber-400 hover:underline font-semibold"
               >
                 Esqueceu a senha?
               </button>
@@ -256,10 +239,10 @@ export const AuthLoginModal: React.FC<AuthLoginModalProps> = ({
               <input
                 type={showPassword ? 'text' : 'password'}
                 required
-                placeholder="Digite sua senha"
+                placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-10 pr-10 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs sm:text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-orange-500 transition"
+                className="w-full pl-10 pr-10 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs sm:text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-amber-500 transition text-slate-900 dark:text-slate-100"
               />
               <button
                 type="button"
@@ -275,103 +258,41 @@ export const AuthLoginModal: React.FC<AuthLoginModalProps> = ({
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full py-3.5 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white text-xs sm:text-sm font-extrabold rounded-xl shadow-lg shadow-orange-600/25 hover:shadow-orange-600/40 transition flex items-center justify-center gap-2 transform active:scale-95 disabled:opacity-50"
+            className="w-full py-3.5 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-slate-950 text-xs sm:text-sm font-black rounded-xl shadow-lg shadow-amber-500/20 transition flex items-center justify-center gap-2 transform active:scale-95 disabled:opacity-50"
           >
             {isLoading ? (
               <span className="inline-flex items-center gap-2">
-                <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                Autenticando...
+                <span className="w-3.5 h-3.5 border-2 border-slate-950 border-t-transparent rounded-full animate-spin"></span>
+                Autenticando credenciais...
               </span>
             ) : (
               <>
-                <span>Entrar no Painel {activeTab === 'barber' ? 'do Barbeiro' : 'do Admin'}</span>
+                <span>Acessar Painel {activeTab === 'barber' ? 'da Barbearia' : 'do Administrador'}</span>
                 <ArrowRight className="w-4 h-4" />
               </>
             )}
           </button>
 
-          {/* Quick Demo Fill Pills for Testing */}
-          <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
-            <span className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-400 mb-2">
-              Acesso Rápido para Demonstração:
-            </span>
-
-            {activeTab === 'super_admin' ? (
-              <button
-                type="button"
-                onClick={() => handleFillDemo('admin@barberhub.com.br', 'admin123')}
-                className="w-full text-left p-2.5 rounded-xl bg-orange-50/70 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-900/50 hover:bg-orange-100/70 dark:hover:bg-orange-950/50 transition flex items-center justify-between"
-              >
-                <div className="flex items-center gap-2">
-                  <Shield className="w-4 h-4 text-orange-600 shrink-0" />
-                  <div>
-                    <span className="text-xs font-bold text-slate-900 dark:text-white block">
-                      Roberto Mendes (Admin Master)
-                    </span>
-                    <span className="text-[11px] text-slate-500 font-mono">
-                      admin@barberhub.com.br • senha: <strong>admin123</strong>
-                    </span>
-                  </div>
-                </div>
-                <span className="text-[10px] font-bold text-orange-600 dark:text-orange-400 bg-orange-100 dark:bg-orange-900/60 px-2 py-0.5 rounded-lg">
-                  Preencher
-                </span>
-              </button>
-            ) : (
-              <div className="space-y-1.5">
-                <button
-                  type="button"
-                  onClick={() => handleFillDemo('carlos@navalhadouro.com.br', '123456')}
-                  className="w-full text-left p-2 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700/80 hover:bg-orange-50 dark:hover:bg-orange-950/30 hover:border-orange-300 transition flex items-center justify-between"
-                >
-                  <div className="flex items-center gap-2">
-                    <Scissors className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                    <div>
-                      <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block">
-                        Carlos Silva (Navalha de Ouro)
-                      </span>
-                      <span className="text-[10px] text-slate-400 font-mono">
-                        carlos@navalhadouro.com.br • senha: <strong>123456</strong>
-                      </span>
-                    </div>
-                  </div>
-                  <span className="text-[10px] font-bold text-orange-600 dark:text-orange-400 bg-orange-100 dark:bg-orange-900/60 px-2 py-0.5 rounded-lg">
-                    Preencher
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleFillDemo('marcos@vintagebarber.com.br', '123456')}
-                  className="w-full text-left p-2 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700/80 hover:bg-orange-50 dark:hover:bg-orange-950/30 hover:border-orange-300 transition flex items-center justify-between"
-                >
-                  <div className="flex items-center gap-2">
-                    <Scissors className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                    <div>
-                      <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block">
-                        Marcos Rocha (Vintage Club)
-                      </span>
-                      <span className="text-[10px] text-slate-400 font-mono">
-                        marcos@vintagebarber.com.br • senha: <strong>123456</strong>
-                      </span>
-                    </div>
-                  </div>
-                  <span className="text-[10px] font-bold text-orange-600 dark:text-orange-400 bg-orange-100 dark:bg-orange-900/60 px-2 py-0.5 rounded-lg">
-                    Preencher
-                  </span>
-                </button>
-              </div>
-            )}
+          {/* Professional Security & Compliance Notice */}
+          <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
+            <div className="flex items-center gap-1.5 text-slate-400 dark:text-slate-400">
+              <Shield className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Ambiente Seguro SSL 256-Bit</span>
+            </div>
+            <div className="flex items-center gap-1 text-slate-400">
+              <Lock className="w-3 h-3 text-amber-400" />
+              <span>Acesso Criptografado</span>
+            </div>
           </div>
 
           {/* Footer Register Callout */}
-          <div className="pt-2 text-center">
-            <p className="text-xs text-slate-500">
+          <div className="pt-1 text-center">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               Ainda não possui sua barbearia cadastrada?{' '}
               <button
                 type="button"
                 onClick={handleGoToRegister}
-                className="font-bold text-orange-600 dark:text-orange-400 hover:underline"
+                className="font-bold text-amber-500 hover:text-amber-400 hover:underline"
               >
                 Credenciar Barbearia
               </button>

@@ -31,6 +31,9 @@ import {
   Layers,
   ArrowRight,
   Info,
+  Eye,
+  ArrowLeft,
+  KeyRound,
 } from 'lucide-react';
 
 export const ClientBookingFlow: React.FC = () => {
@@ -43,7 +46,9 @@ export const ClientBookingFlow: React.FC = () => {
     getServicesForBarbershop,
     getAppointmentsForBarbershop,
     createAppointment,
+    confirmAppointmentPix,
     setCurrentView,
+    openLoginModal,
   } = useApp();
 
   const currentShop: Barbershop =
@@ -71,12 +76,13 @@ export const ClientBookingFlow: React.FC = () => {
   const [isPixModalOpen, setIsPixModalOpen] = useState(false);
   const [createdAppointment, setCreatedAppointment] = useState<Appointment | null>(null);
 
-  // Generate next 14 days list
+  // Generate days list according to barber's configured booking window
+  const bookingWindowDays = currentShop?.bookingWindowDays || 15;
   const nextDays = useMemo(() => {
     const list: { dateStr: string; dayNum: number; dayName: string; monthName: string; isClosed: boolean }[] = [];
     const today = new Date();
 
-    for (let i = 0; i < 14; i++) {
+    for (let i = 0; i < bookingWindowDays; i++) {
       const d = new Date(today);
       d.setDate(d.getDate() + i);
 
@@ -101,7 +107,7 @@ export const ClientBookingFlow: React.FC = () => {
       });
     }
     return list;
-  }, [currentShop]);
+  }, [currentShop, bookingWindowDays]);
 
   // Calculate available time slots for the selected date
   const availableTimeSlots = useMemo(() => {
@@ -224,7 +230,90 @@ export const ClientBookingFlow: React.FC = () => {
   const isShopActive = currentShop?.subscriptionStatus === 'active';
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 space-y-8" id="client-booking-view">
+    <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-6" id="client-booking-view">
+      {/* Top Client Header Navigation Bar with BarberClock Logo & Aligned Button Links */}
+      <header className="bg-slate-950/90 backdrop-blur-xl border border-slate-800 rounded-2xl p-3 sm:p-4 shadow-xl flex items-center justify-between gap-3">
+        {/* Brand & Logo */}
+        <div
+          className="flex items-center gap-3 cursor-pointer group shrink-0"
+          onClick={() => setCurrentView('landing_page')}
+          title="Ver página de apresentação"
+        >
+          <div className="relative">
+            <img
+              src="/barber_clock_logo.jpg"
+              alt="BarberClock Logo"
+              className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl object-cover border-2 border-amber-500/80 shadow-md shadow-amber-500/20 group-hover:scale-105 transition shrink-0 bg-slate-900"
+            />
+            <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-slate-950"></span>
+          </div>
+          <div>
+            <span className="text-base sm:text-lg font-black tracking-tight text-white block leading-tight">
+              BarberClock
+            </span>
+            <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-amber-400 block">
+              Agendamento Online
+            </span>
+          </div>
+        </div>
+
+        {/* Aligned Navigation Links as Buttons with Justified Text */}
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={() => setCurrentView('client_appointments')}
+            className="px-3 sm:px-3.5 py-2 rounded-xl text-center flex items-center justify-center gap-1.5 font-bold text-xs bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-amber-500/40 text-slate-200 hover:text-white transition shadow-xs"
+            title="Consultar meus agendamentos marcados"
+          >
+            <Calendar className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+            <span className="w-full text-center hidden xs:inline">Meus Agendamentos</span>
+          </button>
+
+          <button
+            onClick={() => setCurrentView('landing_page')}
+            className="px-3 sm:px-3.5 py-2 rounded-xl text-center flex items-center justify-center gap-1.5 font-bold text-xs bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-amber-500/40 text-slate-200 hover:text-white transition shadow-xs"
+            title="Conhecer a plataforma e planos para barbearias"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+            <span className="w-full text-center hidden sm:inline">Apresentação</span>
+          </button>
+
+          <button
+            onClick={() => openLoginModal('barber')}
+            className="px-3 sm:px-3.5 py-2 rounded-xl text-center flex items-center justify-center gap-1.5 font-bold text-xs bg-amber-500 hover:bg-amber-400 text-slate-950 font-black transition shadow-md shadow-amber-500/20 active:scale-95"
+            title="Área do Barbeiro ou Administrador"
+          >
+            <KeyRound className="w-3.5 h-3.5 text-slate-950 shrink-0" />
+            <span className="w-full text-center whitespace-nowrap">Área do Barbeiro</span>
+          </button>
+        </div>
+      </header>
+      {/* Barber Preview Notification Banner */}
+      {currentUser.role === 'barber' && (
+        <div className="bg-slate-900 border border-amber-500/40 p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-lg">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
+              <Eye className="w-4 h-4" />
+            </div>
+            <div>
+              <p className="font-black text-amber-300">
+                Visualização da Agenda Pública ({currentShop.name})
+              </p>
+              <p className="text-slate-400 text-[11px]">
+                Navegue pelas datas abaixo para verificar a disponibilidade de horários e serviços oferecidos aos seus clientes.
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => setCurrentView('barber_dashboard')}
+            className="px-3.5 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl font-black text-xs transition shrink-0 active:scale-95 flex items-center justify-center gap-1.5 shadow-md shadow-amber-500/20"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Voltar ao Painel da Barbearia</span>
+          </button>
+        </div>
+      )}
+
       {/* Barbershop Hero Banner Card */}
       <div className="relative rounded-3xl overflow-hidden shadow-xl border border-slate-800 bg-slate-900 text-white">
         <div className="h-44 sm:h-56 w-full relative">
@@ -463,18 +552,31 @@ export const ClientBookingFlow: React.FC = () => {
 
           {/* STEP 3: Choose Date & Time */}
           <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs">
-            <div className="flex items-center gap-2.5 mb-4">
-              <span className="w-7 h-7 rounded-xl bg-amber-500 text-slate-950 font-black text-xs flex items-center justify-center shadow-xs">
-                3
-              </span>
-              <div>
-                <h2 className="text-base font-bold text-slate-900 dark:text-white">
-                  Data e Horário
-                </h2>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  {formatDateExtenso(selectedDate)}
-                </p>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2.5">
+                <span className="w-7 h-7 rounded-xl bg-amber-500 text-slate-950 font-black text-xs flex items-center justify-center shadow-xs">
+                  3
+                </span>
+                <div>
+                  <h2 className="text-base font-bold text-slate-900 dark:text-white">
+                    Data e Horário
+                  </h2>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    {formatDateExtenso(selectedDate)}
+                  </p>
+                </div>
               </div>
+
+              <span className="text-[11px] font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/50 px-2.5 py-1 rounded-xl hidden sm:inline-flex items-center gap-1">
+                <Calendar className="w-3 h-3" />
+                <span>
+                  {bookingWindowDays === 8 && 'Agenda aberta para 8 dias'}
+                  {bookingWindowDays === 15 && 'Agenda aberta para 15 dias'}
+                  {bookingWindowDays === 30 && 'Agenda aberta para 1 mês'}
+                  {bookingWindowDays === 60 && 'Agenda aberta para 2 meses'}
+                  {![8, 15, 30, 60].includes(bookingWindowDays) && `Agenda aberta para ${bookingWindowDays} dias`}
+                </span>
+              </span>
             </div>
 
             {/* Next Days Horizontal Carousel */}
@@ -684,9 +786,13 @@ export const ClientBookingFlow: React.FC = () => {
           description={`Agendamento ${formatDateBr(createdAppointment.date)} às ${createdAppointment.time}`}
           txId={createdAppointment.pixTransactionCode}
           barberPhone={currentShop.phone}
+          barberAccessToken={currentShop.mercadoPagoAccessToken}
+          clientName={createdAppointment.clientName}
           isConfirmed={createdAppointment.status === 'confirmed'}
-          onConfirmSuccess={() => {
-            // Updated in context
+          onConfirmSuccess={(paymentId) => {
+            if (createdAppointment) {
+              confirmAppointmentPix(createdAppointment.id);
+            }
           }}
         />
       )}

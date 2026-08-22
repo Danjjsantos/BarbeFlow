@@ -122,6 +122,9 @@ export interface Barbershop {
   pixKey: string;
   pixKeyType: PixKeyType;
   pixReceiverName: string;
+  mercadoPagoAccessToken?: string;
+  mercadoPagoPublicKey?: string;
+  mercadoPagoEnabled?: boolean;
   subscriptionPlanId?: SubscriptionPlanPeriod;
   subscriptionStatus: SubscriptionStatus;
   subscriptionMonthlyFee: number; // in R$
@@ -131,6 +134,7 @@ export interface Barbershop {
   subscriptionLastPaymentDate?: string;
   workingHours: BarbershopWorkingHours;
   slotIntervalMinutes: number; // 30 or 45 or 60 min
+  bookingWindowDays?: number; // e.g. 8, 15, 30 (1 month), 60 (2 months)
 }
 
 export interface Service {
@@ -161,6 +165,7 @@ export interface Appointment {
   pixKeyUsed: string;
   pixTransactionCode: string;
   pixPaidAt?: string;
+  mercadoPagoPaymentId?: string;
   notes?: string;
   cancellationReason?: string;
   cancelledBy?: 'barber' | 'client';
@@ -178,4 +183,25 @@ export interface PlatformSettings {
   supportPhone: string;
   supportEmail: string;
   pixInstructions: string;
+  mercadoPagoAccessToken?: string;
+  mercadoPagoPublicKey?: string;
+  mercadoPagoEnabled?: boolean;
+}
+
+export interface MercadoPagoPixResponse {
+  success: boolean;
+  paymentId: string;
+  status: 'pending' | 'approved' | 'rejected' | 'cancelled' | 'in_process';
+  qrCode?: string;
+  qrCodeBase64?: string;
+  ticketUrl?: string;
+  error?: string;
+  isRealMercadoPago?: boolean;
+  payment?: {
+    id: string;
+    qrCode?: string;
+    qrCodeBase64?: string;
+    ticketUrl?: string;
+    status: 'pending' | 'approved' | 'rejected' | 'cancelled' | 'in_process';
+  };
 }

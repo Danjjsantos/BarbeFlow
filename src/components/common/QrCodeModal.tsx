@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { generateQrCodeSvg } from '../../utils/pix';
-import { X, Copy, Check, QrCode, Download, Share2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { generateQrCodeDataUrl } from '../../utils/pix';
+import { X, Copy, Check, RefreshCw } from 'lucide-react';
 
 interface QrCodeModalProps {
   isOpen: boolean;
@@ -22,6 +22,29 @@ export const QrCodeModal: React.FC<QrCodeModalProps> = ({
   badgeText,
 }) => {
   const [copied, setCopied] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState<string>('');
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  useEffect(() => {
+    if (!isOpen || !qrValue) return;
+    let isMounted = true;
+    setIsLoading(true);
+
+    generateQrCodeDataUrl(qrValue, 320)
+      .then((url) => {
+        if (isMounted) {
+          setQrDataUrl(url);
+          setIsLoading(false);
+        }
+      })
+      .catch(() => {
+        if (isMounted) setIsLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, qrValue]);
 
   if (!isOpen) return null;
 
@@ -31,8 +54,6 @@ export const QrCodeModal: React.FC<QrCodeModalProps> = ({
     setTimeout(() => setCopied(false), 2500);
   };
 
-  const svgString = generateQrCodeSvg(qrValue, 260);
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs">
       <div
@@ -41,7 +62,7 @@ export const QrCodeModal: React.FC<QrCodeModalProps> = ({
       >
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+          className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
           aria-label="Fechar"
         >
           <X className="w-5 h-5" />
@@ -58,10 +79,22 @@ export const QrCodeModal: React.FC<QrCodeModalProps> = ({
         </div>
 
         <div className="flex flex-col items-center justify-center p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700/60 mb-4">
-          <div
-            className="w-64 h-64 bg-white p-3 rounded-lg shadow-xs flex items-center justify-center"
-            dangerouslySetInnerHTML={{ __html: svgString }}
-          />
+          <div className="w-64 h-64 bg-white p-3 rounded-lg shadow-xs flex items-center justify-center border border-slate-100">
+            {isLoading ? (
+              <div className="flex flex-col items-center gap-2 text-slate-400 text-xs">
+                <RefreshCw className="w-6 h-6 animate-spin text-amber-500" />
+                <span>Gerando QR Code...</span>
+              </div>
+            ) : qrDataUrl ? (
+              <img
+                src={qrDataUrl}
+                alt="QR Code"
+                className="w-full h-full object-contain"
+              />
+            ) : (
+              <span className="text-xs text-slate-400">QR Code indisponível</span>
+            )}
+          </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-3 text-center">
             {footerText || 'Aponte a câmera do celular ou o app do banco para escanear'}
           </p>
@@ -75,7 +108,7 @@ export const QrCodeModal: React.FC<QrCodeModalProps> = ({
           <div className="flex gap-2">
             <button
               onClick={handleCopy}
-              className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-medium text-sm transition shadow-xs ${
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-medium text-sm transition shadow-xs cursor-pointer ${
                 copied
                   ? 'bg-emerald-600 text-white'
                   : 'bg-slate-900 hover:bg-slate-800 text-white dark:bg-amber-600 dark:hover:bg-amber-500'
@@ -89,13 +122,13 @@ export const QrCodeModal: React.FC<QrCodeModalProps> = ({
               ) : (
                 <>
                   <Copy className="w-4 h-4" />
-                  Copiar Código
+                  Copiar Link / Código
                 </>
               )}
             </button>
             <button
               onClick={onClose}
-              className="py-2.5 px-4 rounded-xl font-medium text-sm border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition"
+              className="py-2.5 px-4 rounded-xl font-medium text-sm border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition cursor-pointer"
             >
               Fechar
             </button>

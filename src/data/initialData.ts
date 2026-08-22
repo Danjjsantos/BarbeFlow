@@ -22,14 +22,17 @@ tomorrowDate.setDate(tomorrowDate.getDate() + 1);
 const tomorrow = tomorrowDate.toISOString().split('T')[0];
 
 export const INITIAL_PLATFORM_SETTINGS: PlatformSettings = {
-  platformName: 'BarberHub Brasil',
-  platformPixKey: 'financeiro@barberhub.com.br',
+  platformName: 'BarberClock',
+  platformPixKey: 'financeiro@barberclock.com.br',
   platformPixKeyType: 'email',
-  platformPixReceiverName: 'BARBERHUB TECNOLOGIA LTDA',
+  platformPixReceiverName: 'BARBERCLOCK TECNOLOGIA LTDA',
   monthlyFee: 49.90,
   supportPhone: '11999887766',
-  supportEmail: 'contato@barberhub.com.br',
+  supportEmail: 'contato@barberclock.com.br',
   pixInstructions: 'Transfira o valor exato da taxa mensal para a chave PIX acima e anexe ou confirme o pagamento para ativação imediata pelo administrador geral.',
+  mercadoPagoAccessToken: '',
+  mercadoPagoPublicKey: '',
+  mercadoPagoEnabled: true,
 };
 
 export const INITIAL_SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
@@ -252,9 +255,9 @@ export const INITIAL_USERS: User[] = [
   },
   {
     id: 'user_barber_carlos',
-    name: 'Carlos Silva (Navalha de Ouro)',
+    name: 'Carlos Silva (BarberClock)',
     phone: '11977776666',
-    email: 'carlos@navalhadouro.com.br',
+    email: 'carlos@barberclock.com.br',
     password: '123456',
     role: 'barber',
     barbershopId: 'shop_navalha',
@@ -297,25 +300,26 @@ export const INITIAL_BARBERSHOPS: Barbershop[] = [
     ownerId: 'user_barber_carlos',
     ownerName: 'Carlos Silva',
     ownerPhone: '11977776666',
-    name: 'Barbearia Navalha de Ouro',
-    slug: 'navalha-de-ouro',
-    logoUrl: 'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=300&auto=format&fit=crop&q=80',
+    name: 'BarberClock',
+    slug: 'barberclock',
+    logoUrl: '/barber_clock_logo.jpg',
     bannerUrl: 'https://images.unsplash.com/photo-1585747860715-2ba37e788b70?w=1200&auto=format&fit=crop&q=80',
     phone: '11977776666',
     address: 'Av. Paulista, 1578 - Bela Vista',
     city: 'São Paulo',
-    instagram: '@navalhadouro_sp',
-    bio: 'Especialistas em cortes degradê navalhado, barba terapia com toalha quente e tratamentos masculinos com padrão premium.',
+    instagram: '@barberclock_oficial',
+    bio: 'The Timeless Trim - Especialistas em cortes clássicos e degradê contemporâneo, barba terapia com toalha quente e pontualidade britânica.',
     themeColor: '#d97706', // amber
-    pixKey: 'carlos.navalha@pix.com.br',
+    pixKey: 'carlos.barberclock@pix.com.br',
     pixKeyType: 'email',
-    pixReceiverName: 'CARLOS SILVA BARBEARIA',
+    pixReceiverName: 'BARBERCLOCK CARLOS SILVA',
     subscriptionStatus: 'active',
     subscriptionMonthlyFee: 49.90,
     subscriptionValidUntil: '2026-09-30',
     subscriptionRequestedAt: '2026-08-01',
     subscriptionLastPaymentDate: '2026-08-01',
     slotIntervalMinutes: 30,
+    bookingWindowDays: 15,
     workingHours: {
       0: { isOpen: false, openTime: '09:00', closeTime: '14:00' }, // Dom
       1: { isOpen: true, openTime: '09:00', closeTime: '19:30', breakStart: '12:30', breakEnd: '13:30' }, // Seg
@@ -350,6 +354,7 @@ export const INITIAL_BARBERSHOPS: Barbershop[] = [
     subscriptionRequestedAt: '2026-08-05',
     subscriptionLastPaymentDate: '2026-08-05',
     slotIntervalMinutes: 45,
+    bookingWindowDays: 30,
     workingHours: {
       0: { isOpen: false, openTime: '09:00', closeTime: '14:00' },
       1: { isOpen: false, openTime: '09:00', closeTime: '19:00' },

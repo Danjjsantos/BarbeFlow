@@ -11,6 +11,7 @@ import { PlatformSettingsModal } from './PlatformSettingsModal';
 import { SuperAdminPlansTab } from './SuperAdminPlansTab';
 import { SuperAdminLandingEditorTab } from './SuperAdminLandingEditorTab';
 import { ChangePasswordModal } from '../common/ChangePasswordModal';
+import { SupabaseStatusModal } from '../common/SupabaseStatusModal';
 import confetti from 'canvas-confetti';
 import {
   Shield,
@@ -41,6 +42,8 @@ import {
   Menu,
   KeyRound,
   Lock,
+  LogOut,
+  Database,
 } from 'lucide-react';
 
 export const SuperAdminDashboard: React.FC = () => {
@@ -54,6 +57,8 @@ export const SuperAdminDashboard: React.FC = () => {
     setCurrentView,
     currentUser,
     switchRole,
+    logoutUser,
+    isSupabaseActive,
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<'shops' | 'plans' | 'landing_editor'>('shops');
@@ -61,6 +66,7 @@ export const SuperAdminDashboard: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   // Filter pending barbershops that need approval
@@ -206,6 +212,20 @@ export const SuperAdminDashboard: React.FC = () => {
 
               <button
                 onClick={() => {
+                  setIsSupabaseModalOpen(true);
+                  setIsMobileSidebarOpen(false);
+                }}
+                className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-bold text-slate-300 hover:bg-slate-800 hover:text-white transition text-left"
+              >
+                <div className="flex items-center gap-3">
+                  <Database className={`w-4 h-4 shrink-0 ${isSupabaseActive ? 'text-emerald-400' : 'text-slate-400'}`} />
+                  <span>Banco de Dados Supabase</span>
+                </div>
+                <span className={`w-2 h-2 rounded-full ${isSupabaseActive ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}`}></span>
+              </button>
+
+              <button
+                onClick={() => {
                   setIsPasswordModalOpen(true);
                   setIsMobileSidebarOpen(false);
                 }}
@@ -269,24 +289,24 @@ export const SuperAdminDashboard: React.FC = () => {
             </div>
           </div>
 
-          {/* Group 3: Visão do Cliente */}
+          {/* Group 3: Sessão & Logout */}
           <div>
             <div className="px-3 mb-2 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
-              Visão do Cliente
+              Sessão & Acesso
             </div>
             <div className="space-y-1">
               <button
                 onClick={() => {
-                  switchRole('client');
-                  setCurrentView('client_booking');
+                  logoutUser();
+                  setIsMobileSidebarOpen(false);
                 }}
-                className="w-full flex items-center justify-between px-3.5 py-3 rounded-2xl text-xs font-bold text-slate-300 bg-slate-800/60 hover:bg-slate-800 hover:text-white border border-slate-700/60 transition text-left group"
+                className="w-full flex items-center justify-between px-3.5 py-3 rounded-2xl text-xs font-bold text-rose-300 bg-rose-950/40 hover:bg-rose-900/60 hover:text-white border border-rose-800/40 transition text-left group"
               >
                 <div className="flex items-center gap-3">
-                  <Store className="w-4 h-4 text-amber-400 shrink-0" />
-                  <span>Visão do Cliente (Agendamento)</span>
+                  <LogOut className="w-4 h-4 text-rose-400 shrink-0" />
+                  <span>Sair do Painel</span>
                 </div>
-                <ChevronRight className="w-3.5 h-3.5 text-slate-500 group-hover:translate-x-0.5 transition" />
+                <ChevronRight className="w-3.5 h-3.5 text-rose-400/60 group-hover:translate-x-0.5 transition" />
               </button>
             </div>
           </div>
@@ -343,7 +363,7 @@ export const SuperAdminDashboard: React.FC = () => {
               className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-2 border border-slate-700"
             >
               <Eye className="w-4 h-4 text-orange-400" />
-              Ver Página de Apresentação
+              Ver Apresentação
             </button>
 
             <button
@@ -352,6 +372,15 @@ export const SuperAdminDashboard: React.FC = () => {
             >
               <Settings className="w-4 h-4" />
               Configurações Gerais
+            </button>
+
+            <button
+              onClick={logoutUser}
+              className="px-4 py-2.5 bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 hover:text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-2 border border-rose-500/30"
+              title="Sair do painel e voltar para a página de apresentação"
+            >
+              <LogOut className="w-4 h-4 text-rose-400" />
+              Sair
             </button>
           </div>
         </div>
@@ -746,6 +775,12 @@ export const SuperAdminDashboard: React.FC = () => {
         onClose={() => setIsPasswordModalOpen(false)}
         userId={currentUser.id}
         userName={currentUser.name}
+      />
+
+      {/* Supabase Status Modal */}
+      <SupabaseStatusModal
+        isOpen={isSupabaseModalOpen}
+        onClose={() => setIsSupabaseModalOpen(false)}
       />
     </div>
   );

@@ -2,7 +2,24 @@ import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { PixKeyType } from '../../types';
 import { ChangePasswordModal } from '../common/ChangePasswordModal';
-import { X, Save, Shield, CreditCard, Phone, Mail, FileText, KeyRound, Lock } from 'lucide-react';
+import { testMercadoPagoCredentials } from '../../utils/mercadopago';
+import {
+  X,
+  Save,
+  Shield,
+  CreditCard,
+  Phone,
+  Mail,
+  FileText,
+  KeyRound,
+  Lock,
+  Zap,
+  CheckCircle2,
+  AlertTriangle,
+  RefreshCw,
+  Eye,
+  EyeOff,
+} from 'lucide-react';
 
 interface PlatformSettingsModalProps {
   isOpen: boolean;
@@ -29,9 +46,57 @@ export const PlatformSettingsModal: React.FC<PlatformSettingsModalProps> = ({
   const [pixInstructions, setPixInstructions] = useState(
     platformSettings.pixInstructions
   );
+
+  // Mercado Pago states
+  const [mercadoPagoAccessToken, setMercadoPagoAccessToken] = useState(
+    platformSettings.mercadoPagoAccessToken || ''
+  );
+  const [mercadoPagoEnabled, setMercadoPagoEnabled] = useState(
+    platformSettings.mercadoPagoEnabled !== false
+  );
+  const [showToken, setShowToken] = useState(false);
+  const [isTestingMp, setIsTestingMp] = useState(false);
+  const [mpTestResult, setMpTestResult] = useState<{
+    success?: boolean;
+    message?: string;
+  } | null>(null);
+
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
 
   if (!isOpen) return null;
+
+  const handleTestMercadoPago = async () => {
+    if (!mercadoPagoAccessToken.trim()) {
+      setMpTestResult({
+        success: false,
+        message: 'Digite o Access Token do Mercado Pago antes de testar.',
+      });
+      return;
+    }
+    setIsTestingMp(true);
+    setMpTestResult(null);
+    try {
+      const res = await testMercadoPagoCredentials(mercadoPagoAccessToken);
+      if (res.success) {
+        setMpTestResult({
+          success: true,
+          message: res.message || `Conectado com sucesso à conta: ${res.nickname || res.email || 'Mercado Pago'}`,
+        });
+      } else {
+        setMpTestResult({
+          success: false,
+          message: res.error || 'Token inválido ou sem permissão.',
+        });
+      }
+    } catch (err: any) {
+      setMpTestResult({
+        success: false,
+        message: 'Erro de comunicação ao testar token.',
+      });
+    } finally {
+      setIsTestingMp(false);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,6 +109,8 @@ export const PlatformSettingsModal: React.FC<PlatformSettingsModalProps> = ({
       supportPhone,
       supportEmail,
       pixInstructions,
+      mercadoPagoAccessToken: mercadoPagoAccessToken.trim(),
+      mercadoPagoEnabled,
     });
     onClose();
   };
@@ -63,9 +130,9 @@ export const PlatformSettingsModal: React.FC<PlatformSettingsModalProps> = ({
             <Shield className="w-3.5 h-3.5" />
             Configurações Globais da Plataforma
           </span>
-          <h3 className="text-xl font-bold">Taxa Mensal & Chave PIX Master</h3>
+          <h3 className="text-xl font-bold">Taxa Mensal & PIX Mercado Pago</h3>
           <p className="text-xs text-slate-500 mt-1">
-            Defina o valor da taxa mensal cobrada dos barbeiros e a conta PIX onde você receberá as assinaturas.
+            Defina o valor da assinatura dos barbeiros, chave PIX manual e a integração automática do Mercado Pago.
           </p>
         </div>
 
@@ -143,6 +210,85 @@ export const PlatformSettingsModal: React.FC<PlatformSettingsModalProps> = ({
                 className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold"
               />
             </div>
+          </div>
+
+          {/* Mercado Pago Master Integration */}
+          <div className="p-4 bg-sky-50 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-800 rounded-2xl space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-sky-600 text-white flex items-center justify-center">
+                  <Zap className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="font-bold text-slate-900 dark:text-white block text-xs">
+                    Mercado Pago API (Confirmação Automática de Assinaturas)
+                  </span>
+                  <span className="text-[10px] text-slate-500">
+                    Gera QR Code PIX dinâmico e aprova a assinatura do barbeiro instantaneamente.
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Mercado Pago Access Token (Produção ou Teste):
+              </label>
+              <div className="relative">
+                <input
+                  type={showToken ? 'text' : 'password'}
+                  placeholder="APP_USR-..."
+                  value={mercadoPagoAccessToken}
+                  onChange={(e) => setMercadoPagoAccessToken(e.target.value)}
+                  className="w-full px-3 py-2 pr-16 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowToken(!showToken)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 text-slate-400 hover:text-slate-600 text-[10px]"
+                >
+                  {showToken ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between gap-2 pt-1">
+              <button
+                type="button"
+                onClick={handleTestMercadoPago}
+                disabled={isTestingMp}
+                className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
+              >
+                {isTestingMp ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Testando...</span>
+                  </>
+                ) : (
+                  <>
+                    <Zap className="w-3.5 h-3.5" />
+                    <span>Testar Conexão</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {mpTestResult && (
+              <div
+                className={`p-2.5 rounded-xl text-xs font-medium flex items-center gap-2 ${
+                  mpTestResult.success
+                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-300'
+                    : 'bg-rose-100 text-rose-800 dark:bg-rose-950/70 dark:text-rose-300 border border-rose-300'
+                }`}
+              >
+                {mpTestResult.success ? (
+                  <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+                ) : (
+                  <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600" />
+                )}
+                <span>{mpTestResult.message}</span>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

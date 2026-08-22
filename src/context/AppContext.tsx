@@ -21,6 +21,7 @@ import {
   INITIAL_LANDING_CONTENT,
 } from '../data/initialData';
 import { generateId, getTodayDateString } from '../utils/formatters';
+import { supabaseService, isSupabaseConfigured } from '../lib/supabase';
 
 interface AppContextType {
   currentUser: User;
@@ -36,7 +37,18 @@ interface AppContextType {
   setActiveBarbershopId: (id: string) => void;
   currentView: 'client_booking' | 'client_appointments' | 'barber_dashboard' | 'super_admin_dashboard' | 'landing_page';
   setCurrentView: (view: 'client_booking' | 'client_appointments' | 'barber_dashboard' | 'super_admin_dashboard' | 'landing_page') => void;
+  activeBarberTab: 'schedule' | 'financial' | 'services' | 'settings';
+  setActiveBarberTab: (tab: 'schedule' | 'financial' | 'services' | 'settings') => void;
+  isBarberDrawerOpen: boolean;
+  setIsBarberDrawerOpen: (isOpen: boolean) => void;
+  newAppointmentsCount: number;
+  markAppointmentsAsSeen: () => void;
   switchRole: (role: 'client' | 'barber' | 'super_admin') => void;
+  
+  // Supabase Status
+  isSupabaseActive: boolean;
+  supabaseStatus: { connected: boolean; message: string };
+  checkSupabaseConnection: () => Promise<void>;
   
   // Registration Modal State
   isRegisterModalOpen: boolean;
@@ -164,10 +176,157 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return saved || 'shop_navalha';
   });
 
+  const [isSupabaseActive, setIsSupabaseActive] = useState<boolean>(isSupabaseConfigured());
+  const [supabaseStatus, setSupabaseStatus] = useState<{ connected: boolean; message: string }>({
+    connected: isSupabaseConfigured(),
+    message: isSupabaseConfigured()
+      ? 'Supabase configurado e sincronizado'
+      : 'Modo local ativo (Configure VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY)',
+  });
+
+  const checkSupabaseConnection = async () => {
+    if (!isSupabaseConfigured()) {
+      setIsSupabaseActive(false);
+      setSupabaseStatus({
+        connected: false,
+        message: 'Variáveis VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY não informadas.',
+      });
+      return;
+    }
+
+    const res = await supabaseService.checkConnection();
+    setIsSupabaseActive(res.connected);
+    setSupabaseStatus(res);
+  };
+
+  // Initial Supabase Hydration & Realtime Subscription
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return;
+
+    let isMounted = true;
+
+    const hydrateFromSupabase = async () => {
+      try {
+        const [remoteShops, remoteServices, remoteAppointments, remoteUsers] = await Promise.all([
+          supabaseService.getBarbershops(),
+          supabaseService.getServices(),
+          supabaseService.getAppointments(),
+          supabaseService.getUsers(),
+        ]);
+
+        if (!isMounted) return;
+
+        if (remoteShops && remoteShops.length > 0) {
+          setBarbershops(remoteShops);
+        } else {
+          // If remote database is empty, seed with initial barbershops
+          INITIAL_BARBERSHOPS.forEach((shop) => supabaseService.upsertBarbershop(shop));
+        }
+
+        if (remoteServices && remoteServices.length > 0) {
+          setServices(remoteServices);
+        } else {
+          INITIAL_SERVICES.forEach((srv) => supabaseService.upsertService(srv));
+        }
+
+        if (remoteAppointments && remoteAppointments.length > 0) {
+          setAppointments(remoteAppointments);
+        } else {
+          INITIAL_APPOINTMENTS.forEach((apt) => supabaseService.upsertAppointment(apt));
+        }
+
+        if (remoteUsers && remoteUsers.length > 0) {
+          setUsers(remoteUsers);
+        } else {
+          INITIAL_USERS.forEach((usr) => supabaseService.upsertUser(usr));
+        }
+
+        setIsSupabaseActive(true);
+        setSupabaseStatus({
+          connected: true,
+          message: 'Conectado em tempo real com o banco de dados Supabase.',
+        });
+      } catch (err: any) {
+        console.warn('Erro na hidratação com Supabase:', err);
+      }
+    };
+
+    hydrateFromSupabase();
+
+    // Subscribe to realtime database changes
+    const unsubscribe = supabaseService.subscribeToChanges(
+      async () => {
+        const freshAppointments = await supabaseService.getAppointments();
+        if (freshAppointments && isMounted) {
+          setAppointments(freshAppointments);
+        }
+      },
+      async () => {
+        const freshShops = await supabaseService.getBarbershops();
+        if (freshShops && isMounted) {
+          setBarbershops(freshShops);
+        }
+      }
+    );
+
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
+  }, []);
+
+  // Handle URL Hash navigation (e.g. #navalha-de-ouro or #estilo-urbano)
+  useEffect(() => {
+    const handleHashNavigation = () => {
+      const hash = window.location.hash.replace('#', '').trim();
+      if (!hash) return;
+
+      if (hash === 'planos' || hash === 'cadastro') {
+        setCurrentView('landing_page');
+        return;
+      }
+
+      // Check if hash matches a barbershop slug or id
+      const matchedShop = barbershops.find(
+        (s) => s.slug.toLowerCase() === hash.toLowerCase() || s.id.toLowerCase() === hash.toLowerCase()
+      );
+
+      if (matchedShop) {
+        setActiveBarbershopId(matchedShop.id);
+        setCurrentView('client_booking');
+      }
+    };
+
+    handleHashNavigation();
+    window.addEventListener('hashchange', handleHashNavigation);
+    return () => window.removeEventListener('hashchange', handleHashNavigation);
+  }, [barbershops]);
+
   const [currentView, setCurrentView] = useState<'client_booking' | 'client_appointments' | 'barber_dashboard' | 'super_admin_dashboard' | 'landing_page'>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.CURRENT_VIEW);
     return (saved as any) || 'client_booking';
   });
+
+  const [activeBarberTab, setActiveBarberTab] = useState<'schedule' | 'financial' | 'services' | 'settings'>('schedule');
+  const [isBarberDrawerOpen, setIsBarberDrawerOpen] = useState<boolean>(false);
+
+  // Track last seen appointment time for accurate "new appointment" notification
+  const [lastSeenAppointmentTime, setLastSeenAppointmentTime] = useState<string>(() => {
+    return localStorage.getItem('barber_last_seen_appointments') || new Date().toISOString();
+  });
+
+  const markAppointmentsAsSeen = () => {
+    const now = new Date().toISOString();
+    setLastSeenAppointmentTime(now);
+    localStorage.setItem('barber_last_seen_appointments', now);
+  };
+
+  const currentShopId = currentUser.barbershopId || activeBarbershopId;
+  const newAppointmentsCount = appointments.filter((apt) => {
+    if (apt.barbershopId !== currentShopId) return false;
+    if (!apt.createdAt) return false;
+    return new Date(apt.createdAt).getTime() > new Date(lastSeenAppointmentTime).getTime();
+  }).length;
 
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState<boolean>(false);
   const [registerPlanId, setRegisterPlanId] = useState<string>('annual');
@@ -262,7 +421,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setUsers((prevUsers) => {
       const updated = prevUsers.map((u) => {
         if (u.id === userId) {
-          return { ...u, password: trimmedPass };
+          const userUpdated = { ...u, password: trimmedPass };
+          supabaseService.upsertUser(userUpdated);
+          return userUpdated;
         }
         return u;
       });
@@ -367,12 +528,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setAppointments((prev) => [newAppointment, ...prev]);
 
+    // Persist to Supabase
+    supabaseService.upsertAppointment(newAppointment);
+
     // If client user is anonymous or updating name/phone, keep user updated
     if (currentUser.role === 'client') {
       if (currentUser.name !== data.clientName || currentUser.phone !== data.clientPhone) {
         const updated = { ...currentUser, name: data.clientName, phone: data.clientPhone };
         setCurrentUser(updated);
         setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
+        supabaseService.upsertUser(updated);
       }
     }
 
@@ -384,20 +549,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const now = new Date();
     const formattedDate = `${now.toISOString().split('T')[0]} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
     setAppointments((prev) =>
-      prev.map((apt) =>
-        apt.id === id
-          ? {
-              ...apt,
-              status: 'cancelled',
-              cancellationReason: reason || 'Cancelado',
-              cancelledBy,
-              cancelledAt: formattedDate,
-              notes: reason
-                ? `${apt.notes ? apt.notes + ' • ' : ''}[Cancelado por ${cancelledBy === 'barber' ? 'Barbeiro' : 'Cliente'}: ${reason}]`
-                : apt.notes,
-            }
-          : apt
-      )
+      prev.map((apt) => {
+        if (apt.id !== id) return apt;
+        const updated: Appointment = {
+          ...apt,
+          status: 'cancelled',
+          cancellationReason: reason || 'Cancelado',
+          cancelledBy,
+          cancelledAt: formattedDate,
+          notes: reason
+            ? `${apt.notes ? apt.notes + ' • ' : ''}[Cancelado por ${cancelledBy === 'barber' ? 'Barbeiro' : 'Cliente'}: ${reason}]`
+            : apt.notes,
+        };
+        supabaseService.upsertAppointment(updated);
+        return updated;
+      })
     );
   };
 
@@ -406,27 +572,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const now = new Date();
     const formattedDate = `${now.toISOString().split('T')[0]} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
     setAppointments((prev) =>
-      prev.map((apt) =>
-        apt.id === id
-          ? {
-              ...apt,
-              status: 'confirmed',
-              pixPaidAt: formattedDate,
-            }
-          : apt
-      )
+      prev.map((apt) => {
+        if (apt.id !== id) return apt;
+        const updated: Appointment = {
+          ...apt,
+          status: 'confirmed',
+          pixPaidAt: formattedDate,
+        };
+        supabaseService.upsertAppointment(updated);
+        return updated;
+      })
     );
   };
 
   const completeAppointment = (id: string) => {
     setAppointments((prev) =>
-      prev.map((apt) => (apt.id === id ? { ...apt, status: 'completed' } : apt))
+      prev.map((apt) => {
+        if (apt.id !== id) return apt;
+        const updated: Appointment = { ...apt, status: 'completed' };
+        supabaseService.upsertAppointment(updated);
+        return updated;
+      })
     );
   };
 
   const updateAppointmentStatus = (id: string, status: AppointmentStatus) => {
     setAppointments((prev) =>
-      prev.map((apt) => (apt.id === id ? { ...apt, status } : apt))
+      prev.map((apt) => {
+        if (apt.id !== id) return apt;
+        const updated: Appointment = { ...apt, status };
+        supabaseService.upsertAppointment(updated);
+        return updated;
+      })
     );
   };
 
@@ -437,39 +614,67 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       id: generateId('srv'),
     };
     setServices((prev) => [...prev, newService]);
+    supabaseService.upsertService(newService);
   };
 
   const updateService = (id: string, updates: Partial<Service>) => {
     setServices((prev) =>
-      prev.map((srv) => (srv.id === id ? { ...srv, ...updates } : srv))
+      prev.map((srv) => {
+        if (srv.id !== id) return srv;
+        const updated: Service = { ...srv, ...updates };
+        supabaseService.upsertService(updated);
+        return updated;
+      })
     );
   };
 
   const deleteService = (id: string) => {
     setServices((prev) => prev.filter((srv) => srv.id !== id));
+    supabaseService.deleteService(id);
   };
 
   // Barbershop Updates
   const updateBarbershop = (id: string, updates: Partial<Barbershop>) => {
     setBarbershops((prev) =>
-      prev.map((shop) => (shop.id === id ? { ...shop, ...updates } : shop))
+      prev.map((shop) => {
+        if (shop.id !== id) return shop;
+        const updated: Barbershop = { ...shop, ...updates };
+        supabaseService.upsertBarbershop(updated);
+        return updated;
+      })
     );
+    if (updates.logoUrl) {
+      setCurrentUser((prev) => {
+        const updated = prev.barbershopId === id ? { ...prev, avatarUrl: updates.logoUrl } : prev;
+        if (prev.barbershopId === id) supabaseService.upsertUser(updated);
+        return updated;
+      });
+      setUsers((prev) =>
+        prev.map((u) => {
+          if (u.barbershopId !== id) return u;
+          const updated = { ...u, avatarUrl: updates.logoUrl };
+          supabaseService.upsertUser(updated);
+          return updated;
+        })
+      );
+    }
   };
 
   // Submit proof of monthly subscription payment by Barber
   const submitSubscriptionPaymentProof = (barbershopId: string, proofNote: string) => {
     const todayStr = getTodayDateString();
     setBarbershops((prev) =>
-      prev.map((shop) =>
-        shop.id === barbershopId
-          ? {
-              ...shop,
-              subscriptionStatus: 'pending',
-              subscriptionProofUrl: proofNote,
-              subscriptionRequestedAt: todayStr,
-            }
-          : shop
-      )
+      prev.map((shop) => {
+        if (shop.id !== barbershopId) return shop;
+        const updated: Barbershop = {
+          ...shop,
+          subscriptionStatus: 'pending',
+          subscriptionProofUrl: proofNote,
+          subscriptionRequestedAt: todayStr,
+        };
+        supabaseService.upsertBarbershop(updated);
+        return updated;
+      })
     );
   };
 
@@ -481,37 +686,44 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const todayStr = getTodayDateString();
 
     setBarbershops((prev) =>
-      prev.map((shop) =>
-        shop.id === barbershopId
-          ? {
-              ...shop,
-              subscriptionStatus: 'active',
-              subscriptionValidUntil: validUntil,
-              subscriptionLastPaymentDate: todayStr,
-              subscriptionProofUrl: undefined,
-            }
-          : shop
-      )
+      prev.map((shop) => {
+        if (shop.id !== barbershopId) return shop;
+        const updated: Barbershop = {
+          ...shop,
+          subscriptionStatus: 'active',
+          subscriptionValidUntil: validUntil,
+          subscriptionLastPaymentDate: todayStr,
+          subscriptionProofUrl: undefined,
+        };
+        supabaseService.upsertBarbershop(updated);
+        return updated;
+      })
     );
   };
 
   const rejectBarbershopSubscription = (barbershopId: string) => {
     setBarbershops((prev) =>
-      prev.map((shop) =>
-        shop.id === barbershopId
-          ? {
-              ...shop,
-              subscriptionStatus: 'overdue',
-              subscriptionProofUrl: undefined,
-            }
-          : shop
-      )
+      prev.map((shop) => {
+        if (shop.id !== barbershopId) return shop;
+        const updated: Barbershop = {
+          ...shop,
+          subscriptionStatus: 'overdue',
+          subscriptionProofUrl: undefined,
+        };
+        supabaseService.upsertBarbershop(updated);
+        return updated;
+      })
     );
   };
 
   const updateBarbershopSubscriptionStatus = (barbershopId: string, status: SubscriptionStatus) => {
     setBarbershops((prev) =>
-      prev.map((shop) => (shop.id === barbershopId ? { ...shop, subscriptionStatus: status } : shop))
+      prev.map((shop) => {
+        if (shop.id !== barbershopId) return shop;
+        const updated: Barbershop = { ...shop, subscriptionStatus: status };
+        supabaseService.upsertBarbershop(updated);
+        return updated;
+      })
     );
   };
 
@@ -591,6 +803,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       subscriptionRequestedAt: getTodayDateString(),
       subscriptionProofUrl: `Comprovante PIX Adesão ${selectedPlan.name} (R$ ${selectedPlan.price.toFixed(2)})`,
       slotIntervalMinutes: 30,
+      bookingWindowDays: 15,
       workingHours: {
         0: { isOpen: false, openTime: '09:00', closeTime: '14:00' },
         1: { isOpen: true, openTime: '09:00', closeTime: '19:00', breakStart: '12:00', breakEnd: '13:00' },
@@ -639,6 +852,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setUsers((prev) => [...prev, newUser]);
     setBarbershops((prev) => [...prev, newShop]);
     setServices((prev) => [...prev, ...defaultServices]);
+
+    // Persist new barbershop, user, and default services to Supabase
+    supabaseService.upsertUser(newUser);
+    supabaseService.upsertBarbershop(newShop);
+    defaultServices.forEach((srv) => supabaseService.upsertService(srv));
 
     return newShop;
   };
@@ -692,7 +910,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setActiveBarbershopId,
         currentView,
         setCurrentView,
+        activeBarberTab,
+        setActiveBarberTab,
+        isBarberDrawerOpen,
+        setIsBarberDrawerOpen,
+        newAppointmentsCount,
+        markAppointmentsAsSeen,
         switchRole,
+        isSupabaseActive,
+        supabaseStatus,
+        checkSupabaseConnection,
         isRegisterModalOpen,
         setIsRegisterModalOpen,
         registerPlanId,

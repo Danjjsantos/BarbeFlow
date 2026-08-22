@@ -29,6 +29,7 @@ import {
   Scissors,
   Ban,
   Send,
+  ExternalLink,
 } from 'lucide-react';
 
 interface BarberScheduleViewProps {
@@ -43,6 +44,8 @@ export const BarberScheduleView: React.FC<BarberScheduleViewProps> = ({ barbersh
     completeAppointment,
     cancelAppointment,
     createAppointment,
+    setActiveBarbershopId,
+    setCurrentView,
   } = useApp();
 
   const [selectedDate, setSelectedDate] = useState<string>(getTodayDateString());
@@ -179,20 +182,32 @@ export const BarberScheduleView: React.FC<BarberScheduleViewProps> = ({ barbersh
           </div>
         </div>
 
-        {/* Action button */}
-        <div className="flex items-center gap-2">
+        {/* Action button & Date input optimized for phone and desktop */}
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap justify-between sm:justify-end w-full sm:w-auto">
           <input
             type="date"
             value={selectedDate}
             onChange={(e) => setSelectedDate(e.target.value)}
-            className="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 focus:outline-hidden"
+            className="px-2.5 sm:px-3 py-1.5 sm:py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 focus:outline-hidden"
           />
           <button
-            onClick={() => setIsNewBookingModalOpen(true)}
-            className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center gap-1.5 shrink-0"
+            onClick={() => {
+              setActiveBarbershopId(barbershop.id);
+              setCurrentView('client_booking');
+            }}
+            className="px-2.5 sm:px-3 py-1.5 sm:py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs rounded-xl border border-slate-200 dark:border-slate-700 transition flex items-center gap-1 sm:gap-1.5 shrink-0 active:scale-95"
+            title="Ver como os clientes visualizam os horários disponíveis neste período"
           >
-            <PlusCircle className="w-4 h-4" />
-            Novo Agendamento Balcão
+            <ExternalLink className="w-3.5 h-3.5 text-amber-500" />
+            <span className="hidden xs:inline">Ver Agenda Pública</span>
+          </button>
+          <button
+            onClick={() => setIsNewBookingModalOpen(true)}
+            className="px-2.5 sm:px-4 py-1.5 sm:py-2 bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center gap-1 sm:gap-1.5 shrink-0 active:scale-95"
+            title="Cadastrar novo agendamento manual"
+          >
+            <PlusCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
+            <span>Novo Agendamento</span>
           </button>
         </div>
       </div>

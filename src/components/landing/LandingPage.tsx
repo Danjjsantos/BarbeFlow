@@ -78,61 +78,62 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenRegister, onOpen
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 selection:bg-orange-600 selection:text-white" id="landing-presentation-page">
       {/* Top Floating Navigation */}
-      <header className="sticky top-0 z-40 bg-slate-950/80 backdrop-blur-xl border-b border-slate-800/80">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+      <header className="sticky top-0 z-40 bg-slate-950/90 backdrop-blur-xl border-b border-slate-800/80 shadow-2xl">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between gap-3">
+          {/* Logo & Brand */}
           <div
-            className="flex items-center gap-3 cursor-pointer group"
+            className="flex items-center gap-3 cursor-pointer group shrink-0"
             onClick={() => setCurrentView('client_booking')}
+            title="Ir para o agendamento da Barbearia BarberClock"
           >
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-orange-600 to-amber-600 flex items-center justify-center text-white shadow-lg shadow-orange-600/30 group-hover:scale-105 transition">
-              <Scissors className="w-6 h-6" />
+            <div className="relative">
+              <img
+                src="/barber_clock_logo.jpg"
+                alt="BarberClock Logo"
+                className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl object-cover border-2 border-amber-500/80 shadow-lg shadow-amber-500/25 group-hover:scale-105 transition shrink-0 bg-slate-900"
+              />
+              <span className="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-slate-950"></span>
             </div>
             <div>
-              <span className="text-xl font-black tracking-tight text-white block">
-                {platformSettings.platformName}
+              <span className="text-lg sm:text-xl font-black tracking-tight text-white block leading-tight">
+                BarberClock
               </span>
-              <span className="text-[10px] font-bold uppercase tracking-widest text-orange-400">
-                Plataforma Para Barbearias
+              <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-amber-400 block">
+                The Timeless Trim • Plataforma
               </span>
             </div>
           </div>
 
-          <nav className="hidden md:flex items-center gap-8 text-xs font-bold text-slate-300">
-            <a href="#video-demo" className="hover:text-orange-400 transition">
-              Como Funciona
-            </a>
-            <a href="#diferenciais" className="hover:text-orange-400 transition">
-              Diferenciais
-            </a>
-            <a href="#galeria" className="hover:text-orange-400 transition">
-              Demonstração
-            </a>
-            <a href="#planos" className="hover:text-orange-400 transition">
-              Planos & Preços
-            </a>
-            <a href="#calculadora" className="hover:text-orange-400 transition">
-              Simulador de Ganhos
-            </a>
-            <a href="#depoimentos" className="hover:text-orange-400 transition">
-              Depoimentos
-            </a>
+          {/* Centered / Aligned Navigation Button Pills with Justified Text */}
+          <nav className="hidden md:flex items-center gap-2 xl:gap-2.5">
+            {[
+              { href: '#video-demo', label: 'Como Funciona' },
+              { href: '#diferenciais', label: 'Diferenciais' },
+              { href: '#galeria', label: 'Demonstração' },
+              { href: '#planos', label: 'Planos & Preços' },
+              { href: '#calculadora', label: 'Simulador' },
+              { href: '#depoimentos', label: 'Depoimentos' },
+            ].map((item) => (
+              <a
+                key={item.href}
+                href={item.href}
+                className="px-3.5 py-2 rounded-xl text-center flex items-center justify-center font-bold text-xs bg-slate-900/90 hover:bg-slate-800 border border-slate-800 hover:border-amber-500/50 text-slate-300 hover:text-white transition shadow-xs whitespace-nowrap min-w-[92px]"
+              >
+                <span className="w-full text-center tracking-tight">{item.label}</span>
+              </a>
+            ))}
           </nav>
 
-          <div className="flex items-center gap-2.5">
+          {/* Action Button */}
+          <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={() => handleOpenLogin('barber')}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-slate-200 hover:text-white bg-slate-900 hover:bg-slate-800 border border-slate-700/80 rounded-xl transition shadow-xs"
+              className="p-2.5 sm:px-4 sm:py-2.5 rounded-xl text-center flex items-center justify-center gap-2 font-bold text-xs text-slate-100 hover:text-white bg-slate-900 hover:bg-slate-800 border border-slate-700/80 hover:border-amber-500/50 transition shadow-md active:scale-95"
               title="Entrar com login e senha (Barbeiro ou Admin Geral)"
+              aria-label="Acessar Conta"
             >
-              <KeyRound className="w-3.5 h-3.5 text-orange-400" />
-              <span>Acessar Conta</span>
-            </button>
-
-            <button
-              onClick={() => handleSelectPlanAndRegister('annual')}
-              className="px-4 sm:px-5 py-2 sm:py-2.5 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white text-xs font-extrabold rounded-xl shadow-lg shadow-orange-600/25 hover:shadow-orange-600/40 transition transform hover:-translate-y-0.5"
-            >
-              Credenciar Barbearia
+              <KeyRound className="w-4 h-4 text-amber-400 shrink-0" />
+              <span className="hidden sm:inline whitespace-nowrap">Acessar Conta</span>
             </button>
           </div>
         </div>

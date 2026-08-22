@@ -1,420 +1,213 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { RoleSwitcherModal } from './RoleSwitcherModal';
 import { QrCodeModal } from './common/QrCodeModal';
 import {
   Scissors,
+  QrCode,
+  LogOut,
   Calendar,
   DollarSign,
-  Shield,
-  Layers,
-  Store,
-  UserCheck,
-  Share2,
-  QrCode,
-  Sparkles,
-  ChevronDown,
+  Settings,
   Menu,
-  X,
-  Phone,
-  Clock,
-  ExternalLink,
-  Eye,
-  Award,
-  KeyRound,
 } from 'lucide-react';
 
 interface HeaderProps {
   onOpenRegister?: (planId?: string) => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onOpenRegister }) => {
+export const Header: React.FC<HeaderProps> = () => {
   const {
     currentUser,
-    currentView,
     setCurrentView,
     activeBarbershopId,
-    setActiveBarbershopId,
     barbershops,
     getBarbershopById,
-    setIsRegisterModalOpen,
-    openRegisterModal,
-    openLoginModal,
+    logoutUser,
+    activeBarberTab,
+    setActiveBarberTab,
+    setIsBarberDrawerOpen,
+    newAppointmentsCount,
+    markAppointmentsAsSeen,
   } = useApp();
 
-  const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const activeShop = getBarbershopById(activeBarbershopId) || barbershops[0];
-  const barberShop = currentUser.barbershopId
+  const userShop = currentUser.barbershopId
     ? getBarbershopById(currentUser.barbershopId)
-    : null;
+    : activeShop;
 
   // Generate public booking URL preview
-  const publicBookingUrl = `${window.location.origin}/#${activeShop?.slug || 'navalha-de-ouro'}`;
+  const publicBookingUrl = `${window.location.origin}/#${userShop?.slug || 'navalha-de-ouro'}`;
 
-  const handleRegisterClick = () => {
-    if (onOpenRegister) {
-      onOpenRegister('annual');
-    } else {
-      openRegisterModal('annual');
-    }
-  };
+  const isBarber = currentUser.role === 'barber';
+
+  // Only show badge when there is genuinely a new appointment
+  const barberNavOptions = [
+    {
+      id: 'schedule' as const,
+      label: 'Agenda',
+      icon: Calendar,
+      badge: newAppointmentsCount > 0 ? `${newAppointmentsCount}` : undefined,
+    },
+    { id: 'financial' as const, label: 'Financeiro', icon: DollarSign },
+    { id: 'services' as const, label: 'Serviços', icon: Scissors },
+    { id: 'settings' as const, label: 'Configurações', icon: Settings },
+  ];
 
   return (
     <>
-      <header className="sticky top-0 z-40 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 text-slate-100 shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16 sm:h-20">
-            {/* Logo & Brand */}
-            <div
-              className="flex items-center gap-3 cursor-pointer"
-              onClick={() => setCurrentView('landing_page')}
-            >
-              <div className="relative flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-tr from-amber-600 to-amber-400 text-slate-950 font-black shadow-md shadow-amber-500/20">
-                <Scissors className="w-5 h-5 sm:w-6 sm:h-6" />
-                <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
-                </span>
+      <header className="sticky top-0 z-40 bg-slate-950 border-b border-slate-800 text-slate-100 shadow-2xl">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+          {/* Main Top Header Bar */}
+          <div className="flex items-center justify-between py-2 sm:py-3 gap-2 sm:gap-4">
+            {/* Left: Barbershop Brand Logo & Name */}
+            <div className="flex items-center gap-2.5 sm:gap-3.5 overflow-hidden">
+              <div
+                className="cursor-pointer shrink-0"
+                onClick={() => {
+                  if (isBarber) {
+                    setCurrentView('barber_dashboard');
+                  } else if (currentUser.role === 'super_admin') {
+                    setCurrentView('super_admin_dashboard');
+                  } else {
+                    setCurrentView('landing_page');
+                  }
+                }}
+              >
+                {userShop?.logoUrl ? (
+                  <img
+                    src={userShop.logoUrl}
+                    alt={userShop.name}
+                    className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl object-cover border-2 border-amber-500/70 shadow-lg shadow-amber-500/10 shrink-0 bg-slate-900"
+                  />
+                ) : (
+                  <img
+                    src="/barber_clock_logo.jpg"
+                    alt="BarberClock"
+                    className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl object-cover border-2 border-amber-500/70 shadow-lg shadow-amber-500/10 shrink-0 bg-slate-900"
+                  />
+                )}
               </div>
-              <div>
-                <div className="flex items-center gap-1.5">
-                  <span className="font-extrabold text-lg sm:text-xl tracking-tight text-white">
-                    Barber<span className="text-amber-400">Hub</span>
-                  </span>
-                  <span className="text-[10px] bg-slate-800 border border-slate-700 text-slate-300 font-semibold px-2 py-0.5 rounded-md uppercase tracking-wider hidden xs:inline-block">
-                    PIX Ready
-                  </span>
+
+              {/* Barbershop Name & Status */}
+              <div className="overflow-hidden">
+                <div className="flex items-center gap-2">
+                  <h1
+                    onClick={() => {
+                      if (isBarber) setCurrentView('barber_dashboard');
+                    }}
+                    className="font-black text-base sm:text-xl text-white tracking-tight leading-tight truncate cursor-pointer hover:text-amber-400 transition"
+                  >
+                    {userShop?.name || 'BarberClock'}
+                  </h1>
+
+                  {userShop?.subscriptionStatus === 'active' && (
+                    <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 shrink-0">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                      <span className="hidden xs:inline">Ativa</span>
+                    </span>
+                  )}
                 </div>
-                <p className="text-[11px] text-slate-400 hidden sm:block">
-                  Gestão & Agendamento de Barbearias
+                <p className="text-[11px] text-slate-400 truncate">
+                  {userShop?.ownerName ? `Resp. ${userShop.ownerName}` : 'Painel da Barbearia'}
                 </p>
               </div>
             </div>
 
-            {/* Navigation Tabs - Hidden for Super Admin as it has the dedicated Left Sidebar */}
-            {currentUser.role !== 'super_admin' && (
-              <nav className="hidden md:flex items-center gap-1 bg-slate-950/60 p-1 rounded-xl border border-slate-800/80">
-                {/* Universal Presentation Link */}
-                <button
-                  onClick={() => setCurrentView('landing_page')}
-                  className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
-                    currentView === 'landing_page'
-                      ? 'bg-orange-500 text-slate-950 shadow-xs'
-                      : 'text-orange-300 hover:text-orange-200 hover:bg-orange-950/40'
-                  }`}
-                >
-                  <Eye className="w-3.5 h-3.5" />
-                  Apresentação & Planos
-                </button>
-
-                {currentUser.role === 'client' && (
-                  <>
-                    <button
-                      onClick={() => setCurrentView('client_booking')}
-                      className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
-                        currentView === 'client_booking'
-                          ? 'bg-amber-500 text-slate-950 shadow-xs'
-                          : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
-                      }`}
-                    >
-                      <Calendar className="w-3.5 h-3.5" />
-                      Agendar Horário
-                    </button>
-                    <button
-                      onClick={() => setCurrentView('client_appointments')}
-                      className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
-                        currentView === 'client_appointments'
-                          ? 'bg-amber-500 text-slate-950 shadow-xs'
-                          : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
-                      }`}
-                    >
-                      <Clock className="w-3.5 h-3.5" />
-                      Meus Agendamentos
-                    </button>
-                  </>
-                )}
-
-                {currentUser.role === 'barber' && (
-                  <>
-                    <button
-                      onClick={() => setCurrentView('barber_dashboard')}
-                      className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
-                        currentView === 'barber_dashboard'
-                          ? 'bg-amber-500 text-slate-950 shadow-xs'
-                          : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
-                      }`}
-                    >
-                      <Layers className="w-3.5 h-3.5" />
-                      Painel do Barbeiro
-                    </button>
-                    <button
-                      onClick={() => setCurrentView('client_booking')}
-                      className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
-                        currentView === 'client_booking'
-                          ? 'bg-amber-500 text-slate-950 shadow-xs'
-                          : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
-                      }`}
-                    >
-                      <ExternalLink className="w-3.5 h-3.5" />
-                      Ver Minha Agenda Pública
-                    </button>
-                  </>
-                )}
-              </nav>
-            )}
-
-            {/* User Profile & Demo Switcher Button */}
-            <div className="flex items-center gap-2">
-              {/* Quick Login Button */}
-              <button
-                onClick={() => openLoginModal('barber')}
-                className="hidden md:flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-300 hover:text-white bg-slate-800/90 hover:bg-slate-700 border border-slate-700 rounded-xl transition shadow-xs"
-                title="Entrar com login e senha (Barbeiro ou Admin Geral)"
-              >
-                <KeyRound className="w-3.5 h-3.5 text-orange-400" />
-                <span>Entrar</span>
-              </button>
-
-              {/* Quick Credenciar Button */}
-              <button
-                onClick={handleRegisterClick}
-                className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 text-xs font-extrabold text-slate-950 bg-gradient-to-r from-orange-500 to-amber-500 hover:opacity-90 rounded-xl shadow-xs transition"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-slate-950" />
-                Credenciar Barbearia
-              </button>
-
-              {/* Share / QR code button if on barber or client (hidden for super admin) */}
-              {activeShop && currentUser.role !== 'super_admin' && currentView !== 'super_admin_dashboard' && (
+            {/* Right: QR Code Icon-only & Logout Icon-only */}
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+              {/* QR Code Icon-only Button */}
+              {userShop && (
                 <button
                   onClick={() => setIsQrModalOpen(true)}
-                  title="Compartilhar Link da Barbearia / QR Code"
-                  className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl transition"
+                  title="Abrir QR Code da Barbearia"
+                  className="p-2 sm:p-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl transition shadow-md shadow-amber-500/20 active:scale-95 shrink-0 flex items-center justify-center"
+                  aria-label="QR Code da Barbearia"
                 >
-                  <QrCode className="w-3.5 h-3.5 text-amber-400" />
-                  QR Code
+                  <QrCode className="w-5 h-5 text-slate-950" />
                 </button>
               )}
 
-              {/* Role Switcher Pill */}
+              {/* Logout Icon-only Button */}
               <button
-                onClick={() => setIsRoleModalOpen(true)}
-                className="flex items-center gap-2.5 p-1.5 sm:px-3 sm:py-1.5 bg-slate-800/90 hover:bg-slate-700 border border-slate-700 rounded-xl transition text-left group"
-                title="Clique para alternar perfil (Admin, Barbeiro ou Cliente)"
+                onClick={logoutUser}
+                className="p-2 sm:p-2.5 bg-rose-600/20 hover:bg-rose-600/35 border border-rose-500/40 text-rose-300 hover:text-white rounded-xl transition shadow-sm active:scale-95 shrink-0 flex items-center justify-center"
+                title="Sair do painel"
+                aria-label="Sair"
               >
-                <div className="relative">
-                  <img
-                    src={
-                      currentUser.avatarUrl ||
-                      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'
-                    }
-                    alt={currentUser.name}
-                    className="w-8 h-8 rounded-lg object-cover ring-1 ring-amber-500/40"
-                  />
-                  {currentUser.role === 'super_admin' && (
-                    <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-orange-600 text-white rounded-full flex items-center justify-center text-[8px] font-bold">
-                      ★
-                    </span>
-                  )}
-                </div>
-
-                <div className="hidden sm:block">
-                  <div className="text-xs font-bold text-slate-100 flex items-center gap-1">
-                    <span className="truncate max-w-[130px]">{currentUser.name.split(' ')[0]}</span>
-                    <span
-                      className={`text-[9px] font-extrabold uppercase px-1.5 py-0.2 rounded-sm ${
-                        currentUser.role === 'super_admin'
-                          ? 'bg-orange-600 text-white'
-                          : currentUser.role === 'barber'
-                          ? 'bg-amber-500 text-slate-950'
-                          : 'bg-blue-600 text-white'
-                      }`}
-                    >
-                      {currentUser.role === 'super_admin'
-                        ? 'Admin Geral'
-                        : currentUser.role === 'barber'
-                        ? 'Barbeiro'
-                        : 'Cliente'}
-                    </span>
-                  </div>
-                  <div className="text-[10px] text-slate-400 flex items-center gap-1">
-                    <span>Mudar perfil</span>
-                    <ChevronDown className="w-2.5 h-2.5 text-slate-400 group-hover:translate-y-0.5 transition" />
-                  </div>
-                </div>
-              </button>
-
-              {/* Mobile menu toggle */}
-              <button
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="md:hidden p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800"
-              >
-                {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+                <LogOut className="w-5 h-5 text-rose-400" />
               </button>
             </div>
           </div>
+
+          {/* Bottom Bar: Icon-only Navigation Options */}
+          {isBarber && (
+            <div className="border-t border-slate-800/80 py-2 sm:py-2.5 flex items-center justify-start gap-2 overflow-x-auto no-scrollbar">
+              <div className="flex items-center gap-2 min-w-max">
+                {/* 3 Stripes / Hamburger Menu Icon Button */}
+                <button
+                  onClick={() => setIsBarberDrawerOpen(true)}
+                  className="p-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-amber-400 hover:text-white border border-slate-800 hover:border-amber-500/40 transition shadow-xs group shrink-0 active:scale-95 flex items-center justify-center"
+                  title="Menu Lateral (Todas as Opções)"
+                  aria-label="Menu"
+                >
+                  <Menu className="w-5 h-5 transition-transform group-hover:scale-110" />
+                </button>
+
+                <div className="h-5 w-px bg-slate-800 mx-1 shrink-0" />
+
+                {/* Option Icons without text (Agenda, Financial $, Services scissors, Settings gear) */}
+                {barberNavOptions.map((opt) => {
+                  const Icon = opt.icon;
+                  const isActive = activeBarberTab === opt.id;
+
+                  return (
+                    <button
+                      key={opt.id}
+                      onClick={() => {
+                        setActiveBarberTab(opt.id);
+                        if (opt.id === 'schedule') {
+                          markAppointmentsAsSeen();
+                        }
+                        setCurrentView('barber_dashboard');
+                      }}
+                      className={`relative p-2.5 rounded-xl transition shrink-0 active:scale-95 flex items-center justify-center ${
+                        isActive
+                          ? 'bg-amber-500 text-slate-950 font-black shadow-md shadow-amber-500/20'
+                          : 'bg-slate-900/80 text-slate-400 hover:text-slate-100 hover:bg-slate-800 border border-slate-800/60'
+                      }`}
+                      title={opt.label}
+                      aria-label={opt.label}
+                    >
+                      <Icon className={`w-5 h-5 ${isActive ? 'text-slate-950' : 'text-amber-400'}`} />
+                      {opt.badge && (
+                        <span
+                          className={`absolute -top-1 -right-1 text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow-xs ${
+                            isActive ? 'bg-slate-950 text-amber-400' : 'bg-amber-500 text-slate-950'
+                          }`}
+                        >
+                          {opt.badge}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
-
-        {/* Mobile Navigation Dropdown */}
-        {mobileMenuOpen && (
-          <div className="md:hidden px-4 pt-2 pb-4 space-y-2 border-t border-slate-800 bg-slate-900 animate-in slide-in-from-top duration-200">
-            <button
-              onClick={() => {
-                setCurrentView('landing_page');
-                setMobileMenuOpen(false);
-              }}
-              className={`w-full text-left px-3 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 ${
-                currentView === 'landing_page'
-                  ? 'bg-orange-500 text-slate-950 font-bold'
-                  : 'text-orange-300 hover:bg-slate-800'
-              }`}
-            >
-              <Eye className="w-4 h-4 text-orange-400" />
-              Página de Apresentação & Planos
-            </button>
-
-            {currentUser.role === 'client' && (
-              <>
-                <button
-                  onClick={() => {
-                    setCurrentView('client_booking');
-                    setMobileMenuOpen(false);
-                  }}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 ${
-                    currentView === 'client_booking'
-                      ? 'bg-amber-500 text-slate-950'
-                      : 'text-slate-300 hover:bg-slate-800'
-                  }`}
-                >
-                  <Calendar className="w-4 h-4 text-amber-400" />
-                  Agendar Horário
-                </button>
-                <button
-                  onClick={() => {
-                    setCurrentView('client_appointments');
-                    setMobileMenuOpen(false);
-                  }}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 ${
-                    currentView === 'client_appointments'
-                      ? 'bg-amber-500 text-slate-950'
-                      : 'text-slate-300 hover:bg-slate-800'
-                  }`}
-                >
-                  <Clock className="w-4 h-4 text-amber-400" />
-                  Meus Agendamentos
-                </button>
-              </>
-            )}
-
-            {currentUser.role === 'barber' && (
-              <>
-                <button
-                  onClick={() => {
-                    setCurrentView('barber_dashboard');
-                    setMobileMenuOpen(false);
-                  }}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 ${
-                    currentView === 'barber_dashboard'
-                      ? 'bg-amber-500 text-slate-950'
-                      : 'text-slate-300 hover:bg-slate-800'
-                  }`}
-                >
-                  <Layers className="w-4 h-4 text-amber-400" />
-                  Painel do Barbeiro
-                </button>
-                <button
-                  onClick={() => {
-                    setCurrentView('client_booking');
-                    setMobileMenuOpen(false);
-                  }}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 ${
-                    currentView === 'client_booking'
-                      ? 'bg-amber-500 text-slate-950'
-                      : 'text-slate-300 hover:bg-slate-800'
-                  }`}
-                >
-                  <ExternalLink className="w-4 h-4 text-amber-400" />
-                  Ver Minha Agenda Pública
-                </button>
-              </>
-            )}
-
-            {currentUser.role === 'super_admin' && (
-              <>
-                <button
-                  onClick={() => {
-                    setCurrentView('super_admin_dashboard');
-                    setMobileMenuOpen(false);
-                  }}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 ${
-                    currentView === 'super_admin_dashboard'
-                      ? 'bg-orange-600 text-white'
-                      : 'text-slate-300 hover:bg-slate-800'
-                  }`}
-                >
-                  <Shield className="w-4 h-4 text-orange-400" />
-                  Painel Super Admin & Planos
-                </button>
-                <button
-                  onClick={() => {
-                    setCurrentView('client_booking');
-                    setMobileMenuOpen(false);
-                  }}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 ${
-                    currentView === 'client_booking'
-                      ? 'bg-orange-600 text-white'
-                      : 'text-slate-300 hover:bg-slate-800'
-                  }`}
-                >
-                  <Store className="w-4 h-4 text-orange-400" />
-                  Visão de Cliente
-                </button>
-              </>
-            )}
-
-            <button
-              onClick={() => {
-                handleRegisterClick();
-                setMobileMenuOpen(false);
-              }}
-              className="w-full text-left px-3 py-2 rounded-lg text-sm font-bold bg-gradient-to-r from-orange-500 to-amber-500 text-slate-950 flex items-center gap-2"
-            >
-              <Sparkles className="w-4 h-4 text-slate-950" />
-              Credenciar Nova Barbearia
-            </button>
-
-            <button
-              onClick={() => {
-                setIsRoleModalOpen(true);
-                setMobileMenuOpen(false);
-              }}
-              className="w-full text-left px-3 py-2 rounded-lg text-sm font-semibold bg-slate-800 text-amber-400 flex items-center gap-2"
-            >
-              <Sparkles className="w-4 h-4" />
-              Trocar Perfil de Demonstração
-            </button>
-          </div>
-        )}
       </header>
-
-      {/* Role Switcher Modal */}
-      <RoleSwitcherModal
-        isOpen={isRoleModalOpen}
-        onClose={() => setIsRoleModalOpen(false)}
-      />
 
       {/* QR Code Modal for Barbershop Public Link */}
       <QrCodeModal
         isOpen={isQrModalOpen}
         onClose={() => setIsQrModalOpen(false)}
         title={`QR Code de Agendamento`}
-        subtitle={activeShop?.name}
+        subtitle={userShop?.name || 'Sua Barbearia'}
         qrValue={publicBookingUrl}
         badgeText="Acesso Rápido dos Clientes"
-        footerText="Imprima ou coloque no balcão da barbearia para que seus clientes agendem apontando a câmera do celular"
+        footerText="Imprima ou coloque no balcão da sua barbearia para que os clientes apontem a câmera do celular e agendem imediatamente."
       />
     </>
   );

@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
-import { Header } from './components/Header';
 import { ClientBookingFlow } from './components/client/ClientBookingFlow';
 import { ClientMyAppointments } from './components/client/ClientMyAppointments';
 import { BarberDashboard } from './components/barber/BarberDashboard';
@@ -29,9 +28,6 @@ const AppContent: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans antialiased selection:bg-amber-500 selection:text-white">
-      {/* Universal Header */}
-      <Header onOpenRegister={openRegisterModal} />
-
       {/* Main Content Area */}
       <main className="flex-1">
         {currentView === 'landing_page' && (
@@ -63,9 +59,11 @@ const AppContent: React.FC = () => {
         <footer className="bg-slate-900 border-t border-slate-800 py-6 px-4 text-xs text-slate-400">
           <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-5">
             <div className="flex items-center gap-3 text-center sm:text-left">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-orange-600 to-amber-500 text-white flex items-center justify-center font-bold shadow-md shadow-orange-600/20 shrink-0">
-                <Scissors className="w-4 h-4" />
-              </div>
+              <img
+                src="/barber_clock_logo.jpg"
+                alt="BarberClock Logo"
+                className="w-9 h-9 rounded-xl object-cover border border-amber-500/80 shadow-md shadow-amber-500/20 shrink-0 bg-slate-950"
+              />
               <div>
                 <div className="flex items-center gap-2 justify-center sm:justify-start">
                   <span className="font-extrabold text-sm text-white">
@@ -81,62 +79,17 @@ const AppContent: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex items-center gap-2 text-xs flex-wrap justify-center">
+            <div className="flex items-center justify-end w-full sm:w-auto text-xs shrink-0">
               <button
                 onClick={() => setCurrentView('landing_page')}
-                className={`px-3.5 py-2 rounded-xl font-bold transition flex items-center gap-1.5 ${
+                className={`px-4 py-2 rounded-xl font-bold transition flex items-center gap-2 ${
                   currentView === 'landing_page'
                     ? 'bg-orange-600 text-white shadow-md'
                     : 'bg-slate-800/80 text-slate-300 hover:text-white hover:bg-slate-800 border border-slate-700/60'
                 }`}
               >
-                <Eye className="w-3.5 h-3.5 text-orange-400" />
-                Apresentação & Planos
-              </button>
-
-              <button
-                onClick={() => {
-                  switchRole('client');
-                  setCurrentView('client_booking');
-                }}
-                className={`px-3.5 py-2 rounded-xl font-bold transition flex items-center gap-1.5 ${
-                  currentUser.role === 'client' && currentView !== 'landing_page'
-                    ? 'bg-amber-500 text-slate-950 shadow-md'
-                    : 'bg-slate-800/80 text-slate-300 hover:text-white hover:bg-slate-800 border border-slate-700/60'
-                }`}
-              >
-                <User className="w-3.5 h-3.5" />
-                Visão do Cliente
-              </button>
-
-              <button
-                onClick={() => {
-                  switchRole('barber');
-                  setCurrentView('barber_dashboard');
-                }}
-                className={`px-3.5 py-2 rounded-xl font-bold transition flex items-center gap-1.5 ${
-                  currentUser.role === 'barber' && currentView !== 'landing_page'
-                    ? 'bg-amber-500 text-slate-950 shadow-md'
-                    : 'bg-slate-800/80 text-slate-300 hover:text-white hover:bg-slate-800 border border-slate-700/60'
-                }`}
-              >
-                <Scissors className="w-3.5 h-3.5" />
-                Painel da Barbearia
-              </button>
-
-              <button
-                onClick={() => {
-                  switchRole('super_admin');
-                  setCurrentView('super_admin_dashboard');
-                }}
-                className={`px-3.5 py-2 rounded-xl font-bold transition flex items-center gap-1.5 ${
-                  currentUser.role === 'super_admin' && currentView !== 'landing_page'
-                    ? 'bg-orange-600 text-white shadow-md'
-                    : 'bg-slate-800/80 text-slate-300 hover:text-white hover:bg-slate-800 border border-slate-700/60'
-                }`}
-              >
-                <Shield className="w-3.5 h-3.5" />
-                Administração Geral
+                <Eye className="w-4 h-4 text-orange-400" />
+                <span>Apresentação & Planos</span>
               </button>
             </div>
           </div>

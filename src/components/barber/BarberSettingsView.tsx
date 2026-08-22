@@ -2,9 +2,11 @@ import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Barbershop, PixKeyType } from '../../types';
 import { formatCurrency, formatPhone, getDayOfWeekName } from '../../utils/formatters';
+import { testMercadoPagoCredentials } from '../../utils/mercadopago';
 import { QrCodeModal } from '../common/QrCodeModal';
 import { BarberSubscriptionPayModal } from './BarberSubscriptionPayModal';
 import { ChangePasswordModal } from '../common/ChangePasswordModal';
+import { BarbershopMediaManager } from './BarbershopMediaManager';
 import {
   Settings,
   Clock,
@@ -21,6 +23,12 @@ import {
   Calendar,
   Lock,
   KeyRound,
+  Check,
+  Zap,
+  RefreshCw,
+  Eye,
+  EyeOff,
+  AlertTriangle,
 } from 'lucide-react';
 
 interface BarberSettingsViewProps {
@@ -28,7 +36,7 @@ interface BarberSettingsViewProps {
 }
 
 export const BarberSettingsView: React.FC<BarberSettingsViewProps> = ({ barbershop }) => {
-  const { updateBarbershop, platformSettings } = useApp();
+  const { updateBarbershop, platformSettings, currentUser, setActiveBarbershopId, setCurrentView } = useApp();
 
   // Basic Info Form State
   const [name, setName] = useState(barbershop.name);
@@ -38,6 +46,8 @@ export const BarberSettingsView: React.FC<BarberSettingsViewProps> = ({ barbersh
   const [instagram, setInstagram] = useState(barbershop.instagram || '');
   const [bio, setBio] = useState(barbershop.bio);
   const [themeColor, setThemeColor] = useState(barbershop.themeColor || '#d97706');
+  const [logoUrl, setLogoUrl] = useState(barbershop.logoUrl || '');
+  const [bannerUrl, setBannerUrl] = useState(barbershop.bannerUrl || '');
 
   // PIX Key State
   const [pixKey, setPixKey] = useState(barbershop.pixKey);
@@ -46,9 +56,23 @@ export const BarberSettingsView: React.FC<BarberSettingsViewProps> = ({ barbersh
     barbershop.pixReceiverName || barbershop.name
   );
 
+  // Mercado Pago State
+  const [mercadoPagoAccessToken, setMercadoPagoAccessToken] = useState(
+    barbershop.mercadoPagoAccessToken || ''
+  );
+  const [showMpToken, setShowMpToken] = useState(false);
+  const [isTestingMp, setIsTestingMp] = useState(false);
+  const [mpTestResult, setMpTestResult] = useState<{
+    success?: boolean;
+    message?: string;
+  } | null>(null);
+
   // Working Hours State
   const [slotIntervalMinutes, setSlotIntervalMinutes] = useState(
     barbershop.slotIntervalMinutes || 30
+  );
+  const [bookingWindowDays, setBookingWindowDays] = useState<number>(
+    barbershop.bookingWindowDays || 15
   );
   const [workingHours, setWorkingHours] = useState(barbershop.workingHours);
 
@@ -59,6 +83,39 @@ export const BarberSettingsView: React.FC<BarberSettingsViewProps> = ({ barbersh
   const [savedSuccess, setSavedSuccess] = useState(false);
 
   const publicLink = `${window.location.origin}/#${barbershop.slug}`;
+
+  const handleTestMercadoPago = async () => {
+    if (!mercadoPagoAccessToken.trim()) {
+      setMpTestResult({
+        success: false,
+        message: 'Digite seu Access Token do Mercado Pago antes de testar.',
+      });
+      return;
+    }
+    setIsTestingMp(true);
+    setMpTestResult(null);
+    try {
+      const res = await testMercadoPagoCredentials(mercadoPagoAccessToken);
+      if (res.success) {
+        setMpTestResult({
+          success: true,
+          message: res.message || `Conectado com sucesso à conta: ${res.nickname || res.email || 'Mercado Pago'}`,
+        });
+      } else {
+        setMpTestResult({
+          success: false,
+          message: res.error || 'Token inválido ou não autorizado.',
+        });
+      }
+    } catch (err: any) {
+      setMpTestResult({
+        success: false,
+        message: 'Erro ao validar token do Mercado Pago.',
+      });
+    } finally {
+      setIsTestingMp(false);
+    }
+  };
 
   const handleWorkingHourChange = (
     dayIndex: number,
@@ -84,10 +141,14 @@ export const BarberSettingsView: React.FC<BarberSettingsViewProps> = ({ barbersh
       instagram,
       bio,
       themeColor,
+      logoUrl,
+      bannerUrl,
       pixKey,
       pixKeyType,
       pixReceiverName,
+      mercadoPagoAccessToken: mercadoPagoAccessToken.trim(),
       slotIntervalMinutes,
+      bookingWindowDays,
       workingHours,
     });
     setSavedSuccess(true);
@@ -173,8 +234,21 @@ export const BarberSettingsView: React.FC<BarberSettingsViewProps> = ({ barbersh
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <button
+            type="button"
+            onClick={() => {
+              setActiveBarbershopId(barbershop.id);
+              setCurrentView('client_booking');
+            }}
+            className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-amber-400 dark:bg-slate-800 dark:hover:bg-slate-700 text-xs font-bold rounded-xl transition flex items-center gap-1.5 border border-slate-700/60"
+            title="Verificar agenda pública para o período selecionado"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+            <span>Ver Agenda Pública</span>
+          </button>
+          <button
+            type="button"
             onClick={() => {
               navigator.clipboard.writeText(publicLink);
               alert('Link da sua barbearia copiado!');
@@ -184,6 +258,7 @@ export const BarberSettingsView: React.FC<BarberSettingsViewProps> = ({ barbersh
             Copiar Link
           </button>
           <button
+            type="button"
             onClick={() => setIsQrModalOpen(true)}
             className="px-4 py-2.5 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold rounded-xl shadow-xs transition flex items-center gap-1.5"
           >
@@ -196,26 +271,26 @@ export const BarberSettingsView: React.FC<BarberSettingsViewProps> = ({ barbersh
       {/* Main Settings Form */}
       <form onSubmit={handleSaveAll} className="space-y-6">
         {/* SECTION 1: Working Hours & Availability */}
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <Clock className="w-4 h-4 text-amber-500" />
                 Disponibilidade da Agenda & Horários de Funcionamento
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                Configure os dias em que a barbearia abre, horários de atendimento e pausas de almoço.
+                Configure o período em que a agenda fica aberta para os clientes, dias de atendimento e pausas.
               </p>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0">
               <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                 Intervalo entre horários:
               </label>
               <select
                 value={slotIntervalMinutes}
                 onChange={(e) => setSlotIntervalMinutes(Number(e.target.value))}
-                className="px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold"
+                className="px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold"
               >
                 <option value="20">20 minutos</option>
                 <option value="30">30 minutos</option>
@@ -225,7 +300,62 @@ export const BarberSettingsView: React.FC<BarberSettingsViewProps> = ({ barbersh
             </div>
           </div>
 
-          <div className="space-y-2 pt-2">
+          {/* Booking Window (Período em que a Agenda ficará aberta) */}
+          <div className="p-4 bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-900/40 rounded-2xl">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+              <div>
+                <span className="text-xs font-bold text-amber-900 dark:text-amber-300 flex items-center gap-1.5">
+                  <Calendar className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                  Período em que a Agenda ficará Aberta (Antecedência Máxima)
+                </span>
+                <p className="text-[11px] text-amber-800/80 dark:text-amber-400/80 mt-0.5">
+                  Escolha quantos dias para frente os clientes conseguem visualizar vagas e agendar serviços na página pública.
+                </p>
+              </div>
+
+              <div className="text-xs font-black text-amber-700 dark:text-amber-300 bg-white dark:bg-slate-900 px-3 py-1.5 rounded-xl border border-amber-200 dark:border-amber-800 shrink-0 self-start sm:self-auto">
+                {bookingWindowDays === 8 && '8 dias (1 semana + 1 dia)'}
+                {bookingWindowDays === 15 && '15 dias (2 semanas)'}
+                {bookingWindowDays === 30 && '30 dias (1 mês completo)'}
+                {bookingWindowDays === 60 && '60 dias (2 meses)'}
+                {![8, 15, 30, 60].includes(bookingWindowDays) && `${bookingWindowDays} dias`}
+              </div>
+            </div>
+
+            {/* Quick Presets */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+              {[
+                { days: 8, label: '8 Dias', desc: '1 semana + 1 dia' },
+                { days: 15, label: '15 Dias', desc: '2 semanas (Recomendado)' },
+                { days: 30, label: '1 Mês', desc: '30 dias completos' },
+                { days: 60, label: '2 Meses', desc: '60 dias adiante' },
+              ].map((opt) => {
+                const isSelected = bookingWindowDays === opt.days;
+                return (
+                  <button
+                    key={opt.days}
+                    type="button"
+                    onClick={() => setBookingWindowDays(opt.days)}
+                    className={`p-2.5 rounded-xl border text-left transition flex flex-col justify-between ${
+                      isSelected
+                        ? 'bg-amber-500 border-amber-600 text-slate-950 shadow-sm font-bold'
+                        : 'bg-white dark:bg-slate-800/90 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-amber-400'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between w-full">
+                      <span className="text-xs font-black">{opt.label}</span>
+                      {isSelected && <Check className="w-3.5 h-3.5 text-slate-950" />}
+                    </div>
+                    <span className={`text-[10px] mt-1 ${isSelected ? 'text-slate-900 font-medium' : 'text-slate-500 dark:text-slate-400'}`}>
+                      {opt.desc}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="space-y-2 pt-1">
             {[0, 1, 2, 3, 4, 5, 6].map((dayIndex) => {
               const schedule = workingHours[dayIndex] || {
                 isOpen: dayIndex !== 0,
@@ -373,21 +503,112 @@ export const BarberSettingsView: React.FC<BarberSettingsViewProps> = ({ barbersh
               />
             </div>
           </div>
+
+          {/* Mercado Pago Token Integration for Barber */}
+          <div className="mt-4 p-4 bg-sky-50 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-800 rounded-2xl space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-sky-600 text-white flex items-center justify-center">
+                  <Zap className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="font-bold text-slate-900 dark:text-white block text-xs">
+                    Integração Mercado Pago (Confirmação Automática de PIX dos Clientes)
+                  </span>
+                  <span className="text-[11px] text-slate-500">
+                    Ao conectar seu Access Token do Mercado Pago, seus clientes pagarão via QR Code dinâmico e os horários serão confirmados automaticamente na hora!
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Seu Access Token do Mercado Pago (Produção ou Teste):
+              </label>
+              <div className="relative">
+                <input
+                  type={showMpToken ? 'text' : 'password'}
+                  placeholder="APP_USR-..."
+                  value={mercadoPagoAccessToken}
+                  onChange={(e) => setMercadoPagoAccessToken(e.target.value)}
+                  className="w-full px-3 py-2 pr-16 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowMpToken(!showMpToken)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 text-slate-400 hover:text-slate-600 text-[10px]"
+                >
+                  {showMpToken ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+              <p className="text-[10px] text-slate-400 mt-1">
+                Gere em: <strong>mercadopago.com.br/developers</strong> &gt; Suas integrações &gt; Credenciais
+              </p>
+            </div>
+
+            <div className="flex items-center justify-between gap-2 pt-1">
+              <button
+                type="button"
+                onClick={handleTestMercadoPago}
+                disabled={isTestingMp}
+                className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
+              >
+                {isTestingMp ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Validando Token...</span>
+                  </>
+                ) : (
+                  <>
+                    <Zap className="w-3.5 h-3.5" />
+                    <span>Testar Conexão Mercado Pago</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {mpTestResult && (
+              <div
+                className={`p-2.5 rounded-xl text-xs font-medium flex items-center gap-2 ${
+                  mpTestResult.success
+                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-300'
+                    : 'bg-rose-100 text-rose-800 dark:bg-rose-950/70 dark:text-rose-300 border border-rose-300'
+                }`}
+              >
+                {mpTestResult.success ? (
+                  <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+                ) : (
+                  <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600" />
+                )}
+                <span>{mpTestResult.message}</span>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* SECTION 3: Customization & Branding */}
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
+        {/* SECTION 3: Customization, Branding & Media Storage */}
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-6">
           <div>
             <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
               <Palette className="w-4 h-4 text-orange-500" />
-              Personalização da Barbearia & Identidade Visual
+              Fotos, Capa & Identidade Visual da Barbearia
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              Personalize o nome, contato e cor de destaque da sua página de agendamentos.
+              Altere a foto de perfil/logo e a imagem de fundo (capa) a partir do seu dispositivo, galeria de modelos ou link direto.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Media Manager for Logo and Banner */}
+          <BarbershopMediaManager
+            currentLogo={logoUrl}
+            currentBanner={bannerUrl}
+            onLogoChange={setLogoUrl}
+            onBannerChange={setBannerUrl}
+            shopName={name}
+          />
+
+          <div className="pt-4 border-t border-slate-200 dark:border-slate-800 grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                 Nome da Barbearia
@@ -452,7 +673,7 @@ export const BarberSettingsView: React.FC<BarberSettingsViewProps> = ({ barbersh
 
         {/* Security & Access Password Section */}
         <div className="p-6 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
                 <Lock className="w-4 h-4" />
@@ -517,6 +738,7 @@ export const BarberSettingsView: React.FC<BarberSettingsViewProps> = ({ barbersh
       <ChangePasswordModal
         isOpen={isPasswordModalOpen}
         onClose={() => setIsPasswordModalOpen(false)}
+        userId={currentUser.id}
         userName={barbershop.ownerName}
       />
     </div>
