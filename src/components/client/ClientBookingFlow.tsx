@@ -122,24 +122,37 @@ export const ClientBookingFlow: React.FC = () => {
     const dayOfWeek = dateObj.getDay();
     const schedule = currentShop.workingHours?.[dayOfWeek];
 
-    if (!schedule || !schedule.isOpen) {
+    if (!schedule || !schedule.isOpen || !schedule.openTime || !schedule.closeTime) {
       return [];
     }
 
     const slots: { time: string; isBooked: boolean }[] = [];
     const interval = currentShop.slotIntervalMinutes || 30;
 
-    const [openH, openM] = schedule.openTime.split(':').map(Number);
-    const [closeH, closeM] = schedule.closeTime.split(':').map(Number);
+    const openParts = (schedule.openTime || '08:00').split(':');
+    const closeParts = (schedule.closeTime || '19:00').split(':');
+    const openH = Number(openParts[0]) || 8;
+    const openM = Number(openParts[1]) || 0;
+    const closeH = Number(closeParts[0]) || 19;
+    const closeM = Number(closeParts[1]) || 0;
 
     const startMinutes = openH * 60 + openM;
     const endMinutes = closeH * 60 + closeM;
 
     let breakStartMinutes = -1;
     let breakEndMinutes = -1;
-    if (schedule.breakStart && schedule.breakEnd) {
-      const [bsh, bsm] = schedule.breakStart.split(':').map(Number);
-      const [beh, bem] = schedule.breakEnd.split(':').map(Number);
+    if (
+      schedule.breakStart &&
+      schedule.breakEnd &&
+      schedule.breakStart.includes(':') &&
+      schedule.breakEnd.includes(':')
+    ) {
+      const bsp = schedule.breakStart.split(':');
+      const bep = schedule.breakEnd.split(':');
+      const bsh = Number(bsp[0]) || 0;
+      const bsm = Number(bsp[1]) || 0;
+      const beh = Number(bep[0]) || 0;
+      const bem = Number(bep[1]) || 0;
       breakStartMinutes = bsh * 60 + bsm;
       breakEndMinutes = beh * 60 + bem;
     }

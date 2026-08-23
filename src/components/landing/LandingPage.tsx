@@ -99,8 +99,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenRegister, onOpen
           {/* Logo & Brand */}
           <div
             className="flex items-center gap-2.5 sm:gap-3 cursor-pointer group shrink-0"
-            onClick={() => setCurrentView('client_booking')}
-            title="Ir para o agendamento da Barbearia BarberClock"
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+            title="BarberClock - Plataforma de Agendamentos e Gestão de Barbearias"
           >
             <div className="relative">
               <img
@@ -111,7 +111,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenRegister, onOpen
               <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-slate-950"></span>
             </div>
             <div>
-              <span className="text-base sm:text-lg font-black tracking-tight text-white block leading-tight">
+              <span className="text-base sm:text-lg font-black tracking-tight text-white block leading-tight group-hover:text-amber-400 transition">
                 BarberClock
               </span>
               <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-amber-400 block">
@@ -885,22 +885,22 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenRegister, onOpen
           </div>
 
           <div className="flex items-center gap-6">
-            <button
-              onClick={() => setCurrentView('client_booking')}
+            <a
+              href="#planos"
               className="hover:text-orange-400 transition"
             >
-              Agenda do Cliente
-            </button>
+              Planos & Preços
+            </a>
             <button
               onClick={() => handleOpenLogin('barber')}
-              className="hover:text-orange-400 transition flex items-center gap-1.5"
+              className="hover:text-orange-400 transition flex items-center gap-1.5 cursor-pointer"
             >
               <KeyRound className="w-3 h-3 text-orange-400" />
               <span>Login Barbeiro</span>
             </button>
             <button
               onClick={() => handleOpenLogin('super_admin')}
-              className="hover:text-orange-400 transition flex items-center gap-1.5"
+              className="hover:text-orange-400 transition flex items-center gap-1.5 cursor-pointer"
             >
               <Shield className="w-3 h-3 text-orange-400" />
               <span>Login Admin Geral</span>

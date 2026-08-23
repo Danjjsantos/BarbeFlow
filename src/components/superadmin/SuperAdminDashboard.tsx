@@ -11,7 +11,7 @@ import { PlatformSettingsModal } from './PlatformSettingsModal';
 import { SuperAdminPlansTab } from './SuperAdminPlansTab';
 import { SuperAdminLandingEditorTab } from './SuperAdminLandingEditorTab';
 import { ChangePasswordModal } from '../common/ChangePasswordModal';
-import { SupabaseStatusModal } from '../common/SupabaseStatusModal';
+import { AdminProfileModal } from './AdminProfileModal';
 import confetti from 'canvas-confetti';
 import {
   Shield,
@@ -46,6 +46,8 @@ import {
   Database,
   Trash2,
   AlertTriangle,
+  Camera,
+  UserCog,
 } from 'lucide-react';
 
 export const SuperAdminDashboard: React.FC = () => {
@@ -61,7 +63,6 @@ export const SuperAdminDashboard: React.FC = () => {
     currentUser,
     switchRole,
     logoutUser,
-    isSupabaseActive,
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<'shops' | 'plans' | 'landing_editor'>('shops');
@@ -69,7 +70,7 @@ export const SuperAdminDashboard: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
-  const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [shopToDelete, setShopToDelete] = useState<Barbershop | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -120,12 +121,24 @@ export const SuperAdminDashboard: React.FC = () => {
     <div className="min-h-[calc(100vh-5rem)] bg-slate-100 dark:bg-slate-950 flex flex-col lg:flex-row" id="super-admin-dashboard">
       {/* Mobile Toggle Bar for Left Sidebar */}
       <div className="lg:hidden bg-slate-900 border-b border-slate-800 p-4 flex items-center justify-between text-white">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-orange-600 flex items-center justify-center font-bold">
-            <Shield className="w-4 h-4 text-white" />
-          </div>
+        <div 
+          onClick={() => setIsProfileModalOpen(true)}
+          className="flex items-center gap-2.5 cursor-pointer group"
+          title="Ver e alterar meu perfil de administrador"
+        >
+          {currentUser.avatarUrl ? (
+            <img
+              src={currentUser.avatarUrl}
+              alt={currentUser.name}
+              className="w-8 h-8 rounded-xl object-cover border border-orange-500/80 shadow-md shadow-orange-500/20 shrink-0"
+            />
+          ) : (
+            <div className="w-8 h-8 rounded-lg bg-orange-600 flex items-center justify-center font-bold">
+              <Shield className="w-4 h-4 text-white" />
+            </div>
+          )}
           <div>
-            <span className="font-extrabold text-sm text-white block leading-tight">
+            <span className="font-extrabold text-sm text-white block leading-tight group-hover:text-orange-400 transition">
               Painel Administrativo
             </span>
             <span className="text-[11px] text-orange-400 font-medium">
@@ -149,21 +162,49 @@ export const SuperAdminDashboard: React.FC = () => {
         }`}
       >
         {/* Sidebar Header / Brand Profile */}
-        <div className="p-6 border-b border-slate-800/80 bg-slate-950/40">
+        <div className="p-5 border-b border-slate-800/80 bg-slate-950/40">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-orange-600 to-amber-500 text-white flex items-center justify-center font-black shadow-lg shadow-orange-600/30 shrink-0">
-              <Shield className="w-6 h-6" />
+            <div 
+              onClick={() => setIsProfileModalOpen(true)}
+              className="relative group cursor-pointer shrink-0"
+              title="Clique para alterar sua foto de perfil do armazenamento"
+            >
+              {currentUser.avatarUrl ? (
+                <img
+                  src={currentUser.avatarUrl}
+                  alt={currentUser.name}
+                  className="w-12 h-12 rounded-2xl object-cover border-2 border-orange-500 shadow-lg shadow-orange-500/20 group-hover:opacity-90 transition"
+                />
+              ) : (
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-orange-600 to-amber-500 text-white flex items-center justify-center font-black shadow-lg shadow-orange-600/30">
+                  <Shield className="w-6 h-6" />
+                </div>
+              )}
+              <span className="absolute -bottom-1 -right-1 p-1 bg-orange-600 hover:bg-orange-500 text-white rounded-lg shadow-md border-2 border-slate-900 transition group-hover:scale-110">
+                <Camera className="w-3 h-3" />
+              </span>
             </div>
-            <div className="overflow-hidden">
+
+            <div className="overflow-hidden flex-1">
               <div className="flex items-center gap-1.5">
-                <h2 className="font-black text-sm text-white truncate">
+                <h2 
+                  onClick={() => setIsProfileModalOpen(true)}
+                  className="font-black text-sm text-white truncate cursor-pointer hover:text-orange-400 transition"
+                  title="Clique para editar seu perfil"
+                >
                   {currentUser.name}
                 </h2>
                 <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
               </div>
-              <span className="text-[11px] text-orange-400 font-bold uppercase tracking-wider block">
+              <span className="text-[10px] text-orange-400 font-bold uppercase tracking-wider block">
                 Super Administrador
               </span>
+              <button
+                onClick={() => setIsProfileModalOpen(true)}
+                className="text-[10px] text-slate-400 hover:text-orange-300 font-medium flex items-center gap-1 mt-0.5 transition"
+              >
+                <span>Editar foto & perfil</span>
+              </button>
             </div>
           </div>
         </div>
@@ -206,6 +247,17 @@ export const SuperAdminDashboard: React.FC = () => {
 
               <button
                 onClick={() => {
+                  setIsProfileModalOpen(true);
+                  setIsMobileSidebarOpen(false);
+                }}
+                className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-bold text-slate-300 hover:bg-slate-800 hover:text-white transition text-left"
+              >
+                <UserCog className="w-4 h-4 text-orange-400 shrink-0" />
+                <span>Meu Perfil & Foto de Perfil</span>
+              </button>
+
+              <button
+                onClick={() => {
                   setIsSettingsOpen(true);
                   setIsMobileSidebarOpen(false);
                 }}
@@ -213,20 +265,6 @@ export const SuperAdminDashboard: React.FC = () => {
               >
                 <Sliders className="w-4 h-4 text-slate-400 shrink-0" />
                 <span>Configurações Gerais</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  setIsSupabaseModalOpen(true);
-                  setIsMobileSidebarOpen(false);
-                }}
-                className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-bold text-slate-300 hover:bg-slate-800 hover:text-white transition text-left"
-              >
-                <div className="flex items-center gap-3">
-                  <Database className={`w-4 h-4 shrink-0 ${isSupabaseActive ? 'text-emerald-400' : 'text-slate-400'}`} />
-                  <span>Banco de Dados Supabase</span>
-                </div>
-                <span className={`w-2 h-2 rounded-full ${isSupabaseActive ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}`}></span>
               </button>
 
               <button
@@ -920,10 +958,10 @@ export const SuperAdminDashboard: React.FC = () => {
         userName={currentUser.name}
       />
 
-      {/* Supabase Status Modal */}
-      <SupabaseStatusModal
-        isOpen={isSupabaseModalOpen}
-        onClose={() => setIsSupabaseModalOpen(false)}
+      {/* Admin Profile & Photo Modal */}
+      <AdminProfileModal
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
       />
     </div>
   );

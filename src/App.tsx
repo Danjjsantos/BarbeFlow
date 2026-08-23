@@ -7,8 +7,7 @@ import { SuperAdminDashboard } from './components/superadmin/SuperAdminDashboard
 import { LandingPage } from './components/landing/LandingPage';
 import { BarberRegisterModal } from './components/barber/BarberRegisterModal';
 import { AuthLoginModal } from './components/common/AuthLoginModal';
-import { AccessLinksModal } from './components/common/AccessLinksModal';
-import { Scissors, Shield, Heart, Sparkles, CheckCircle2, User, Eye, Tag, Link2 } from 'lucide-react';
+import { Scissors, Shield, Heart, Sparkles, CheckCircle2, User, Eye, Tag } from 'lucide-react';
 
 const AppContent: React.FC = () => {
   const {
@@ -25,9 +24,6 @@ const AppContent: React.FC = () => {
     setIsLoginModalOpen,
     loginModalRole,
     openLoginModal,
-    isAccessLinksModalOpen,
-    setIsAccessLinksModalOpen,
-    openAccessLinksModal,
   } = useApp();
 
   return (
@@ -58,12 +54,6 @@ const AppContent: React.FC = () => {
         onOpenRegister={openRegisterModal}
       />
 
-      {/* System Access Links Modal */}
-      <AccessLinksModal
-        isOpen={isAccessLinksModalOpen}
-        onClose={() => setIsAccessLinksModalOpen(false)}
-      />
-
       {/* Bottom Footer & Global Platform Bar (Displayed strictly on landing page) */}
       {currentView === 'landing_page' && (
         <footer className="bg-slate-900 border-t border-slate-800 py-6 px-4 text-xs text-slate-400">
@@ -89,35 +79,13 @@ const AppContent: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex items-center justify-center sm:justify-end gap-2.5 flex-wrap w-full sm:w-auto text-xs shrink-0">
+            <div className="flex items-center justify-end w-full sm:w-auto text-xs shrink-0">
               <button
-                type="button"
-                onClick={openAccessLinksModal}
-                className="px-3.5 py-2 rounded-xl font-bold transition flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 hover:border-amber-500/40 cursor-pointer"
-                title="Visualizar todos os links de acesso do sistema"
+                onClick={() => setCurrentView('landing_page')}
+                className="px-4 py-2 rounded-xl font-bold transition flex items-center gap-2 bg-orange-600 text-white shadow-md cursor-pointer"
               >
-                <Link2 className="w-4 h-4 text-amber-400" />
-                <span>Links de Acesso</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => openLoginModal('barber')}
-                className="px-3.5 py-2 rounded-xl font-bold transition flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 hover:border-slate-600 cursor-pointer"
-                title="Acesso direto para Barbeiros"
-              >
-                <Scissors className="w-4 h-4 text-amber-400" />
-                <span>Acesso Barbeiro</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => openLoginModal('super_admin')}
-                className="px-3.5 py-2 rounded-xl font-bold transition flex items-center gap-1.5 bg-indigo-950/80 hover:bg-indigo-900 text-indigo-200 border border-indigo-800/60 cursor-pointer"
-                title="Acesso direto do Administrador Geral"
-              >
-                <Shield className="w-4 h-4 text-indigo-400" />
-                <span>Admin Geral</span>
+                <Eye className="w-4 h-4 text-orange-200" />
+                <span>Apresentação & Planos</span>
               </button>
             </div>
           </div>
