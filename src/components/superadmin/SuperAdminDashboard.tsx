@@ -67,7 +67,17 @@ export const SuperAdminDashboard: React.FC = () => {
     isSupabaseActive,
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<'shops' | 'plans' | 'landing_editor'>('shops');
+  const [activeTab, setActiveTab] = useState<'shops' | 'plans' | 'landing_editor'>(() => {
+    const saved = localStorage.getItem('barberhub_admin_tab_v2');
+    if (saved && ['shops', 'plans', 'landing_editor'].includes(saved)) {
+      return saved as any;
+    }
+    return 'shops';
+  });
+
+  React.useEffect(() => {
+    localStorage.setItem('barberhub_admin_tab_v2', activeTab);
+  }, [activeTab]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
