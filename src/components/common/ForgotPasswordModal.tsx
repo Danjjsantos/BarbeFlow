@@ -306,7 +306,7 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
                   placeholder="ex: seuemail@gmail.com ou (11) 98888-7777"
                   value={inputVal}
                   onChange={(e) => setInputVal(e.target.value)}
-                  className="w-full pl-10 pr-3.5 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs sm:text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-amber-500 transition text-slate-900 dark:text-slate-100"
+                  className="w-full pl-10 pr-3.5 py-3 bg-white border-2 border-slate-300 dark:border-slate-600 rounded-xl text-xs sm:text-sm font-bold text-black placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-amber-500 transition"
                 />
               </div>
             </div>
@@ -513,7 +513,7 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
                   placeholder="Mínimo 4 caracteres"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full pl-10 pr-3.5 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs sm:text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-amber-500 transition text-slate-900 dark:text-slate-100"
+                  className="w-full pl-10 pr-3.5 py-3 bg-white border-2 border-slate-300 dark:border-slate-600 rounded-xl text-xs sm:text-sm font-bold text-black placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-amber-500 transition"
                 />
               </div>
             </div>
@@ -530,7 +530,7 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
                   placeholder="Repita a nova senha"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full pl-10 pr-3.5 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs sm:text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-amber-500 transition text-slate-900 dark:text-slate-100"
+                  className="w-full pl-10 pr-3.5 py-3 bg-white border-2 border-slate-300 dark:border-slate-600 rounded-xl text-xs sm:text-sm font-bold text-black placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-amber-500 transition"
                 />
               </div>
             </div>

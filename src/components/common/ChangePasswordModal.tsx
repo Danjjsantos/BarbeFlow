@@ -160,7 +160,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
                 placeholder="Digite sua senha atual"
                 value={currentPasswordInput}
                 onChange={(e) => setCurrentPasswordInput(e.target.value)}
-                className="w-full pl-10 pr-10 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
+                className="w-full pl-10 pr-10 py-2.5 bg-white border-2 border-slate-300 dark:border-slate-600 rounded-xl text-xs font-bold text-black placeholder:text-slate-400 focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
               />
             </div>
           </div>
@@ -178,7 +178,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
                 placeholder="Mínimo 5 caracteres"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full pl-10 pr-10 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
+                className="w-full pl-10 pr-10 py-2.5 bg-white border-2 border-slate-300 dark:border-slate-600 rounded-xl text-xs font-bold text-black placeholder:text-slate-400 focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
               />
               <button
                 type="button"
@@ -203,7 +203,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
                 placeholder="Repita a nova senha"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full pl-10 pr-10 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
+                className="w-full pl-10 pr-10 py-2.5 bg-white border-2 border-slate-300 dark:border-slate-600 rounded-xl text-xs font-bold text-black placeholder:text-slate-400 focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
               />
             </div>
           </div>

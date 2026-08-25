@@ -496,7 +496,7 @@ export const BarbershopMediaManager: React.FC<BarbershopMediaManagerProps> = ({
                   placeholder="https://exemplo.com/minha-imagem.jpg"
                   value={customUrlInput}
                   onChange={(e) => setCustomUrlInput(e.target.value)}
-                  className="flex-1 px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-900 dark:text-white"
+                  className="flex-1 px-3.5 py-2.5 bg-white border-2 border-slate-300 dark:border-slate-600 rounded-xl text-xs font-bold text-black placeholder:text-slate-400"
                 />
                 <button
                   type="submit"

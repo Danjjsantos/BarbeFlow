@@ -258,7 +258,7 @@ export const BarberRegisterModal: React.FC<BarberRegisterModalProps> = ({
     const formattedValidDate = validDate.toLocaleDateString('pt-BR');
     setApprovedValidityDate(formattedValidDate);
 
-    // Automatically approve and activate the barbershop in AppContext + Supabase
+    // Automatically approve and activate the barbershop in AppContext
     approveBarbershopSubscription(createdShop.id, planDays);
 
     setStep('approved');

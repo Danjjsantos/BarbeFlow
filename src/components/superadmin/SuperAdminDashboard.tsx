@@ -12,6 +12,7 @@ import { SuperAdminPlansTab } from './SuperAdminPlansTab';
 import { SuperAdminLandingEditorTab } from './SuperAdminLandingEditorTab';
 import { ChangePasswordModal } from '../common/ChangePasswordModal';
 import { AdminProfileModal } from './AdminProfileModal';
+import { SupabaseStatusModal } from '../common/SupabaseStatusModal';
 import confetti from 'canvas-confetti';
 import {
   Shield,
@@ -63,6 +64,7 @@ export const SuperAdminDashboard: React.FC = () => {
     currentUser,
     switchRole,
     logoutUser,
+    isSupabaseActive,
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<'shops' | 'plans' | 'landing_editor'>('shops');
@@ -71,6 +73,7 @@ export const SuperAdminDashboard: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [shopToDelete, setShopToDelete] = useState<Barbershop | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -265,6 +268,26 @@ export const SuperAdminDashboard: React.FC = () => {
               >
                 <Sliders className="w-4 h-4 text-slate-400 shrink-0" />
                 <span>Configurações Gerais</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setIsSupabaseModalOpen(true);
+                  setIsMobileSidebarOpen(false);
+                }}
+                className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-bold text-slate-300 hover:bg-slate-800 hover:text-white transition text-left"
+              >
+                <div className="flex items-center gap-3">
+                  <Database className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>Banco de Dados Supabase</span>
+                </div>
+                <span
+                  className={`w-2.5 h-2.5 rounded-full ${
+                    isSupabaseActive
+                      ? 'bg-emerald-400 shadow-sm shadow-emerald-400/50 animate-pulse'
+                      : 'bg-amber-400'
+                  }`}
+                />
               </button>
 
               <button
@@ -962,6 +985,12 @@ export const SuperAdminDashboard: React.FC = () => {
       <AdminProfileModal
         isOpen={isProfileModalOpen}
         onClose={() => setIsProfileModalOpen(false)}
+      />
+
+      {/* Supabase Database Connection & Sync Modal */}
+      <SupabaseStatusModal
+        isOpen={isSupabaseModalOpen}
+        onClose={() => setIsSupabaseModalOpen(false)}
       />
     </div>
   );

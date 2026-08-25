@@ -45,6 +45,170 @@ async function startServer() {
     res.json({ status: 'ok', time: new Date().toISOString() });
   });
 
+  // Supabase Backend Status Check
+  app.get('/api/supabase/status', async (req, res) => {
+    const customUrl = typeof req.query.url === 'string' ? req.query.url : '';
+    const customKey = typeof req.query.key === 'string' ? req.query.key : '';
+
+    const supabaseUrl = customUrl || process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://ddwkyabkbybyqvulcvxs.supabase.co';
+    const supabaseKey = (customKey || process.env.SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_oWooNwDsp16j9xnP54cBAQ_tQCzfiYX').trim();
+    
+    try {
+      const cleanUrl = supabaseUrl.replace(/\/+$/, '').replace(/\/rest\/v1\/?$/i, '').trim();
+      const startTime = Date.now();
+      const testRes = await fetch(`${cleanUrl}/rest/v1/barbershops?select=id&limit=1`, {
+        headers: {
+          apikey: supabaseKey,
+          Authorization: `Bearer ${supabaseKey}`,
+        },
+      });
+
+      const elapsed = Date.now() - startTime;
+
+      if (testRes.ok) {
+        return res.json({
+          success: true,
+          connected: true,
+          status: 'connected',
+          url: cleanUrl,
+          elapsedMs: elapsed,
+          message: `Conectado com sucesso em ${elapsed}ms! Banco de dados operacional.`,
+        });
+      } else {
+        const errText = await testRes.text();
+        let friendlyMessage = `Supabase respondeu com código ${testRes.status}: ${errText}`;
+        if (testRes.status === 404 || errText.includes('42P01') || errText.includes('does not exist') || errText.includes('relation')) {
+          friendlyMessage = 'Tabelas não encontradas no Supabase. Execute o script SQL no SQL Editor do Supabase.';
+        } else if (testRes.status === 401 || testRes.status === 403 || errText.includes('JWT') || errText.includes('apikey')) {
+          friendlyMessage = 'Chave do Supabase inválida ou expirada. Verifique a anon key nas configurações.';
+        }
+
+        return res.json({
+          success: false,
+          connected: false,
+          status: 'error',
+          httpStatus: testRes.status,
+          message: friendlyMessage,
+        });
+      }
+    } catch (err: any) {
+      return res.json({
+        success: false,
+        connected: false,
+        status: 'fetch_error',
+        message: err?.message || 'Falha ao contactar Supabase a partir do servidor.',
+      });
+    }
+  });
+
+  // Supabase Backend Sync All Route
+  app.post('/api/supabase/sync', async (req, res) => {
+    const {
+      barbershops = [],
+      services = [],
+      appointments = [],
+      users = [],
+      plans = [],
+      settings,
+      trialRecords = [],
+      landing,
+      customUrl,
+      customKey,
+    } = req.body || {};
+
+    const supabaseUrl = customUrl || process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://ddwkyabkbybyqvulcvxs.supabase.co';
+    const supabaseKey = (customKey || process.env.SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_oWooNwDsp16j9xnP54cBAQ_tQCzfiYX').trim();
+    const cleanUrl = supabaseUrl.replace(/\/+$/, '').replace(/\/rest\/v1\/?$/i, '').trim();
+
+    const headers = {
+      apikey: supabaseKey,
+      Authorization: `Bearer ${supabaseKey}`,
+      'Content-Type': 'application/json',
+      Prefer: 'resolution=merge-duplicates',
+    };
+
+    const upsertTable = async (table: string, records: any[]) => {
+      if (!records || records.length === 0) return { ok: true };
+      const response = await fetch(`${cleanUrl}/rest/v1/${table}`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(records),
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Tabela ${table} (HTTP ${response.status}): ${errorText}`);
+      }
+      return { ok: true };
+    };
+
+    try {
+      if (barbershops.length > 0) await upsertTable('barbershops', barbershops);
+      if (services.length > 0) await upsertTable('services', services);
+      if (appointments.length > 0) await upsertTable('appointments', appointments);
+      if (users.length > 0) await upsertTable('users', users);
+      if (plans.length > 0) await upsertTable('subscription_plans', plans);
+      if (settings) await upsertTable('platform_settings', [settings]);
+      if (trialRecords.length > 0) await upsertTable('trial_records', trialRecords);
+      if (landing) await upsertTable('landing_page_content', [landing]);
+
+      return res.json({
+        success: true,
+        message: 'Todos os dados foram sincronizados com o Supabase com sucesso!',
+      });
+    } catch (err: any) {
+      const errMsg = err?.message || 'Erro desconhecido durante a sincronização.';
+      let friendlyMessage = errMsg;
+      if (errMsg.includes('42P01') || errMsg.includes('does not exist') || errMsg.includes('relation')) {
+        friendlyMessage = 'Tabelas não encontradas no Supabase. Execute o script SQL no menu SQL Editor do Supabase antes de sincronizar.';
+      } else if (errMsg.includes('401') || errMsg.includes('403') || errMsg.includes('JWT') || errMsg.includes('apikey')) {
+        friendlyMessage = 'Erro de autenticação com o Supabase. Verifique a anon key.';
+      }
+
+      return res.status(400).json({
+        success: false,
+        message: `Falha na sincronização: ${friendlyMessage}`,
+      });
+    }
+  });
+
+  // Supabase Backend Generic Proxy Route
+  app.post('/api/supabase/proxy', async (req, res) => {
+    const { table, method = 'GET', data, query = '', customUrl, customKey } = req.body || {};
+    if (!table) return res.status(400).json({ error: 'Tabela não especificada' });
+
+    const supabaseUrl = customUrl || process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://ddwkyabkbybyqvulcvxs.supabase.co';
+    const supabaseKey = (customKey || process.env.SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_oWooNwDsp16j9xnP54cBAQ_tQCzfiYX').trim();
+    const cleanUrl = supabaseUrl.replace(/\/+$/, '').replace(/\/rest\/v1\/?$/i, '').trim();
+
+    try {
+      const targetUrl = `${cleanUrl}/rest/v1/${table}${query ? `?${query}` : ''}`;
+      const headers: Record<string, string> = {
+        apikey: supabaseKey,
+        Authorization: `Bearer ${supabaseKey}`,
+        'Content-Type': 'application/json',
+      };
+      if (method === 'POST' || method === 'PATCH') {
+        headers['Prefer'] = 'resolution=merge-duplicates';
+      }
+
+      const response = await fetch(targetUrl, {
+        method,
+        headers,
+        body: data ? JSON.stringify(data) : undefined,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        return res.status(response.status).json({ error: errorText });
+      }
+
+      const resData = await response.json().catch(() => null);
+      return res.json({ success: true, data: resData });
+    } catch (err: any) {
+      return res.status(500).json({ error: err?.message || 'Proxy error' });
+    }
+  });
+
   /**
    * POST /api/mercadopago/create-pix
    * Creates a PIX payment via Mercado Pago API (or local EMV simulation if token not provided)

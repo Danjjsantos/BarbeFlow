@@ -217,7 +217,7 @@ export const CancelAppointmentModal: React.FC<CancelAppointmentModalProps> = ({
                   placeholder="Ex: Reforma elétrica na barbearia no período da tarde"
                   value={customReasonText}
                   onChange={(e) => setCustomReasonText(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs focus:outline-hidden focus:ring-2 focus:ring-rose-500"
+                  className="w-full px-3.5 py-2.5 bg-white border-2 border-slate-300 dark:border-slate-600 rounded-xl text-xs font-bold text-black placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-rose-500"
                 />
               </div>
             )}
@@ -233,7 +233,7 @@ export const CancelAppointmentModal: React.FC<CancelAppointmentModalProps> = ({
                   value={refundInstruction}
                   onChange={(e) => setRefundInstruction(e.target.value)}
                   placeholder="Ex: Envie sua chave para estorno ou use como crédito"
-                  className="w-full px-3 py-2 bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs text-slate-800 dark:text-slate-200 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                  className="w-full px-3.5 py-2.5 bg-white border-2 border-emerald-300 dark:border-emerald-700 rounded-xl text-xs font-bold text-black placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
             )}
@@ -269,7 +269,7 @@ export const CancelAppointmentModal: React.FC<CancelAppointmentModalProps> = ({
                 rows={6}
                 value={customMessage}
                 onChange={(e) => setCustomMessage(e.target.value)}
-                className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-700 dark:text-slate-200 font-mono leading-relaxed focus:outline-hidden focus:ring-2 focus:ring-amber-500"
+                className="w-full p-3 bg-white border-2 border-slate-300 dark:border-slate-600 rounded-xl text-xs font-bold text-black placeholder:text-slate-400 font-mono leading-relaxed focus:outline-hidden focus:ring-2 focus:ring-amber-500"
               />
             </div>
 

@@ -23,6 +23,7 @@ import {
   INITIAL_TRIAL_RECORDS,
 } from '../data/initialData';
 import { generateId, getTodayDateString, formatPhone } from '../utils/formatters';
+import { supabaseService, isSupabaseConfigured } from '../lib/supabase';
 
 interface AppContextType {
   currentUser: User;
@@ -46,7 +47,13 @@ interface AppContextType {
   newAppointmentsCount: number;
   markAppointmentsAsSeen: () => void;
   switchRole: (role: 'client' | 'barber' | 'super_admin') => void;
-  
+
+  // Supabase Status & Sync
+  isSupabaseActive: boolean;
+  supabaseStatus: { connected: boolean; message: string };
+  checkSupabaseConnection: () => Promise<void>;
+  syncAllToSupabase: () => Promise<{ success: boolean; message: string }>;
+
   // Registration Modal State
   isRegisterModalOpen: boolean;
   setIsRegisterModalOpen: (isOpen: boolean) => void;
@@ -215,6 +222,156 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const saved = localStorage.getItem(STORAGE_KEYS.ACTIVE_SHOP_ID);
     return saved || 'shop_navalha';
   });
+
+  const [isSupabaseActive, setIsSupabaseActive] = useState<boolean>(isSupabaseConfigured());
+  const [supabaseStatus, setSupabaseStatus] = useState<{ connected: boolean; message: string }>({
+    connected: isSupabaseConfigured(),
+    message: isSupabaseConfigured()
+      ? 'Supabase configurado e sincronizado'
+      : 'Modo local ativo',
+  });
+
+  const checkSupabaseConnection = async () => {
+    if (!isSupabaseConfigured()) {
+      setIsSupabaseActive(false);
+      setSupabaseStatus({
+        connected: false,
+        message: 'Variáveis VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY não informadas.',
+      });
+      return;
+    }
+
+    const res = await supabaseService.checkConnection();
+    setIsSupabaseActive(res.connected);
+    setSupabaseStatus(res);
+  };
+
+  const syncAllToSupabase = async (): Promise<{ success: boolean; message: string }> => {
+    return supabaseService.seedAllToSupabase({
+      barbershops,
+      services,
+      appointments,
+      users,
+      plans: subscriptionPlans,
+      settings: platformSettings,
+      trialRecords,
+      landing: landingPageContent,
+    });
+  };
+
+  // Initial Supabase Hydration & Realtime Subscription
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return;
+
+    let isMounted = true;
+
+    const hydrateFromSupabase = async () => {
+      try {
+        const [
+          remoteShops,
+          remoteServices,
+          remoteAppointments,
+          remoteUsers,
+          remotePlans,
+          remoteSettings,
+          remoteTrials,
+          remoteLanding,
+        ] = await Promise.all([
+          supabaseService.getBarbershops(),
+          supabaseService.getServices(),
+          supabaseService.getAppointments(),
+          supabaseService.getUsers(),
+          supabaseService.getSubscriptionPlans(),
+          supabaseService.getPlatformSettings(),
+          supabaseService.getTrialRecords(),
+          supabaseService.getLandingPageContent(),
+        ]);
+
+        if (!isMounted) return;
+
+        if (remoteShops && remoteShops.length > 0) {
+          setBarbershops(remoteShops);
+        } else {
+          INITIAL_BARBERSHOPS.forEach((shop) => supabaseService.upsertBarbershop(shop));
+        }
+
+        if (remoteServices && remoteServices.length > 0) {
+          setServices(remoteServices);
+        } else {
+          INITIAL_SERVICES.forEach((srv) => supabaseService.upsertService(srv));
+        }
+
+        if (remoteAppointments && remoteAppointments.length > 0) {
+          setAppointments(remoteAppointments);
+        } else {
+          INITIAL_APPOINTMENTS.forEach((apt) => supabaseService.upsertAppointment(apt));
+        }
+
+        if (remoteUsers && remoteUsers.length > 0) {
+          setUsers(remoteUsers);
+        } else {
+          INITIAL_USERS.forEach((usr) => supabaseService.upsertUser(usr));
+        }
+
+        if (remotePlans && remotePlans.length > 0) {
+          setSubscriptionPlans(remotePlans);
+        } else {
+          INITIAL_SUBSCRIPTION_PLANS.forEach((pln) => supabaseService.upsertSubscriptionPlan(pln));
+        }
+
+        if (remoteSettings) {
+          setPlatformSettings(remoteSettings);
+        } else {
+          supabaseService.upsertPlatformSettings(INITIAL_PLATFORM_SETTINGS);
+        }
+
+        if (remoteTrials && remoteTrials.length > 0) {
+          setTrialRecords(remoteTrials);
+        }
+
+        if (remoteLanding) {
+          setLandingPageContent(remoteLanding);
+        }
+
+        setIsSupabaseActive(true);
+        setSupabaseStatus({
+          connected: true,
+          message: 'Conectado em tempo real com o banco de dados Supabase.',
+        });
+      } catch (err: any) {
+        console.warn('Erro na hidratação com Supabase:', err);
+      }
+    };
+
+    hydrateFromSupabase();
+
+    // Subscribe to realtime database changes
+    const unsubscribe = supabaseService.subscribeToChanges(
+      async () => {
+        const freshAppointments = await supabaseService.getAppointments();
+        if (freshAppointments && isMounted) {
+          setAppointments(freshAppointments);
+        }
+      },
+      async () => {
+        const freshShops = await supabaseService.getBarbershops();
+        if (freshShops && isMounted) {
+          setBarbershops(freshShops);
+        }
+      },
+      async () => {
+        const freshServices = await supabaseService.getServices();
+        if (freshServices && isMounted) {
+          setServices(freshServices);
+        }
+      }
+    );
+
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
+  }, []);
 
   const [currentView, setCurrentView] = useState<'client_booking' | 'client_appointments' | 'barber_dashboard' | 'super_admin_dashboard' | 'landing_page'>(() => {
     if (typeof window !== 'undefined') {
@@ -424,7 +581,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setUsers((prevUsers) => {
       const updated = prevUsers.map((u) => {
         if (u.id === userId) {
-          return { ...u, password: trimmedPass };
+          const userUpdated = { ...u, password: trimmedPass };
+          supabaseService.upsertUser(userUpdated);
+          return userUpdated;
         }
         return u;
       });
@@ -448,7 +607,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setUsers((prevUsers) => {
       const updated = prevUsers.map((u) => {
         if (u.id === userId) {
-          return { ...u, ...updates };
+          const userUpdated = { ...u, ...updates };
+          supabaseService.upsertUser(userUpdated);
+          return userUpdated;
         }
         return u;
       });
@@ -557,12 +718,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setAppointments((prev) => [newAppointment, ...prev]);
 
+    // Persist to Supabase
+    supabaseService.upsertAppointment(newAppointment);
+
     // If client user is anonymous or updating name/phone, keep user updated
     if (currentUser.role === 'client') {
       if (currentUser.name !== data.clientName || currentUser.phone !== data.clientPhone) {
         const updated = { ...currentUser, name: data.clientName, phone: data.clientPhone };
         setCurrentUser(updated);
         setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
+        supabaseService.upsertUser(updated);
       }
     }
 
@@ -586,6 +751,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             ? `${apt.notes ? apt.notes + ' • ' : ''}[Cancelado por ${cancelledBy === 'barber' ? 'Barbeiro' : 'Cliente'}: ${reason}]`
             : apt.notes,
         };
+        supabaseService.upsertAppointment(updated);
         return updated;
       })
     );
@@ -603,6 +769,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           status: 'confirmed',
           pixPaidAt: formattedDate,
         };
+        supabaseService.upsertAppointment(updated);
         return updated;
       })
     );
@@ -613,6 +780,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       prev.map((apt) => {
         if (apt.id !== id) return apt;
         const updated: Appointment = { ...apt, status: 'completed' };
+        supabaseService.upsertAppointment(updated);
         return updated;
       })
     );
@@ -623,6 +791,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       prev.map((apt) => {
         if (apt.id !== id) return apt;
         const updated: Appointment = { ...apt, status };
+        supabaseService.upsertAppointment(updated);
         return updated;
       })
     );
@@ -635,6 +804,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       id: generateId('srv'),
     };
     setServices((prev) => [...prev, newService]);
+    supabaseService.upsertService(newService);
   };
 
   const updateService = (id: string, updates: Partial<Service>) => {
@@ -642,6 +812,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       prev.map((srv) => {
         if (srv.id !== id) return srv;
         const updated: Service = { ...srv, ...updates };
+        supabaseService.upsertService(updated);
         return updated;
       })
     );
@@ -649,6 +820,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const deleteService = (id: string) => {
     setServices((prev) => prev.filter((srv) => srv.id !== id));
+    supabaseService.deleteService(id);
   };
 
   // Barbershop Updates
@@ -657,17 +829,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       prev.map((shop) => {
         if (shop.id !== id) return shop;
         const updated: Barbershop = { ...shop, ...updates };
+        supabaseService.upsertBarbershop(updated);
         return updated;
       })
     );
     if (updates.logoUrl) {
       setCurrentUser((prev) => {
-        return prev.barbershopId === id ? { ...prev, avatarUrl: updates.logoUrl } : prev;
+        const updated = prev.barbershopId === id ? { ...prev, avatarUrl: updates.logoUrl } : prev;
+        if (prev.barbershopId === id) supabaseService.upsertUser(updated);
+        return updated;
       });
       setUsers((prev) =>
         prev.map((u) => {
           if (u.barbershopId !== id) return u;
-          return { ...u, avatarUrl: updates.logoUrl };
+          const updated = { ...u, avatarUrl: updates.logoUrl };
+          supabaseService.upsertUser(updated);
+          return updated;
         })
       );
     }
@@ -685,6 +862,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           subscriptionProofUrl: proofNote,
           subscriptionRequestedAt: todayStr,
         };
+        supabaseService.upsertBarbershop(updated);
         return updated;
       })
     );
@@ -715,6 +893,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           subscriptionLastPaymentDate: todayStr,
           subscriptionProofUrl: undefined,
         };
+        supabaseService.upsertBarbershop(updated);
         return updated;
       })
     );
@@ -729,6 +908,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           subscriptionStatus: 'overdue',
           subscriptionProofUrl: undefined,
         };
+        supabaseService.upsertBarbershop(updated);
         return updated;
       })
     );
@@ -739,6 +919,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       prev.map((shop) => {
         if (shop.id !== barbershopId) return shop;
         const updated: Barbershop = { ...shop, subscriptionStatus: status };
+        supabaseService.upsertBarbershop(updated);
         return updated;
       })
     );
@@ -762,23 +943,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // 4. Cascade delete user accounts belonging to this barbershop
     setUsers((prev) => prev.filter((u) => u.barbershopId !== id));
+
+    // 5. Cascade delete in Supabase
+    supabaseService.deleteBarbershop(id);
   };
 
   const updatePlatformSettings = (settings: Partial<PlatformSettings>) => {
     setPlatformSettings((prev) => {
-      return { ...prev, ...settings };
+      const updated = { ...prev, ...settings };
+      supabaseService.upsertPlatformSettings(updated);
+      return updated;
     });
   };
 
   const updateSubscriptionPlan = (id: SubscriptionPlanPeriod, updates: Partial<SubscriptionPlan>) => {
     setSubscriptionPlans((prev) => {
-      return prev.map((plan) => (plan.id === id ? { ...plan, ...updates } : plan));
+      const updated = prev.map((plan) => (plan.id === id ? { ...plan, ...updates } : plan));
+      const target = updated.find((p) => p.id === id);
+      if (target) supabaseService.upsertSubscriptionPlan(target);
+      return updated;
     });
   };
 
   const updateLandingPageContent = (updates: Partial<LandingPageContent>) => {
     setLandingPageContent((prev) => {
-      return { ...prev, ...updates };
+      const updated = { ...prev, ...updates };
+      supabaseService.upsertLandingPageContent(updated);
+      return updated;
     });
   };
 
@@ -994,6 +1185,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         registeredAt: getTodayDateString(),
       };
       setTrialRecords((prev) => [...prev, newTrialRecord]);
+      supabaseService.upsertTrialRecord(newTrialRecord);
     }
 
     // Default starter services for this shop
@@ -1033,6 +1225,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setUsers((prev) => [...prev, newUser]);
     setBarbershops((prev) => [...prev, newShop]);
     setServices((prev) => [...prev, ...defaultServices]);
+
+    // Sync new shop and services to Supabase
+    supabaseService.upsertUser(newUser);
+    supabaseService.upsertBarbershop(newShop);
+    defaultServices.forEach((srv) => supabaseService.upsertService(srv));
 
     return newShop;
   };
@@ -1095,6 +1292,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         newAppointmentsCount,
         markAppointmentsAsSeen,
         switchRole,
+        isSupabaseActive,
+        supabaseStatus,
+        checkSupabaseConnection,
+        syncAllToSupabase,
         isRegisterModalOpen,
         setIsRegisterModalOpen,
         registerPlanId,

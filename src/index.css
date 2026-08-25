@@ -37,3 +37,11 @@ html {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Base style for form inputs: ensures black font when typing, unless highlighted with custom color */
+input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not([class*="text-orange"]):not([class*="text-amber"]):not([class*="text-emerald"]):not([class*="text-rose"]):not([class*="text-blue"]):not([class*="text-red"]):not([class*="text-green"]):not([class*="text-white"]),
+textarea:not([class*="text-orange"]):not([class*="text-amber"]):not([class*="text-emerald"]):not([class*="text-rose"]):not([class*="text-blue"]):not([class*="text-red"]):not([class*="text-green"]):not([class*="text-white"]),
+select:not([class*="text-orange"]):not([class*="text-amber"]):not([class*="text-emerald"]):not([class*="text-rose"]):not([class*="text-blue"]):not([class*="text-red"]):not([class*="text-green"]):not([class*="text-white"]) {
+  color: #000000;
+}
+

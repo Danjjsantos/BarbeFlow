@@ -355,7 +355,7 @@ export const AdminProfileModal: React.FC<AdminProfileModalProps> = ({ isOpen, on
                       value={urlInput}
                       onChange={(e) => setUrlInput(e.target.value)}
                       placeholder="https://exemplo.com/minha-foto.jpg"
-                      className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-hidden focus:border-orange-500"
+                      className="flex-1 bg-white border-2 border-slate-300 dark:border-slate-600 rounded-xl px-3 py-2 text-xs font-bold text-black placeholder:text-slate-400 focus:outline-hidden focus:border-orange-500"
                     />
                     <button
                       type="button"
@@ -420,7 +420,7 @@ export const AdminProfileModal: React.FC<AdminProfileModalProps> = ({ isOpen, on
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Ex: Danilo Santos"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white focus:outline-hidden focus:border-orange-500"
+                  className="w-full bg-white border-2 border-slate-300 dark:border-slate-600 rounded-xl pl-10 pr-4 py-2.5 text-xs font-bold text-black placeholder:text-slate-400 focus:outline-hidden focus:border-orange-500"
                 />
               </div>
             </div>
@@ -437,7 +437,7 @@ export const AdminProfileModal: React.FC<AdminProfileModalProps> = ({ isOpen, on
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="admin@barberclock.com.br"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white focus:outline-hidden focus:border-orange-500"
+                    className="w-full bg-white border-2 border-slate-300 dark:border-slate-600 rounded-xl pl-10 pr-4 py-2.5 text-xs font-bold text-black placeholder:text-slate-400 focus:outline-hidden focus:border-orange-500"
                   />
                 </div>
               </div>
@@ -453,7 +453,7 @@ export const AdminProfileModal: React.FC<AdminProfileModalProps> = ({ isOpen, on
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="(11) 99999-8888"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white focus:outline-hidden focus:border-orange-500"
+                    className="w-full bg-white border-2 border-slate-300 dark:border-slate-600 rounded-xl pl-10 pr-4 py-2.5 text-xs font-bold text-black placeholder:text-slate-400 focus:outline-hidden focus:border-orange-500"
                   />
                 </div>
               </div>

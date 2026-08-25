@@ -486,7 +486,7 @@ export const BarberScheduleView: React.FC<BarberScheduleViewProps> = ({ barbersh
                   placeholder="Ex: João da Silva"
                   value={newClientName}
                   onChange={(e) => setNewClientName(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500"
+                  className="w-full px-3 py-2 bg-white border-2 border-slate-300 dark:border-slate-600 rounded-xl text-sm font-bold text-black placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-amber-500"
                 />
               </div>
 
@@ -500,7 +500,7 @@ export const BarberScheduleView: React.FC<BarberScheduleViewProps> = ({ barbersh
                   placeholder="(11) 99999-0000"
                   value={newClientPhone}
                   onChange={(e) => setNewClientPhone(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500"
+                  className="w-full px-3 py-2 bg-white border-2 border-slate-300 dark:border-slate-600 rounded-xl text-sm font-bold text-black placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-amber-500"
                 />
               </div>
 
@@ -512,7 +512,7 @@ export const BarberScheduleView: React.FC<BarberScheduleViewProps> = ({ barbersh
                   <select
                     value={newServiceId}
                     onChange={(e) => setNewServiceId(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs focus:outline-hidden focus:ring-2 focus:ring-amber-500 font-semibold"
+                    className="w-full px-3 py-2 bg-white border-2 border-slate-300 dark:border-slate-600 rounded-xl text-xs focus:outline-hidden focus:ring-2 focus:ring-amber-500 font-bold text-black"
                   >
                     {shopServices.map((s) => (
                       <option key={s.id} value={s.id}>
@@ -530,7 +530,7 @@ export const BarberScheduleView: React.FC<BarberScheduleViewProps> = ({ barbersh
                     type="time"
                     value={newTime}
                     onChange={(e) => setNewTime(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs focus:outline-hidden focus:ring-2 focus:ring-amber-500 font-semibold"
+                    className="w-full px-3 py-2 bg-white border-2 border-slate-300 dark:border-slate-600 rounded-xl text-xs focus:outline-hidden focus:ring-2 focus:ring-amber-500 font-bold text-black"
                   />
                 </div>
               </div>
