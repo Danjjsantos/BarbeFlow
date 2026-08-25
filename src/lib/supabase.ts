@@ -814,6 +814,48 @@ function mapLandingToDb(l: LandingPageContent): any {
 }
 
 // ----------------------------------------------------
+// Server Backend DB Helpers
+// ----------------------------------------------------
+export async function saveToServerDb(table: string, data: any, action: 'upsert' | 'delete' = 'upsert') {
+  try {
+    await fetch('/api/db/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ table, data, action }),
+    });
+  } catch (e) {
+    console.warn('Server DB save error:', e);
+  }
+}
+
+export async function fetchServerDbData() {
+  try {
+    const res = await fetch('/api/db/data');
+    if (res.ok) {
+      const json = await res.json();
+      if (json.success && json.data) {
+        return json.data;
+      }
+    }
+  } catch (e) {
+    console.warn('Failed to fetch server DB data:', e);
+  }
+  return null;
+}
+
+export async function syncAllToServerDb(allData: any) {
+  try {
+    await fetch('/api/db/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(allData),
+    });
+  } catch (e) {
+    console.warn('Server DB sync error:', e);
+  }
+}
+
+// ----------------------------------------------------
 // CRUD Service & Realtime
 // ----------------------------------------------------
 export const supabaseService = {
@@ -913,8 +955,11 @@ export const supabaseService = {
   },
 
   async upsertBarbershop(shop: Barbershop): Promise<boolean> {
+    // Always persist to server database file
+    saveToServerDb('barbershops', shop, 'upsert');
+
     const client = getSupabaseClient();
-    if (!client) return false;
+    if (!client) return true;
     try {
       const { error } = await client.from('barbershops').upsert(mapBarbershopToDb(shop));
       if (error) console.warn('upsertBarbershop error:', error);
@@ -926,8 +971,11 @@ export const supabaseService = {
   },
 
   async deleteBarbershop(id: string): Promise<boolean> {
+    // Always persist to server database file
+    saveToServerDb('barbershops', { id }, 'delete');
+
     const client = getSupabaseClient();
-    if (!client) return false;
+    if (!client) return true;
     try {
       const { error } = await client.from('barbershops').delete().eq('id', id);
       return !error;
@@ -951,8 +999,11 @@ export const supabaseService = {
   },
 
   async upsertService(srv: Service): Promise<boolean> {
+    // Always persist to server database file
+    saveToServerDb('services', srv, 'upsert');
+
     const client = getSupabaseClient();
-    if (!client) return false;
+    if (!client) return true;
     try {
       const { error } = await client.from('services').upsert(mapServiceToDb(srv));
       if (error) console.warn('upsertService error:', error);
@@ -963,8 +1014,11 @@ export const supabaseService = {
   },
 
   async deleteService(id: string): Promise<boolean> {
+    // Always persist to server database file
+    saveToServerDb('services', { id }, 'delete');
+
     const client = getSupabaseClient();
-    if (!client) return false;
+    if (!client) return true;
     try {
       const { error } = await client.from('services').delete().eq('id', id);
       return !error;
@@ -991,8 +1045,11 @@ export const supabaseService = {
   },
 
   async upsertAppointment(apt: Appointment): Promise<boolean> {
+    // Always persist to server database file
+    saveToServerDb('appointments', apt, 'upsert');
+
     const client = getSupabaseClient();
-    if (!client) return false;
+    if (!client) return true;
     try {
       const { error } = await client.from('appointments').upsert(mapAppointmentToDb(apt));
       if (error) console.warn('upsertAppointment error:', error);
@@ -1003,8 +1060,11 @@ export const supabaseService = {
   },
 
   async deleteAppointment(id: string): Promise<boolean> {
+    // Always persist to server database file
+    saveToServerDb('appointments', { id }, 'delete');
+
     const client = getSupabaseClient();
-    if (!client) return false;
+    if (!client) return true;
     try {
       const { error } = await client.from('appointments').delete().eq('id', id);
       return !error;
@@ -1028,8 +1088,11 @@ export const supabaseService = {
   },
 
   async upsertUser(user: User): Promise<boolean> {
+    // Always persist to server database file
+    saveToServerDb('users', user, 'upsert');
+
     const client = getSupabaseClient();
-    if (!client) return false;
+    if (!client) return true;
     try {
       const { error } = await client.from('users').upsert(mapUserToDb(user));
       if (error) console.warn('upsertUser error:', error);
@@ -1054,8 +1117,11 @@ export const supabaseService = {
   },
 
   async upsertSubscriptionPlan(plan: SubscriptionPlan): Promise<boolean> {
+    // Always persist to server database file
+    saveToServerDb('plans', plan, 'upsert');
+
     const client = getSupabaseClient();
-    if (!client) return false;
+    if (!client) return true;
     try {
       const { error } = await client.from('subscription_plans').upsert(mapPlanToDb(plan));
       return !error;
@@ -1082,8 +1148,11 @@ export const supabaseService = {
   },
 
   async upsertPlatformSettings(settings: PlatformSettings): Promise<boolean> {
+    // Always persist to server database file
+    saveToServerDb('settings', settings, 'upsert');
+
     const client = getSupabaseClient();
-    if (!client) return false;
+    if (!client) return true;
     try {
       const { error } = await client
         .from('platform_settings')
@@ -1108,8 +1177,11 @@ export const supabaseService = {
   },
 
   async upsertTrialRecord(record: TrialUserRecord): Promise<boolean> {
+    // Always persist to server database file
+    saveToServerDb('trialRecords', record, 'upsert');
+
     const client = getSupabaseClient();
-    if (!client) return false;
+    if (!client) return true;
     try {
       const { error } = await client.from('trial_records').upsert(mapTrialToDb(record));
       return !error;
@@ -1136,8 +1208,11 @@ export const supabaseService = {
   },
 
   async upsertLandingPageContent(content: LandingPageContent): Promise<boolean> {
+    // Always persist to server database file
+    saveToServerDb('landing', content, 'upsert');
+
     const client = getSupabaseClient();
-    if (!client) return false;
+    if (!client) return true;
     try {
       const { error } = await client
         .from('landing_page_content')

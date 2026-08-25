@@ -23,7 +23,7 @@ import {
   INITIAL_TRIAL_RECORDS,
 } from '../data/initialData';
 import { generateId, getTodayDateString, formatPhone } from '../utils/formatters';
-import { supabaseService, isSupabaseConfigured } from '../lib/supabase';
+import { supabaseService, isSupabaseConfigured, fetchServerDbData } from '../lib/supabase';
 
 interface AppContextType {
   currentUser: User;
@@ -307,155 +307,159 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
-  // Initial Supabase Hydration & Realtime Subscription
+  // Initial Database Hydration (Server disk DB + Supabase) & Realtime Subscription
   useEffect(() => {
-    if (!isSupabaseConfigured()) return;
-
     let isMounted = true;
 
-    const hydrateFromSupabase = async () => {
+    const hydrateData = async () => {
       try {
-        const [
-          remoteShops,
-          remoteServices,
-          remoteAppointments,
-          remoteUsers,
-          remotePlans,
-          remoteSettings,
-          remoteTrials,
-          remoteLanding,
-        ] = await Promise.all([
-          supabaseService.getBarbershops(),
-          supabaseService.getServices(),
-          supabaseService.getAppointments(),
-          supabaseService.getUsers(),
-          supabaseService.getSubscriptionPlans(),
-          supabaseService.getPlatformSettings(),
-          supabaseService.getTrialRecords(),
-          supabaseService.getLandingPageContent(),
-        ]);
-
-        if (!isMounted) return;
-
-        if (remoteShops && remoteShops.length > 0) {
-          setBarbershops(remoteShops);
-          localStorage.setItem(STORAGE_KEYS.BARBERSHOPS, JSON.stringify(remoteShops));
-        } else {
-          setBarbershops((currentShops) => {
-            currentShops.forEach((shop) => supabaseService.upsertBarbershop(shop));
-            return currentShops;
-          });
+        // 1. Fetch server persistent database first (persisted on disk)
+        const serverData = await fetchServerDbData();
+        if (serverData && isMounted) {
+          if (Array.isArray(serverData.barbershops) && serverData.barbershops.length > 0) {
+            setBarbershops(serverData.barbershops);
+            localStorage.setItem(STORAGE_KEYS.BARBERSHOPS, JSON.stringify(serverData.barbershops));
+          }
+          if (Array.isArray(serverData.services) && serverData.services.length > 0) {
+            setServices(serverData.services);
+            localStorage.setItem(STORAGE_KEYS.SERVICES, JSON.stringify(serverData.services));
+          }
+          if (Array.isArray(serverData.appointments) && serverData.appointments.length > 0) {
+            setAppointments(serverData.appointments);
+            localStorage.setItem(STORAGE_KEYS.APPOINTMENTS, JSON.stringify(serverData.appointments));
+          }
+          if (Array.isArray(serverData.users) && serverData.users.length > 0) {
+            setUsers(serverData.users);
+            localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(serverData.users));
+          }
+          if (Array.isArray(serverData.plans) && serverData.plans.length > 0) {
+            setSubscriptionPlans(serverData.plans);
+            localStorage.setItem(STORAGE_KEYS.PLANS, JSON.stringify(serverData.plans));
+          }
+          if (serverData.settings) {
+            setPlatformSettings((prev) => {
+              const merged = { ...prev, ...serverData.settings };
+              localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(merged));
+              return merged;
+            });
+          }
+          if (serverData.landing) {
+            setLandingPageContent((prev) => {
+              const merged = { ...prev, ...serverData.landing };
+              localStorage.setItem(STORAGE_KEYS.LANDING, JSON.stringify(merged));
+              return merged;
+            });
+          }
+          if (Array.isArray(serverData.trialRecords) && serverData.trialRecords.length > 0) {
+            setTrialRecords(serverData.trialRecords);
+            localStorage.setItem(STORAGE_KEYS.TRIAL_RECORDS, JSON.stringify(serverData.trialRecords));
+          }
         }
 
-        if (remoteServices && remoteServices.length > 0) {
-          setServices(remoteServices);
-          localStorage.setItem(STORAGE_KEYS.SERVICES, JSON.stringify(remoteServices));
-        } else {
-          setServices((currentServices) => {
-            currentServices.forEach((srv) => supabaseService.upsertService(srv));
-            return currentServices;
+        // 2. If Supabase is configured, also hydrate and sync from Supabase
+        if (isSupabaseConfigured()) {
+          const [
+            remoteShops,
+            remoteServices,
+            remoteAppointments,
+            remoteUsers,
+            remotePlans,
+            remoteSettings,
+            remoteTrials,
+            remoteLanding,
+          ] = await Promise.all([
+            supabaseService.getBarbershops(),
+            supabaseService.getServices(),
+            supabaseService.getAppointments(),
+            supabaseService.getUsers(),
+            supabaseService.getSubscriptionPlans(),
+            supabaseService.getPlatformSettings(),
+            supabaseService.getTrialRecords(),
+            supabaseService.getLandingPageContent(),
+          ]);
+
+          if (!isMounted) return;
+
+          if (remoteShops && remoteShops.length > 0) {
+            setBarbershops(remoteShops);
+            localStorage.setItem(STORAGE_KEYS.BARBERSHOPS, JSON.stringify(remoteShops));
+          }
+          if (remoteServices && remoteServices.length > 0) {
+            setServices(remoteServices);
+            localStorage.setItem(STORAGE_KEYS.SERVICES, JSON.stringify(remoteServices));
+          }
+          if (remoteAppointments && remoteAppointments.length > 0) {
+            setAppointments(remoteAppointments);
+            localStorage.setItem(STORAGE_KEYS.APPOINTMENTS, JSON.stringify(remoteAppointments));
+          }
+          if (remoteUsers && remoteUsers.length > 0) {
+            setUsers(remoteUsers);
+            localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(remoteUsers));
+          }
+          if (remotePlans && remotePlans.length > 0) {
+            setSubscriptionPlans(remotePlans);
+            localStorage.setItem(STORAGE_KEYS.PLANS, JSON.stringify(remotePlans));
+          }
+          if (remoteSettings) {
+            setPlatformSettings((prev) => {
+              const merged = { ...prev, ...remoteSettings };
+              localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(merged));
+              return merged;
+            });
+          }
+          if (remoteTrials && remoteTrials.length > 0) {
+            setTrialRecords(remoteTrials);
+            localStorage.setItem(STORAGE_KEYS.TRIAL_RECORDS, JSON.stringify(remoteTrials));
+          }
+          if (remoteLanding) {
+            setLandingPageContent((prev) => {
+              const merged = { ...prev, ...remoteLanding };
+              localStorage.setItem(STORAGE_KEYS.LANDING, JSON.stringify(merged));
+              return merged;
+            });
+          }
+
+          setIsSupabaseActive(true);
+          setSupabaseStatus({
+            connected: true,
+            message: 'Conectado em tempo real com o banco de dados Supabase.',
           });
         }
-
-        if (remoteAppointments && remoteAppointments.length > 0) {
-          setAppointments(remoteAppointments);
-          localStorage.setItem(STORAGE_KEYS.APPOINTMENTS, JSON.stringify(remoteAppointments));
-        } else {
-          setAppointments((currentApts) => {
-            currentApts.forEach((apt) => supabaseService.upsertAppointment(apt));
-            return currentApts;
-          });
-        }
-
-        if (remoteUsers && remoteUsers.length > 0) {
-          setUsers(remoteUsers);
-          localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(remoteUsers));
-        } else {
-          setUsers((currentUsers) => {
-            currentUsers.forEach((usr) => supabaseService.upsertUser(usr));
-            return currentUsers;
-          });
-        }
-
-        if (remotePlans && remotePlans.length > 0) {
-          setSubscriptionPlans(remotePlans);
-          localStorage.setItem(STORAGE_KEYS.PLANS, JSON.stringify(remotePlans));
-        } else {
-          setSubscriptionPlans((currentPlans) => {
-            currentPlans.forEach((pln) => supabaseService.upsertSubscriptionPlan(pln));
-            return currentPlans;
-          });
-        }
-
-        if (remoteSettings) {
-          setPlatformSettings((prev) => {
-            const merged = { ...prev, ...remoteSettings };
-            localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(merged));
-            return merged;
-          });
-        } else {
-          setPlatformSettings((currentSettings) => {
-            supabaseService.upsertPlatformSettings(currentSettings);
-            return currentSettings;
-          });
-        }
-
-        if (remoteTrials && remoteTrials.length > 0) {
-          setTrialRecords(remoteTrials);
-          localStorage.setItem(STORAGE_KEYS.TRIAL_RECORDS, JSON.stringify(remoteTrials));
-        }
-
-        if (remoteLanding) {
-          setLandingPageContent((prev) => {
-            const merged = { ...prev, ...remoteLanding };
-            localStorage.setItem(STORAGE_KEYS.LANDING, JSON.stringify(merged));
-            return merged;
-          });
-        } else {
-          setLandingPageContent((currentLanding) => {
-            supabaseService.upsertLandingPageContent(currentLanding);
-            return currentLanding;
-          });
-        }
-
-        setIsSupabaseActive(true);
-        setSupabaseStatus({
-          connected: true,
-          message: 'Conectado em tempo real com o banco de dados Supabase.',
-        });
       } catch (err: any) {
-        console.warn('Erro na hidratação com Supabase:', err);
+        console.warn('Erro na hidratação de dados:', err);
       }
     };
 
-    hydrateFromSupabase();
+    hydrateData();
 
-    // Subscribe to realtime database changes
-    const unsubscribe = supabaseService.subscribeToChanges(
-      async () => {
-        const freshAppointments = await supabaseService.getAppointments();
-        if (freshAppointments && isMounted) {
-          setAppointments(freshAppointments);
+    // Subscribe to realtime database changes if Supabase is configured
+    if (isSupabaseConfigured()) {
+      const unsubscribe = supabaseService.subscribeToChanges(
+        async () => {
+          const freshAppointments = await supabaseService.getAppointments();
+          if (freshAppointments && isMounted) {
+            setAppointments(freshAppointments);
+          }
+        },
+        async () => {
+          const freshShops = await supabaseService.getBarbershops();
+          if (freshShops && isMounted) {
+            setBarbershops(freshShops);
+          }
+        },
+        async () => {
+          const freshServices = await supabaseService.getServices();
+          if (freshServices && isMounted) {
+            setServices(freshServices);
+          }
         }
-      },
-      async () => {
-        const freshShops = await supabaseService.getBarbershops();
-        if (freshShops && isMounted) {
-          setBarbershops(freshShops);
-        }
-      },
-      async () => {
-        const freshServices = await supabaseService.getServices();
-        if (freshServices && isMounted) {
-          setServices(freshServices);
-        }
-      }
-    );
+      );
 
-    return () => {
-      isMounted = false;
-      unsubscribe();
-    };
+      return () => {
+        isMounted = false;
+        unsubscribe();
+      };
+    }
   }, []);
 
   const [currentView, setCurrentView] = useState<'client_booking' | 'client_appointments' | 'barber_dashboard' | 'super_admin_dashboard' | 'landing_page'>(() => {

@@ -1,10 +1,104 @@
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
 import dotenv from 'dotenv';
 import { generatePixPayload, generateQrCodeDataUrl } from './src/utils/pix';
+import {
+  INITIAL_PLATFORM_SETTINGS,
+  INITIAL_TRIAL_RECORDS,
+  INITIAL_SUBSCRIPTION_PLANS,
+  INITIAL_BARBERSHOPS,
+  INITIAL_SERVICES,
+  INITIAL_APPOINTMENTS,
+  INITIAL_USERS,
+  INITIAL_LANDING_CONTENT,
+} from './src/data/initialData';
 
 dotenv.config();
+
+// ----------------------------------------------------
+// Persistent Local Server Database
+// ----------------------------------------------------
+const DATA_DIR = path.join(process.cwd(), 'data');
+const DB_FILE = path.join(DATA_DIR, 'app_database.json');
+
+function initLocalDatabase() {
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+    if (!fs.existsSync(DB_FILE)) {
+      const initialDb = {
+        barbershops: INITIAL_BARBERSHOPS,
+        services: INITIAL_SERVICES,
+        appointments: INITIAL_APPOINTMENTS,
+        users: INITIAL_USERS,
+        plans: INITIAL_SUBSCRIPTION_PLANS,
+        settings: INITIAL_PLATFORM_SETTINGS,
+        trialRecords: INITIAL_TRIAL_RECORDS,
+        landing: INITIAL_LANDING_CONTENT,
+        lastUpdated: new Date().toISOString(),
+      };
+      fs.writeFileSync(DB_FILE, JSON.stringify(initialDb, null, 2), 'utf-8');
+    }
+  } catch (e) {
+    console.error('Failed to init local database file:', e);
+  }
+}
+
+function getLocalDatabase() {
+  try {
+    initLocalDatabase();
+    if (fs.existsSync(DB_FILE)) {
+      const raw = fs.readFileSync(DB_FILE, 'utf-8');
+      const parsed = JSON.parse(raw);
+      return {
+        barbershops: Array.isArray(parsed.barbershops) ? parsed.barbershops : INITIAL_BARBERSHOPS,
+        services: Array.isArray(parsed.services) ? parsed.services : INITIAL_SERVICES,
+        appointments: Array.isArray(parsed.appointments) ? parsed.appointments : INITIAL_APPOINTMENTS,
+        users: Array.isArray(parsed.users) ? parsed.users : INITIAL_USERS,
+        plans: Array.isArray(parsed.plans) ? parsed.plans : INITIAL_SUBSCRIPTION_PLANS,
+        settings: parsed.settings ? { ...INITIAL_PLATFORM_SETTINGS, ...parsed.settings } : INITIAL_PLATFORM_SETTINGS,
+        trialRecords: Array.isArray(parsed.trialRecords) ? parsed.trialRecords : INITIAL_TRIAL_RECORDS,
+        landing: parsed.landing ? { ...INITIAL_LANDING_CONTENT, ...parsed.landing } : INITIAL_LANDING_CONTENT,
+        lastUpdated: parsed.lastUpdated || new Date().toISOString(),
+      };
+    }
+  } catch (e) {
+    console.error('Failed to read local database:', e);
+  }
+  return {
+    barbershops: INITIAL_BARBERSHOPS,
+    services: INITIAL_SERVICES,
+    appointments: INITIAL_APPOINTMENTS,
+    users: INITIAL_USERS,
+    plans: INITIAL_SUBSCRIPTION_PLANS,
+    settings: INITIAL_PLATFORM_SETTINGS,
+    trialRecords: INITIAL_TRIAL_RECORDS,
+    landing: INITIAL_LANDING_CONTENT,
+    lastUpdated: new Date().toISOString(),
+  };
+}
+
+function saveLocalDatabase(data: any) {
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+    const current = getLocalDatabase();
+    const updated = {
+      ...current,
+      ...data,
+      lastUpdated: new Date().toISOString(),
+    };
+    fs.writeFileSync(DB_FILE, JSON.stringify(updated, null, 2), 'utf-8');
+    return updated;
+  } catch (e) {
+    console.error('Failed to save local database:', e);
+    return null;
+  }
+}
 
 // In-memory payment store for status tracking and simulation fallbacks
 interface StoredPayment {
@@ -38,11 +132,131 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  app.use(express.json());
+  // Initialize server database on startup
+  initLocalDatabase();
+
+  app.use(express.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
   // Health check
   app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', time: new Date().toISOString() });
+  });
+
+  // ----------------------------------------------------
+  // Local Database Persistence API
+  // ----------------------------------------------------
+  app.get('/api/db/data', (req, res) => {
+    try {
+      const db = getLocalDatabase();
+      return res.json({ success: true, data: db });
+    } catch (e: any) {
+      return res.status(500).json({ success: false, error: e?.message });
+    }
+  });
+
+  app.post('/api/db/save', (req, res) => {
+    try {
+      const { table, data, action = 'upsert' } = req.body || {};
+      if (!table) return res.status(400).json({ success: false, error: 'Tabela não informada' });
+
+      const currentDb = getLocalDatabase();
+
+      if (table === 'barbershops') {
+        if (action === 'delete') {
+          currentDb.barbershops = currentDb.barbershops.filter((item: any) => item.id !== data?.id && item.id !== data);
+        } else {
+          const idx = currentDb.barbershops.findIndex((item: any) => item.id === data.id);
+          if (idx >= 0) currentDb.barbershops[idx] = { ...currentDb.barbershops[idx], ...data };
+          else currentDb.barbershops.push(data);
+        }
+      } else if (table === 'services') {
+        if (action === 'delete') {
+          currentDb.services = currentDb.services.filter((item: any) => item.id !== data?.id && item.id !== data);
+        } else {
+          const idx = currentDb.services.findIndex((item: any) => item.id === data.id);
+          if (idx >= 0) currentDb.services[idx] = { ...currentDb.services[idx], ...data };
+          else currentDb.services.push(data);
+        }
+      } else if (table === 'appointments') {
+        if (action === 'delete') {
+          currentDb.appointments = currentDb.appointments.filter((item: any) => item.id !== data?.id && item.id !== data);
+        } else {
+          const idx = currentDb.appointments.findIndex((item: any) => item.id === data.id);
+          if (idx >= 0) currentDb.appointments[idx] = { ...currentDb.appointments[idx], ...data };
+          else currentDb.appointments.unshift(data);
+        }
+      } else if (table === 'users') {
+        if (action === 'delete') {
+          currentDb.users = currentDb.users.filter((item: any) => item.id !== data?.id && item.id !== data);
+        } else {
+          const idx = currentDb.users.findIndex((item: any) => item.id === data.id);
+          if (idx >= 0) currentDb.users[idx] = { ...currentDb.users[idx], ...data };
+          else currentDb.users.push(data);
+        }
+      } else if (table === 'plans' || table === 'subscription_plans') {
+        if (action === 'delete') {
+          currentDb.plans = currentDb.plans.filter((item: any) => item.id !== data?.id && item.id !== data);
+        } else {
+          const idx = currentDb.plans.findIndex((item: any) => item.id === data.id);
+          if (idx >= 0) currentDb.plans[idx] = { ...currentDb.plans[idx], ...data };
+          else currentDb.plans.push(data);
+        }
+      } else if (table === 'settings' || table === 'platform_settings') {
+        currentDb.settings = { ...currentDb.settings, ...data };
+        if (data.platformLogoUrl) {
+          currentDb.landing = { ...currentDb.landing, brandLogoUrl: data.platformLogoUrl };
+        }
+      } else if (table === 'landing' || table === 'landing_page_content') {
+        currentDb.landing = { ...currentDb.landing, ...data };
+        if (data.brandLogoUrl) {
+          currentDb.settings = { ...currentDb.settings, platformLogoUrl: data.brandLogoUrl };
+        }
+      } else if (table === 'trialRecords' || table === 'trial_records') {
+        if (action === 'delete') {
+          currentDb.trialRecords = currentDb.trialRecords.filter((item: any) => item.id !== data?.id && item.id !== data);
+        } else {
+          const idx = currentDb.trialRecords.findIndex((item: any) => item.id === data.id);
+          if (idx >= 0) currentDb.trialRecords[idx] = { ...currentDb.trialRecords[idx], ...data };
+          else currentDb.trialRecords.unshift(data);
+        }
+      }
+
+      const updated = saveLocalDatabase(currentDb);
+      return res.json({ success: true, data: updated });
+    } catch (e: any) {
+      return res.status(500).json({ success: false, error: e?.message });
+    }
+  });
+
+  app.post('/api/db/sync', (req, res) => {
+    try {
+      const {
+        barbershops,
+        services,
+        appointments,
+        users,
+        plans,
+        settings,
+        trialRecords,
+        landing,
+      } = req.body || {};
+
+      const currentDb = getLocalDatabase();
+      if (barbershops) currentDb.barbershops = barbershops;
+      if (services) currentDb.services = services;
+      if (appointments) currentDb.appointments = appointments;
+      if (users) currentDb.users = users;
+      if (plans) currentDb.plans = plans;
+      if (settings) currentDb.settings = { ...currentDb.settings, ...settings };
+      if (trialRecords) currentDb.trialRecords = trialRecords;
+      if (landing) currentDb.landing = { ...currentDb.landing, ...landing };
+
+      const updated = saveLocalDatabase(currentDb);
+      return res.json({ success: true, message: 'Banco de dados sincronizado e salvo no servidor com sucesso!', data: updated });
+    } catch (e: any) {
+      return res.status(500).json({ success: false, error: e?.message });
+    }
   });
 
   // Supabase Backend Status Check
