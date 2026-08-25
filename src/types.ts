@@ -73,6 +73,7 @@ export interface LandingFaq {
 }
 
 export interface LandingPageContent {
+  brandLogoUrl?: string;
   heroTag: string;
   heroTitle: string;
   heroSubtitle: string;
@@ -187,6 +188,7 @@ export interface Appointment {
 
 export interface PlatformSettings {
   platformName: string;
+  platformLogoUrl?: string;
   platformPixKey: string;
   platformPixKeyType: PixKeyType;
   platformPixReceiverName: string;

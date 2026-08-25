@@ -24,6 +24,7 @@ const tomorrow = tomorrowDate.toISOString().split('T')[0];
 
 export const INITIAL_PLATFORM_SETTINGS: PlatformSettings = {
   platformName: 'BarberClock',
+  platformLogoUrl: '/barber_clock_logo.jpg',
   platformPixKey: 'financeiro@barberclock.com.br',
   platformPixKeyType: 'email',
   platformPixReceiverName: 'BARBERCLOCK TECNOLOGIA LTDA',
@@ -134,6 +135,7 @@ export const INITIAL_SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
 ];
 
 export const INITIAL_LANDING_CONTENT: LandingPageContent = {
+  brandLogoUrl: '/barber_clock_logo.jpg',
   heroTag: 'Tecnologia Completa para Barbearias Modernas',
   heroTitle: 'Multiplique seus agendamentos e zere as faltas com confirmação automática no PIX',
   heroSubtitle: 'A plataforma definitiva para barbeiros: tenha sua própria página de agendamento online personalizada, receba o pagamento na hora direto na sua chave PIX e controle o faturamento do seu negócio em tempo real.',

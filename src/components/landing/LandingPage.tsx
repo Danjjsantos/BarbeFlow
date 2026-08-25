@@ -100,19 +100,19 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenRegister, onOpen
           <div
             className="flex items-center gap-2.5 sm:gap-3 cursor-pointer group shrink-0"
             onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-            title="BarberClock - Plataforma de Agendamentos e Gestão de Barbearias"
+            title={`${platformSettings.platformName} - Plataforma de Agendamentos e Gestão de Barbearias`}
           >
             <div className="relative">
               <img
-                src="/barber_clock_logo.jpg"
-                alt="BarberClock Logo"
+                src={platformSettings.platformLogoUrl || landingPageContent.brandLogoUrl || '/barber_clock_logo.jpg'}
+                alt={`${platformSettings.platformName} Logo`}
                 className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl object-cover border-2 border-amber-500/80 shadow-lg shadow-amber-500/25 group-hover:scale-105 transition shrink-0 bg-slate-900"
               />
               <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-slate-950"></span>
             </div>
             <div>
               <span className="text-base sm:text-lg font-black tracking-tight text-white block leading-tight group-hover:text-amber-400 transition">
-                BarberClock
+                {platformSettings.platformName}
               </span>
               <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-amber-400 block">
                 The Timeless Trim • Plataforma
@@ -876,8 +876,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenRegister, onOpen
       {/* Footer */}
       <footer className="py-10 bg-slate-950 border-t border-slate-900 text-xs text-slate-500">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <Scissors className="w-4 h-4 text-orange-500" />
+          <div className="flex items-center gap-2.5">
+            <img
+              src={platformSettings.platformLogoUrl || landingPageContent.brandLogoUrl || '/barber_clock_logo.jpg'}
+              alt={`${platformSettings.platformName} Logo`}
+              className="w-6 h-6 rounded-lg object-cover border border-amber-500/60 shrink-0 bg-slate-900"
+            />
             <span className="font-bold text-slate-300">
               {platformSettings.platformName} © {new Date().getFullYear()}
             </span>

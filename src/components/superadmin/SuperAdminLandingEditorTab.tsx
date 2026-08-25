@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
 import {
   LandingPageContent,
@@ -24,17 +24,33 @@ import {
   Layers,
   Star,
   Play,
+  Upload,
+  FolderOpen,
+  RotateCcw,
+  Link2,
+  RefreshCw,
+  AlertTriangle,
 } from 'lucide-react';
 
 export const SuperAdminLandingEditorTab: React.FC = () => {
   const { landingPageContent, updateLandingPageContent, setCurrentView } = useApp();
 
   const [activeSection, setActiveSection] = useState<
-    'video' | 'texts' | 'gallery' | 'features' | 'testimonials' | 'faqs'
-  >('video');
+    'branding' | 'video' | 'texts' | 'gallery' | 'features' | 'testimonials' | 'faqs'
+  >('branding');
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   // Local state initialized with landingPageContent
+  const [brandLogoUrl, setBrandLogoUrl] = useState(
+    landingPageContent.brandLogoUrl || '/barber_clock_logo.jpg'
+  );
+  const [showLogoUrlInput, setShowLogoUrlInput] = useState(false);
+  const [customLogoUrl, setCustomLogoUrl] = useState('');
+  const [isDraggingLogo, setIsDraggingLogo] = useState(false);
+  const [isLoadingLogoFile, setIsLoadingLogoFile] = useState(false);
+  const [logoFeedback, setLogoFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const logoFileInputRef = useRef<HTMLInputElement>(null);
+
   const [heroTag, setHeroTag] = useState(landingPageContent.heroTag);
   const [heroTitle, setHeroTitle] = useState(landingPageContent.heroTitle);
   const [heroSubtitle, setHeroSubtitle] = useState(landingPageContent.heroSubtitle);
@@ -68,9 +84,90 @@ export const SuperAdminLandingEditorTab: React.FC = () => {
   const [newFaqQuestion, setNewFaqQuestion] = useState('');
   const [newFaqAnswer, setNewFaqAnswer] = useState('');
 
+  // Process image file from device storage (resizing to max 400x400 for crisp logo & fast persistence)
+  const processLogoImageFile = (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      setLogoFeedback({
+        type: 'error',
+        message: 'Por favor, selecione um arquivo de imagem válido (PNG, JPG, WEBP, GIF).',
+      });
+      return;
+    }
+
+    if (file.size > 8 * 1024 * 1024) {
+      setLogoFeedback({
+        type: 'error',
+        message: 'A imagem deve ter no máximo 8MB.',
+      });
+      return;
+    }
+
+    setIsLoadingLogoFile(true);
+    setLogoFeedback(null);
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const result = e.target?.result as string;
+      if (result) {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const maxDim = 400;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > maxDim) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            }
+          } else {
+            if (height > maxDim) {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            const optimizedBase64 = canvas.toDataURL('image/jpeg', 0.9);
+            setBrandLogoUrl(optimizedBase64);
+            setIsLoadingLogoFile(false);
+            setLogoFeedback({
+              type: 'success',
+              message: 'Nova imagem de perfil carregada do armazenamento com sucesso!',
+            });
+          } else {
+            setBrandLogoUrl(result);
+            setIsLoadingLogoFile(false);
+          }
+        };
+        img.onerror = () => {
+          setBrandLogoUrl(result);
+          setIsLoadingLogoFile(false);
+        };
+        img.src = result;
+      } else {
+        setIsLoadingLogoFile(false);
+      }
+    };
+    reader.onerror = () => {
+      setIsLoadingLogoFile(false);
+      setLogoFeedback({
+        type: 'error',
+        message: 'Erro ao ler arquivo do dispositivo.',
+      });
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleSaveAll = (e: React.FormEvent) => {
     e.preventDefault();
     updateLandingPageContent({
+      brandLogoUrl,
       heroTag,
       heroTitle,
       heroSubtitle,
@@ -165,10 +262,11 @@ export const SuperAdminLandingEditorTab: React.FC = () => {
       {/* Navigation Subtabs */}
       <div className="flex flex-wrap gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
         {[
+          { id: 'branding', label: 'Logotipo & Perfil', icon: ImageIcon },
           { id: 'video', label: 'Vídeo da Funcionalidade', icon: Video },
           { id: 'texts', label: 'Textos & Títulos (Hero / CTA)', icon: Type },
-          { id: 'gallery', label: 'Fotos & Demonstrações', icon: ImageIcon },
-          { id: 'features', label: 'Diferenciais & Recursos', icon: Layers },
+          { id: 'gallery', label: 'Fotos & Demonstrações', icon: Layers },
+          { id: 'features', label: 'Diferenciais & Recursos', icon: Sparkles },
           { id: 'testimonials', label: 'Depoimentos de Barbeiros', icon: MessageSquare },
           { id: 'faqs', label: 'Perguntas Frequentes (FAQ)', icon: HelpCircle },
         ].map((tab) => {
@@ -193,6 +291,189 @@ export const SuperAdminLandingEditorTab: React.FC = () => {
 
       {/* Editor Content Box */}
       <form onSubmit={handleSaveAll} className="space-y-6">
+        {/* 0. Branding Section (Logo & Profile Image from Storage) */}
+        {activeSection === 'branding' && (
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-xs space-y-6">
+            <div className="border-b border-slate-100 dark:border-slate-800 pb-4">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <ImageIcon className="w-5 h-5 text-orange-500" />
+                Logotipo & Imagem de Perfil da Página de Apresentação
+              </h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Altere a imagem principal exibida no topo do cabeçalho da página de apresentação e no rodapé.
+              </p>
+            </div>
+
+            <div className="p-5 bg-slate-50 dark:bg-slate-800/60 rounded-3xl border border-slate-200 dark:border-slate-700/80 space-y-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div>
+                  <span className="font-bold text-slate-900 dark:text-white text-sm block">
+                    Imagem Atual do Logotipo / Perfil
+                  </span>
+                  <span className="text-xs text-slate-500">
+                    A imagem é otimizada automaticamente para carregamento ultrarrápido em qualquer dispositivo.
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBrandLogoUrl('/barber_clock_logo.jpg');
+                    setLogoFeedback({
+                      type: 'success',
+                      message: 'Restaurado para o logotipo padrão.',
+                    });
+                  }}
+                  className="text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-orange-600 dark:hover:text-orange-400 flex items-center gap-1.5 transition px-3 py-1.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Restaurar Padrão</span>
+                </button>
+              </div>
+
+              <div className="flex flex-col md:flex-row items-center gap-6 pt-2">
+                {/* Visual Preview */}
+                <div className="relative group shrink-0">
+                  <img
+                    src={brandLogoUrl || '/barber_clock_logo.jpg'}
+                    alt="Logo Preview"
+                    className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl object-cover border-4 border-amber-500/90 shadow-xl bg-slate-950"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => logoFileInputRef.current?.click()}
+                    className="absolute inset-0 bg-black/60 rounded-3xl opacity-0 group-hover:opacity-100 transition flex flex-col items-center justify-center gap-1 text-white text-xs font-bold"
+                    title="Trocar Foto"
+                  >
+                    <Upload className="w-6 h-6" />
+                    <span>Trocar</span>
+                  </button>
+                </div>
+
+                {/* Upload & Storage Area */}
+                <div className="flex-1 w-full space-y-3">
+                  <input
+                    type="file"
+                    ref={logoFileInputRef}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) processLogoImageFile(file);
+                    }}
+                    accept="image/png, image/jpeg, image/webp, image/gif"
+                    className="hidden"
+                  />
+
+                  <div
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setIsDraggingLogo(true);
+                    }}
+                    onDragLeave={() => setIsDraggingLogo(false)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setIsDraggingLogo(false);
+                      const file = e.dataTransfer.files?.[0];
+                      if (file) processLogoImageFile(file);
+                    }}
+                    onClick={() => logoFileInputRef.current?.click()}
+                    className={`border-2 border-dashed rounded-2xl p-5 text-center cursor-pointer transition flex flex-col items-center justify-center gap-2 ${
+                      isDraggingLogo
+                        ? 'border-amber-500 bg-amber-500/10'
+                        : 'border-slate-300 dark:border-slate-600 hover:border-amber-500 hover:bg-amber-50/50 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                      <FolderOpen className="w-5 h-5" />
+                    </div>
+                    <div className="text-center">
+                      <span className="font-bold text-slate-800 dark:text-slate-100 text-xs sm:text-sm block">
+                        Buscar Imagem no Armazenamento do Dispositivo
+                      </span>
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5">
+                        Clique para selecionar arquivo do seu computador/celular ou arraste aqui (PNG, JPG, WEBP)
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() => setShowLogoUrlInput(!showLogoUrlInput)}
+                      className="text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 flex items-center gap-1.5 underline"
+                    >
+                      <Link2 className="w-3.5 h-3.5" />
+                      {showLogoUrlInput ? 'Ocultar campo de link da web' : 'Ou inserir link da web (URL)'}
+                    </button>
+
+                    {isLoadingLogoFile && (
+                      <span className="text-xs text-amber-500 font-semibold flex items-center gap-1.5 animate-pulse">
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        Lendo e redimensionando imagem...
+                      </span>
+                    )}
+                  </div>
+
+                  {showLogoUrlInput && (
+                    <div className="flex gap-2 pt-1">
+                      <input
+                        type="url"
+                        placeholder="https://exemplo.com/logotipo.png"
+                        value={customLogoUrl}
+                        onChange={(e) => setCustomLogoUrl(e.target.value)}
+                        className="flex-1 px-3.5 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl text-xs"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (customLogoUrl.trim()) {
+                            setBrandLogoUrl(customLogoUrl.trim());
+                            setCustomLogoUrl('');
+                            setShowLogoUrlInput(false);
+                            setLogoFeedback({
+                              type: 'success',
+                              message: 'Link da imagem aplicado com sucesso!',
+                            });
+                          }
+                        }}
+                        className="px-4 py-2 bg-slate-900 hover:bg-slate-800 dark:bg-slate-700 text-white rounded-xl text-xs font-bold transition"
+                      >
+                        Aplicar URL
+                      </button>
+                    </div>
+                  )}
+
+                  {logoFeedback && (
+                    <div
+                      className={`p-3 rounded-2xl text-xs font-medium flex items-center gap-2.5 ${
+                        logoFeedback.type === 'success'
+                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-300'
+                          : 'bg-rose-100 text-rose-800 dark:bg-rose-950/70 dark:text-rose-300 border border-rose-300'
+                      }`}
+                    >
+                      {logoFeedback.type === 'success' ? (
+                        <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+                      ) : (
+                        <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600" />
+                      )}
+                      <span>{logoFeedback.message}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-2 flex justify-end">
+              <button
+                type="submit"
+                className="px-6 py-3 bg-orange-600 hover:bg-orange-500 text-white font-black text-xs rounded-2xl shadow-lg shadow-orange-600/30 transition flex items-center gap-2 cursor-pointer"
+              >
+                <Save className="w-4 h-4" />
+                Salvar Imagem de Perfil & Logotipo
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* 1. Video Section */}
         {activeSection === 'video' && (
           <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-xs space-y-6">

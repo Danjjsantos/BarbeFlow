@@ -1025,6 +1025,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       supabaseService.upsertPlatformSettings(updated);
       return updated;
     });
+    if (settings.platformLogoUrl) {
+      setLandingPageContent((prev) => {
+        const updated = { ...prev, brandLogoUrl: settings.platformLogoUrl };
+        supabaseService.upsertLandingPageContent(updated);
+        return updated;
+      });
+    }
   };
 
   const updateSubscriptionPlan = (id: SubscriptionPlanPeriod, updates: Partial<SubscriptionPlan>) => {
@@ -1042,6 +1049,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       supabaseService.upsertLandingPageContent(updated);
       return updated;
     });
+    if (updates.brandLogoUrl) {
+      setPlatformSettings((prev) => {
+        const updated = { ...prev, platformLogoUrl: updates.brandLogoUrl };
+        supabaseService.upsertPlatformSettings(updated);
+        return updated;
+      });
+    }
   };
 
   // Helper to verify if user has already consumed free trial
