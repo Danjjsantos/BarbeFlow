@@ -326,6 +326,7 @@ ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ D
 CREATE TABLE IF NOT EXISTS platform_settings (
   id TEXT PRIMARY KEY DEFAULT 'current',
   platform_name TEXT DEFAULT 'BarberClock',
+  platform_logo_url TEXT DEFAULT '',
   platform_pix_key TEXT DEFAULT '',
   platform_pix_key_type TEXT DEFAULT 'phone',
   platform_pix_receiver_name TEXT DEFAULT '',
@@ -341,6 +342,7 @@ CREATE TABLE IF NOT EXISTS platform_settings (
 
 -- Migrações idempotentes para platform_settings
 ALTER TABLE platform_settings ADD COLUMN IF NOT EXISTS platform_name TEXT DEFAULT 'BarberClock';
+ALTER TABLE platform_settings ADD COLUMN IF NOT EXISTS platform_logo_url TEXT DEFAULT '';
 ALTER TABLE platform_settings ADD COLUMN IF NOT EXISTS platform_pix_key TEXT DEFAULT '';
 ALTER TABLE platform_settings ADD COLUMN IF NOT EXISTS platform_pix_key_type TEXT DEFAULT 'phone';
 ALTER TABLE platform_settings ADD COLUMN IF NOT EXISTS platform_pix_receiver_name TEXT DEFAULT '';
@@ -377,6 +379,7 @@ ALTER TABLE trial_records ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAUL
 -- 8. TABELA DE CONTEÚDO DA LANDING PAGE (landing_page_content)
 CREATE TABLE IF NOT EXISTS landing_page_content (
   id TEXT PRIMARY KEY DEFAULT 'current',
+  brand_logo_url TEXT DEFAULT '',
   hero_tag TEXT DEFAULT '',
   hero_title TEXT DEFAULT '',
   hero_subtitle TEXT DEFAULT '',
@@ -397,6 +400,7 @@ CREATE TABLE IF NOT EXISTS landing_page_content (
 );
 
 -- Migrações idempotentes para landing_page_content (garante compatibilidade com qualquer schema anterior)
+ALTER TABLE landing_page_content ADD COLUMN IF NOT EXISTS brand_logo_url TEXT DEFAULT '';
 ALTER TABLE landing_page_content ADD COLUMN IF NOT EXISTS hero_tag TEXT DEFAULT '';
 ALTER TABLE landing_page_content ADD COLUMN IF NOT EXISTS hero_title TEXT DEFAULT '';
 ALTER TABLE landing_page_content ADD COLUMN IF NOT EXISTS hero_subtitle TEXT DEFAULT '';
@@ -706,6 +710,7 @@ function mapPlanToDb(p: SubscriptionPlan): any {
 function mapSettingsFromDb(row: any): PlatformSettings {
   return {
     platformName: row.platform_name || 'BarberClock',
+    platformLogoUrl: row.platform_logo_url || '/barber_clock_logo.jpg',
     platformPixKey: row.platform_pix_key || '',
     platformPixKeyType: row.platform_pix_key_type || 'phone',
     platformPixReceiverName: row.platform_pix_receiver_name || '',
@@ -722,14 +727,15 @@ function mapSettingsFromDb(row: any): PlatformSettings {
 function mapSettingsToDb(s: PlatformSettings): any {
   return {
     id: 'current',
-    platform_name: s.platformName,
-    platform_pix_key: s.platformPixKey,
-    platform_pix_key_type: s.platformPixKeyType,
-    platform_pix_receiver_name: s.platformPixReceiverName,
-    monthly_fee: s.monthlyFee,
-    support_phone: s.supportPhone,
-    support_email: s.supportEmail,
-    pix_instructions: s.pixInstructions,
+    platform_name: s.platformName || 'BarberClock',
+    platform_logo_url: s.platformLogoUrl || '',
+    platform_pix_key: s.platformPixKey || '',
+    platform_pix_key_type: s.platformPixKeyType || 'phone',
+    platform_pix_receiver_name: s.platformPixReceiverName || '',
+    monthly_fee: s.monthlyFee || 49.9,
+    support_phone: s.supportPhone || '',
+    support_email: s.supportEmail || '',
+    pix_instructions: s.pixInstructions || '',
     mercado_pago_access_token: s.mercadoPagoAccessToken || '',
     mercado_pago_public_key: s.mercadoPagoPublicKey || '',
     mercado_pago_enabled: Boolean(s.mercadoPagoEnabled),
@@ -763,6 +769,7 @@ function mapTrialToDb(t: TrialUserRecord): any {
 
 function mapLandingFromDb(row: any): LandingPageContent {
   return {
+    brandLogoUrl: row.brand_logo_url || '/barber_clock_logo.jpg',
     heroTag: row.hero_tag || '',
     heroTitle: row.hero_title || '',
     heroSubtitle: row.hero_subtitle || '',
@@ -771,11 +778,11 @@ function mapLandingFromDb(row: any): LandingPageContent {
     videoTitle: row.video_title || '',
     videoDescription: row.video_description || '',
     videoPosterUrl: row.video_poster_url || '',
-    features: row.features || [],
-    galleryImages: row.gallery_images || [],
-    stats: row.stats || [],
-    testimonials: row.testimonials || [],
-    faqs: row.faqs || [],
+    features: Array.isArray(row.features) ? row.features : [],
+    galleryImages: Array.isArray(row.gallery_images) ? row.gallery_images : [],
+    stats: Array.isArray(row.stats) ? row.stats : [],
+    testimonials: Array.isArray(row.testimonials) ? row.testimonials : [],
+    faqs: Array.isArray(row.faqs) ? row.faqs : [],
     ctaTitle: row.cta_title || '',
     ctaSubtitle: row.cta_subtitle || '',
     ctaButtonText: row.cta_button_text || '',
@@ -785,22 +792,23 @@ function mapLandingFromDb(row: any): LandingPageContent {
 function mapLandingToDb(l: LandingPageContent): any {
   return {
     id: 'current',
-    hero_tag: l.heroTag,
-    hero_title: l.heroTitle,
-    hero_subtitle: l.heroSubtitle,
-    hero_cta_text: l.heroCtaText,
-    video_url: l.videoUrl,
-    video_title: l.videoTitle,
-    video_description: l.videoDescription,
-    video_poster_url: l.videoPosterUrl,
-    features: l.features,
-    gallery_images: l.galleryImages,
-    stats: l.stats,
-    testimonials: l.testimonials,
-    faqs: l.faqs,
-    cta_title: l.ctaTitle,
-    cta_subtitle: l.ctaSubtitle,
-    cta_button_text: l.ctaButtonText,
+    brand_logo_url: l.brandLogoUrl || '',
+    hero_tag: l.heroTag || '',
+    hero_title: l.heroTitle || '',
+    hero_subtitle: l.heroSubtitle || '',
+    hero_cta_text: l.heroCtaText || '',
+    video_url: l.videoUrl || '',
+    video_title: l.videoTitle || '',
+    video_description: l.videoDescription || '',
+    video_poster_url: l.videoPosterUrl || '',
+    features: l.features || [],
+    gallery_images: l.galleryImages || [],
+    stats: l.stats || [],
+    testimonials: l.testimonials || [],
+    faqs: l.faqs || [],
+    cta_title: l.ctaTitle || '',
+    cta_subtitle: l.ctaSubtitle || '',
+    cta_button_text: l.ctaButtonText || '',
     updated_at: new Date().toISOString(),
   };
 }

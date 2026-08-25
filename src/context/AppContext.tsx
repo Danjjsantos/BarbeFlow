@@ -181,22 +181,46 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [barbershops, setBarbershops] = useState<Barbershop[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.BARBERSHOPS);
-    return saved ? JSON.parse(saved) : INITIAL_BARBERSHOPS;
+    if (!saved) return INITIAL_BARBERSHOPS;
+    try {
+      const parsed = JSON.parse(saved);
+      return Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_BARBERSHOPS;
+    } catch {
+      return INITIAL_BARBERSHOPS;
+    }
   });
 
   const [services, setServices] = useState<Service[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.SERVICES);
-    return saved ? JSON.parse(saved) : INITIAL_SERVICES;
+    if (!saved) return INITIAL_SERVICES;
+    try {
+      const parsed = JSON.parse(saved);
+      return Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_SERVICES;
+    } catch {
+      return INITIAL_SERVICES;
+    }
   });
 
   const [appointments, setAppointments] = useState<Appointment[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.APPOINTMENTS);
-    return saved ? JSON.parse(saved) : INITIAL_APPOINTMENTS;
+    if (!saved) return INITIAL_APPOINTMENTS;
+    try {
+      const parsed = JSON.parse(saved);
+      return Array.isArray(parsed) ? parsed : INITIAL_APPOINTMENTS;
+    } catch {
+      return INITIAL_APPOINTMENTS;
+    }
   });
 
   const [platformSettings, setPlatformSettings] = useState<PlatformSettings>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.SETTINGS);
-    return saved ? JSON.parse(saved) : INITIAL_PLATFORM_SETTINGS;
+    if (!saved) return INITIAL_PLATFORM_SETTINGS;
+    try {
+      const parsed = JSON.parse(saved);
+      return { ...INITIAL_PLATFORM_SETTINGS, ...parsed };
+    } catch {
+      return INITIAL_PLATFORM_SETTINGS;
+    }
   });
 
   const [subscriptionPlans, setSubscriptionPlans] = useState<SubscriptionPlan[]>(() => {
@@ -222,12 +246,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [landingPageContent, setLandingPageContent] = useState<LandingPageContent>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.LANDING);
-    return saved ? JSON.parse(saved) : INITIAL_LANDING_CONTENT;
+    if (!saved) return INITIAL_LANDING_CONTENT;
+    try {
+      const parsed = JSON.parse(saved);
+      return { ...INITIAL_LANDING_CONTENT, ...parsed };
+    } catch {
+      return INITIAL_LANDING_CONTENT;
+    }
   });
 
   const [trialRecords, setTrialRecords] = useState<TrialUserRecord[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.TRIAL_RECORDS);
-    return saved ? JSON.parse(saved) : INITIAL_TRIAL_RECORDS;
+    if (!saved) return INITIAL_TRIAL_RECORDS;
+    try {
+      const parsed = JSON.parse(saved);
+      return Array.isArray(parsed) ? parsed : INITIAL_TRIAL_RECORDS;
+    } catch {
+      return INITIAL_TRIAL_RECORDS;
+    }
   });
 
   const [activeBarbershopId, setActiveBarbershopId] = useState<string>(() => {
@@ -303,46 +339,83 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         if (remoteShops && remoteShops.length > 0) {
           setBarbershops(remoteShops);
+          localStorage.setItem(STORAGE_KEYS.BARBERSHOPS, JSON.stringify(remoteShops));
         } else {
-          INITIAL_BARBERSHOPS.forEach((shop) => supabaseService.upsertBarbershop(shop));
+          setBarbershops((currentShops) => {
+            currentShops.forEach((shop) => supabaseService.upsertBarbershop(shop));
+            return currentShops;
+          });
         }
 
         if (remoteServices && remoteServices.length > 0) {
           setServices(remoteServices);
+          localStorage.setItem(STORAGE_KEYS.SERVICES, JSON.stringify(remoteServices));
         } else {
-          INITIAL_SERVICES.forEach((srv) => supabaseService.upsertService(srv));
+          setServices((currentServices) => {
+            currentServices.forEach((srv) => supabaseService.upsertService(srv));
+            return currentServices;
+          });
         }
 
         if (remoteAppointments && remoteAppointments.length > 0) {
           setAppointments(remoteAppointments);
+          localStorage.setItem(STORAGE_KEYS.APPOINTMENTS, JSON.stringify(remoteAppointments));
         } else {
-          INITIAL_APPOINTMENTS.forEach((apt) => supabaseService.upsertAppointment(apt));
+          setAppointments((currentApts) => {
+            currentApts.forEach((apt) => supabaseService.upsertAppointment(apt));
+            return currentApts;
+          });
         }
 
         if (remoteUsers && remoteUsers.length > 0) {
           setUsers(remoteUsers);
+          localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(remoteUsers));
         } else {
-          INITIAL_USERS.forEach((usr) => supabaseService.upsertUser(usr));
+          setUsers((currentUsers) => {
+            currentUsers.forEach((usr) => supabaseService.upsertUser(usr));
+            return currentUsers;
+          });
         }
 
         if (remotePlans && remotePlans.length > 0) {
           setSubscriptionPlans(remotePlans);
+          localStorage.setItem(STORAGE_KEYS.PLANS, JSON.stringify(remotePlans));
         } else {
-          INITIAL_SUBSCRIPTION_PLANS.forEach((pln) => supabaseService.upsertSubscriptionPlan(pln));
+          setSubscriptionPlans((currentPlans) => {
+            currentPlans.forEach((pln) => supabaseService.upsertSubscriptionPlan(pln));
+            return currentPlans;
+          });
         }
 
         if (remoteSettings) {
-          setPlatformSettings(remoteSettings);
+          setPlatformSettings((prev) => {
+            const merged = { ...prev, ...remoteSettings };
+            localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(merged));
+            return merged;
+          });
         } else {
-          supabaseService.upsertPlatformSettings(INITIAL_PLATFORM_SETTINGS);
+          setPlatformSettings((currentSettings) => {
+            supabaseService.upsertPlatformSettings(currentSettings);
+            return currentSettings;
+          });
         }
 
         if (remoteTrials && remoteTrials.length > 0) {
           setTrialRecords(remoteTrials);
+          localStorage.setItem(STORAGE_KEYS.TRIAL_RECORDS, JSON.stringify(remoteTrials));
         }
 
         if (remoteLanding) {
-          setLandingPageContent(remoteLanding);
+          setLandingPageContent((prev) => {
+            const merged = { ...prev, ...remoteLanding };
+            localStorage.setItem(STORAGE_KEYS.LANDING, JSON.stringify(merged));
+            return merged;
+          });
+        } else {
+          setLandingPageContent((currentLanding) => {
+            supabaseService.upsertLandingPageContent(currentLanding);
+            return currentLanding;
+          });
         }
 
         setIsSupabaseActive(true);
@@ -1022,12 +1095,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const updatePlatformSettings = (settings: Partial<PlatformSettings>) => {
     setPlatformSettings((prev) => {
       const updated = { ...prev, ...settings };
+      localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(updated));
       supabaseService.upsertPlatformSettings(updated);
       return updated;
     });
     if (settings.platformLogoUrl) {
       setLandingPageContent((prev) => {
         const updated = { ...prev, brandLogoUrl: settings.platformLogoUrl };
+        localStorage.setItem(STORAGE_KEYS.LANDING, JSON.stringify(updated));
         supabaseService.upsertLandingPageContent(updated);
         return updated;
       });
@@ -1037,6 +1112,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const updateSubscriptionPlan = (id: SubscriptionPlanPeriod, updates: Partial<SubscriptionPlan>) => {
     setSubscriptionPlans((prev) => {
       const updated = prev.map((plan) => (plan.id === id ? { ...plan, ...updates } : plan));
+      localStorage.setItem(STORAGE_KEYS.PLANS, JSON.stringify(updated));
       const target = updated.find((p) => p.id === id);
       if (target) supabaseService.upsertSubscriptionPlan(target);
       return updated;
@@ -1046,12 +1122,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const updateLandingPageContent = (updates: Partial<LandingPageContent>) => {
     setLandingPageContent((prev) => {
       const updated = { ...prev, ...updates };
+      localStorage.setItem(STORAGE_KEYS.LANDING, JSON.stringify(updated));
       supabaseService.upsertLandingPageContent(updated);
       return updated;
     });
     if (updates.brandLogoUrl) {
       setPlatformSettings((prev) => {
         const updated = { ...prev, platformLogoUrl: updates.brandLogoUrl };
+        localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(updated));
         supabaseService.upsertPlatformSettings(updated);
         return updated;
       });

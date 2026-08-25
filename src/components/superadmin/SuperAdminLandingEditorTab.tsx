@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
 import {
   LandingPageContent,
@@ -83,6 +83,26 @@ export const SuperAdminLandingEditorTab: React.FC = () => {
 
   const [newFaqQuestion, setNewFaqQuestion] = useState('');
   const [newFaqAnswer, setNewFaqAnswer] = useState('');
+
+  // Sync state when landingPageContent is updated from database/hydration
+  useEffect(() => {
+    setBrandLogoUrl(landingPageContent.brandLogoUrl || '/barber_clock_logo.jpg');
+    setHeroTag(landingPageContent.heroTag);
+    setHeroTitle(landingPageContent.heroTitle);
+    setHeroSubtitle(landingPageContent.heroSubtitle);
+    setHeroCtaText(landingPageContent.heroCtaText);
+    setVideoUrl(landingPageContent.videoUrl);
+    setVideoTitle(landingPageContent.videoTitle);
+    setVideoDescription(landingPageContent.videoDescription);
+    setVideoPosterUrl(landingPageContent.videoPosterUrl);
+    setGalleryImages([...landingPageContent.galleryImages]);
+    setFeatures([...landingPageContent.features]);
+    setTestimonials([...landingPageContent.testimonials]);
+    setFaqs([...landingPageContent.faqs]);
+    setCtaTitle(landingPageContent.ctaTitle);
+    setCtaSubtitle(landingPageContent.ctaSubtitle);
+    setCtaButtonText(landingPageContent.ctaButtonText);
+  }, [landingPageContent]);
 
   // Process image file from device storage (resizing to max 400x400 for crisp logo & fast persistence)
   const processLogoImageFile = (file: File) => {

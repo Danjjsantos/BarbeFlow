@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
 import { PixKeyType } from '../../types';
 import { ChangePasswordModal } from '../common/ChangePasswordModal';
@@ -78,6 +78,22 @@ export const PlatformSettingsModal: React.FC<PlatformSettingsModalProps> = ({
   } | null>(null);
 
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setPlatformName(platformSettings.platformName);
+      setPlatformLogoUrl(platformSettings.platformLogoUrl || '/barber_clock_logo.jpg');
+      setPlatformPixKey(platformSettings.platformPixKey);
+      setPlatformPixKeyType(platformSettings.platformPixKeyType);
+      setPlatformPixReceiverName(platformSettings.platformPixReceiverName);
+      setMonthlyFee(String(platformSettings.monthlyFee));
+      setSupportPhone(platformSettings.supportPhone);
+      setSupportEmail(platformSettings.supportEmail);
+      setPixInstructions(platformSettings.pixInstructions);
+      setMercadoPagoAccessToken(platformSettings.mercadoPagoAccessToken || '');
+      setMercadoPagoEnabled(platformSettings.mercadoPagoEnabled !== false);
+    }
+  }, [isOpen, platformSettings]);
 
   if (!isOpen) return null;
 

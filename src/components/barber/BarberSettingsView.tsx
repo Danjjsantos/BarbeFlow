@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Barbershop, PixKeyType } from '../../types';
 import { formatCurrency, formatPhone, getDayOfWeekName } from '../../utils/formatters';
@@ -86,6 +86,26 @@ export const BarberSettingsView: React.FC<BarberSettingsViewProps> = ({ barbersh
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
+
+  useEffect(() => {
+    setName(barbershop.name);
+    setPhone(barbershop.phone);
+    setAddress(barbershop.address);
+    setCity(barbershop.city);
+    setInstagram(barbershop.instagram || '');
+    setBio(barbershop.bio);
+    setThemeColor(barbershop.themeColor || '#d97706');
+    setLogoUrl(barbershop.logoUrl || '');
+    setBannerUrl(barbershop.bannerUrl || '');
+    setPixKey(barbershop.pixKey);
+    setPixKeyType(barbershop.pixKeyType);
+    setPixReceiverName(barbershop.pixReceiverName || barbershop.name);
+    setMercadoPagoAccessToken(barbershop.mercadoPagoAccessToken || '');
+    setSlotIntervalMinutes(barbershop.slotIntervalMinutes || 30);
+    setBookingWindowDays(barbershop.bookingWindowDays || 15);
+    setConfirmationMode(barbershop.confirmationMode || 'pix');
+    setWorkingHours(barbershop.workingHours);
+  }, [barbershop]);
 
   const publicLink = `${window.location.origin}/#${barbershop.slug}`;
 
