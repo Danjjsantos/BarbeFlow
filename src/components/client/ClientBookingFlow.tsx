@@ -52,7 +52,7 @@ export const ClientBookingFlow: React.FC = () => {
     openLoginModal,
   } = useApp();
 
-  const currentShop: Barbershop =
+  const currentShop: Barbershop | undefined =
     getBarbershopById(activeBarbershopId) || barbershops[0];
 
   const services = getServicesForBarbershop(currentShop?.id || '');
@@ -83,6 +83,7 @@ export const ClientBookingFlow: React.FC = () => {
   // Generate days list according to barber's configured booking window
   const bookingWindowDays = currentShop?.bookingWindowDays || 15;
   const nextDays = useMemo(() => {
+    if (!currentShop) return [];
     const list: { dateStr: string; dayNum: number; dayName: string; monthName: string; isClosed: boolean }[] = [];
     const today = new Date();
 
@@ -222,6 +223,11 @@ export const ClientBookingFlow: React.FC = () => {
       return;
     }
 
+    if (!currentShop) {
+      alert('Nenhuma barbearia ativa selecionada.');
+      return;
+    }
+
     if (isWhatsappMode) {
       // Direct booking with instant confirmation & WhatsApp notification
       const newApt = createAppointment({
@@ -276,7 +282,31 @@ export const ClientBookingFlow: React.FC = () => {
     setIsPixModalOpen(true);
   };
 
-  const isShopActive = currentShop?.subscriptionStatus === 'active';
+  if (!currentShop) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-16 text-center space-y-6" id="client-booking-empty">
+        <div className="w-20 h-20 bg-amber-500/10 text-amber-500 rounded-3xl flex items-center justify-center mx-auto border border-amber-500/20 shadow-inner">
+          <Scissors className="w-10 h-10" />
+        </div>
+        <div className="space-y-2">
+          <h2 className="text-2xl font-bold text-white">Nenhuma Barbearia Selecionada</h2>
+          <p className="text-slate-400 max-w-md mx-auto text-sm">
+            Nenhuma barbearia ativa está disponível ou selecionada no momento.
+          </p>
+        </div>
+        <div className="flex justify-center gap-3">
+          <button
+            onClick={() => setCurrentView('landing_page')}
+            className="px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-sm shadow-md transition-all cursor-pointer"
+          >
+            Voltar ao Início
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const isShopActive = currentShop.subscriptionStatus === 'active';
 
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-6" id="client-booking-view">

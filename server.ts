@@ -229,22 +229,35 @@ function mapRecordForSupabase(table: string, data: any): { targetTable: string; 
     };
   }
   if (table === 'settings' || table === 'platform_settings') {
+    const pLogo = data.platformLogoUrl || data.platform_logo_url || '';
+    const pName = data.platformName || data.platform_name || 'BarberClock';
+    const pPix = data.platformPixKey || data.platform_pix_key || '';
+    const pPixType = data.platformPixKeyType || data.platform_pix_key_type || 'phone';
+    const pPixRec = data.platformPixReceiverName || data.platform_pix_receiver_name || '';
+    const mFee = Number(data.monthlyFee ?? data.monthly_fee) || 49.9;
+    const sPhone = data.supportPhone || data.support_phone || '';
+    const sEmail = data.supportEmail || data.support_email || '';
+    const pInst = data.pixInstructions || data.pix_instructions || '';
+    const mpToken = data.mercadoPagoAccessToken || data.mercado_pago_access_token || '';
+    const mpPub = data.mercadoPagoPublicKey || data.mercado_pago_public_key || '';
+    const mpEn = Boolean(data.mercadoPagoEnabled ?? data.mercado_pago_enabled);
+
     return {
       targetTable: 'platform_settings',
       record: {
         id: 'current',
-        platform_name: data.platformName || 'BarberClock',
-        platform_logo_url: data.platformLogoUrl || '',
-        platform_pix_key: data.platformPixKey || '',
-        platform_pix_key_type: data.platformPixKeyType || 'phone',
-        platform_pix_receiver_name: data.platformPixReceiverName || '',
-        monthly_fee: Number(data.monthlyFee) || 49.9,
-        support_phone: data.supportPhone || '',
-        support_email: data.supportEmail || '',
-        pix_instructions: data.pixInstructions || '',
-        mercado_pago_access_token: data.mercadoPagoAccessToken || '',
-        mercado_pago_public_key: data.mercadoPagoPublicKey || '',
-        mercado_pago_enabled: Boolean(data.mercadoPagoEnabled),
+        platform_name: pName,
+        platform_logo_url: pLogo,
+        platform_pix_key: pPix,
+        platform_pix_key_type: pPixType,
+        platform_pix_receiver_name: pPixRec,
+        monthly_fee: mFee,
+        support_phone: sPhone,
+        support_email: sEmail,
+        pix_instructions: pInst,
+        mercado_pago_access_token: mpToken,
+        mercado_pago_public_key: mpPub,
+        mercado_pago_enabled: mpEn,
         updated_at: new Date().toISOString(),
       },
     };
@@ -257,34 +270,52 @@ function mapRecordForSupabase(table: string, data: any): { targetTable: string; 
         name: data.name,
         phone: data.phone,
         email: data.email || '',
-        barbershop_id: data.barbershopId || '',
-        barbershop_name: data.barbershopName || '',
-        registered_at: data.registeredAt || new Date().toISOString(),
+        barbershop_id: data.barbershopId || data.barbershop_id || '',
+        barbershop_name: data.barbershopName || data.barbershop_name || '',
+        registered_at: data.registeredAt || data.registered_at || new Date().toISOString(),
       },
     };
   }
   if (table === 'landing' || table === 'landing_page_content') {
+    const bLogo = data.brandLogoUrl || data.brand_logo_url || '';
+    const hTag = data.heroTag || data.hero_tag || '';
+    const hTitle = data.heroTitle || data.hero_title || '';
+    const hSub = data.heroSubtitle || data.hero_subtitle || '';
+    const hCta = data.heroCtaText || data.hero_cta_text || '';
+    const vUrl = data.videoUrl || data.video_url || '';
+    const vTitle = data.videoTitle || data.video_title || '';
+    const vDesc = data.videoDescription || data.video_description || '';
+    const vPoster = data.videoPosterUrl || data.video_poster_url || '';
+    const feats = data.features || [];
+    const gals = data.galleryImages || data.gallery_images || [];
+    const sts = data.stats || [];
+    const tests = data.testimonials || [];
+    const fqs = data.faqs || [];
+    const cTitle = data.ctaTitle || data.cta_title || '';
+    const cSub = data.ctaSubtitle || data.cta_subtitle || '';
+    const cBtn = data.ctaButtonText || data.cta_button_text || '';
+
     return {
       targetTable: 'landing_page_content',
       record: {
         id: 'current',
-        brand_logo_url: data.brandLogoUrl || '',
-        hero_tag: data.heroTag || '',
-        hero_title: data.heroTitle || '',
-        hero_subtitle: data.heroSubtitle || '',
-        hero_cta_text: data.heroCtaText || '',
-        video_url: data.videoUrl || '',
-        video_title: data.videoTitle || '',
-        video_description: data.videoDescription || '',
-        video_poster_url: data.videoPosterUrl || '',
-        features: data.features || [],
-        gallery_images: data.galleryImages || [],
-        stats: data.stats || [],
-        testimonials: data.testimonials || [],
-        faqs: data.faqs || [],
-        cta_title: data.ctaTitle || '',
-        cta_subtitle: data.ctaSubtitle || '',
-        cta_button_text: data.ctaButtonText || '',
+        brand_logo_url: bLogo,
+        hero_tag: hTag,
+        hero_title: hTitle,
+        hero_subtitle: hSub,
+        hero_cta_text: hCta,
+        video_url: vUrl,
+        video_title: vTitle,
+        video_description: vDesc,
+        video_poster_url: vPoster,
+        features: feats,
+        gallery_images: gals,
+        stats: sts,
+        testimonials: tests,
+        faqs: fqs,
+        cta_title: cTitle,
+        cta_subtitle: cSub,
+        cta_button_text: cBtn,
         updated_at: new Date().toISOString(),
       },
     };
@@ -394,6 +425,8 @@ async function startServer() {
 
       const currentDb = getLocalDatabase();
 
+      let dataToSync = data;
+
       if (table === 'barbershops') {
         const shopId = typeof data === 'string' ? data : data?.id;
         if (action === 'delete') {
@@ -405,6 +438,7 @@ async function startServer() {
           const idx = currentDb.barbershops.findIndex((item: any) => item.id === data.id);
           if (idx >= 0) currentDb.barbershops[idx] = { ...currentDb.barbershops[idx], ...data };
           else currentDb.barbershops.push(data);
+          dataToSync = currentDb.barbershops.find((item: any) => item.id === data.id) || data;
         }
       } else if (table === 'services') {
         const srvId = typeof data === 'string' ? data : data?.id;
@@ -414,6 +448,7 @@ async function startServer() {
           const idx = currentDb.services.findIndex((item: any) => item.id === data.id);
           if (idx >= 0) currentDb.services[idx] = { ...currentDb.services[idx], ...data };
           else currentDb.services.push(data);
+          dataToSync = currentDb.services.find((item: any) => item.id === data.id) || data;
         }
       } else if (table === 'appointments') {
         const aptId = typeof data === 'string' ? data : data?.id;
@@ -423,6 +458,7 @@ async function startServer() {
           const idx = currentDb.appointments.findIndex((item: any) => item.id === data.id);
           if (idx >= 0) currentDb.appointments[idx] = { ...currentDb.appointments[idx], ...data };
           else currentDb.appointments.unshift(data);
+          dataToSync = currentDb.appointments.find((item: any) => item.id === data.id) || data;
         }
       } else if (table === 'users') {
         const userId = typeof data === 'string' ? data : data?.id;
@@ -432,6 +468,7 @@ async function startServer() {
           const idx = currentDb.users.findIndex((item: any) => item.id === data.id);
           if (idx >= 0) currentDb.users[idx] = { ...currentDb.users[idx], ...data };
           else currentDb.users.push(data);
+          dataToSync = currentDb.users.find((item: any) => item.id === data.id) || data;
         }
       } else if (table === 'plans' || table === 'subscription_plans') {
         const planId = typeof data === 'string' ? data : data?.id;
@@ -441,17 +478,34 @@ async function startServer() {
           const idx = currentDb.plans.findIndex((item: any) => item.id === data.id);
           if (idx >= 0) currentDb.plans[idx] = { ...currentDb.plans[idx], ...data };
           else currentDb.plans.push(data);
+          dataToSync = currentDb.plans.find((item: any) => item.id === data.id) || data;
         }
       } else if (table === 'settings' || table === 'platform_settings') {
         currentDb.settings = { ...currentDb.settings, ...data };
-        if (data.platformLogoUrl) {
-          currentDb.landing = { ...currentDb.landing, brandLogoUrl: data.platformLogoUrl };
+        if (data.platformLogoUrl || data.platform_logo_url) {
+          const logo = data.platformLogoUrl || data.platform_logo_url;
+          currentDb.landing = { ...currentDb.landing, brandLogoUrl: logo };
         }
+        if (data.monthlyFee !== undefined || data.monthly_fee !== undefined) {
+          const mFee = Number(data.monthlyFee ?? data.monthly_fee) || 49.9;
+          currentDb.settings.monthlyFee = mFee;
+          const mIdx = currentDb.plans.findIndex((p: any) => p.id === 'monthly');
+          if (mIdx >= 0) {
+            currentDb.plans[mIdx] = {
+              ...currentDb.plans[mIdx],
+              price: mFee,
+              monthlyEquivalent: mFee,
+            };
+          }
+        }
+        dataToSync = currentDb.settings;
       } else if (table === 'landing' || table === 'landing_page_content') {
         currentDb.landing = { ...currentDb.landing, ...data };
-        if (data.brandLogoUrl) {
-          currentDb.settings = { ...currentDb.settings, platformLogoUrl: data.brandLogoUrl };
+        if (data.brandLogoUrl || data.brand_logo_url) {
+          const logo = data.brandLogoUrl || data.brand_logo_url;
+          currentDb.settings = { ...currentDb.settings, platformLogoUrl: logo };
         }
+        dataToSync = currentDb.landing;
       } else if (table === 'trialRecords' || table === 'trial_records') {
         const trialId = typeof data === 'string' ? data : data?.id;
         if (action === 'delete') {
@@ -460,13 +514,14 @@ async function startServer() {
           const idx = currentDb.trialRecords.findIndex((item: any) => item.id === data.id);
           if (idx >= 0) currentDb.trialRecords[idx] = { ...currentDb.trialRecords[idx], ...data };
           else currentDb.trialRecords.unshift(data);
+          dataToSync = currentDb.trialRecords.find((item: any) => item.id === data.id) || data;
         }
       }
 
       const updated = saveLocalDatabase(currentDb);
       
       // Auto-sync in background to Supabase if configured
-      syncToSupabaseAsync(table, data, action).catch((err) => {
+      syncToSupabaseAsync(table, dataToSync, action).catch((err) => {
         console.warn('Async Supabase sync error:', err);
       });
 
