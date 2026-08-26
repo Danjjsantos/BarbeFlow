@@ -334,6 +334,7 @@ CREATE TABLE IF NOT EXISTS platform_settings (
   id TEXT PRIMARY KEY DEFAULT 'current',
   platform_name TEXT DEFAULT 'BarberClock',
   platform_logo_url TEXT DEFAULT '',
+  logo_url TEXT DEFAULT '',
   platform_pix_key TEXT DEFAULT '',
   platform_pix_key_type TEXT DEFAULT 'phone',
   platform_pix_receiver_name TEXT DEFAULT '',
@@ -350,6 +351,7 @@ CREATE TABLE IF NOT EXISTS platform_settings (
 -- Migrações idempotentes para platform_settings
 ALTER TABLE platform_settings ADD COLUMN IF NOT EXISTS platform_name TEXT DEFAULT 'BarberClock';
 ALTER TABLE platform_settings ADD COLUMN IF NOT EXISTS platform_logo_url TEXT DEFAULT '';
+ALTER TABLE platform_settings ADD COLUMN IF NOT EXISTS logo_url TEXT DEFAULT '';
 ALTER TABLE platform_settings ADD COLUMN IF NOT EXISTS platform_pix_key TEXT DEFAULT '';
 ALTER TABLE platform_settings ADD COLUMN IF NOT EXISTS platform_pix_key_type TEXT DEFAULT 'phone';
 ALTER TABLE platform_settings ADD COLUMN IF NOT EXISTS platform_pix_receiver_name TEXT DEFAULT '';
@@ -485,6 +487,26 @@ BEGIN
 
   BEGIN
     ALTER PUBLICATION supabase_realtime ADD TABLE users;
+  EXCEPTION WHEN others THEN NULL;
+  END;
+
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE subscription_plans;
+  EXCEPTION WHEN others THEN NULL;
+  END;
+
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE platform_settings;
+  EXCEPTION WHEN others THEN NULL;
+  END;
+
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE landing_page_content;
+  EXCEPTION WHEN others THEN NULL;
+  END;
+
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE trial_records;
   EXCEPTION WHEN others THEN NULL;
   END;
 END $$;
@@ -679,6 +701,18 @@ function mapUserToDb(u: User): any {
   };
 }
 
+// Helper to safely parse array fields that might be arrays or stringified JSON from Postgres
+function safeParseArray(val: any): any[] {
+  if (Array.isArray(val)) return val;
+  if (typeof val === 'string' && val.trim().startsWith('[')) {
+    try {
+      const parsed = JSON.parse(val);
+      if (Array.isArray(parsed)) return parsed;
+    } catch {}
+  }
+  return [];
+}
+
 function mapPlanFromDb(row: any): SubscriptionPlan {
   return {
     id: row.id,
@@ -691,7 +725,7 @@ function mapPlanFromDb(row: any): SubscriptionPlan {
     description: row.description || '',
     badge: row.badge || undefined,
     isPopular: Boolean(row.is_popular),
-    features: Array.isArray(row.features) ? row.features : [],
+    features: safeParseArray(row.features),
     active: row.active !== false,
   };
 }
@@ -708,38 +742,42 @@ function mapPlanToDb(p: SubscriptionPlan): any {
     description: p.description || '',
     badge: p.badge || '',
     is_popular: Boolean(p.isPopular),
-    features: p.features || [],
+    features: safeParseArray(p.features),
     active: p.active,
     updated_at: new Date().toISOString(),
   };
 }
 
 function mapSettingsFromDb(row: any): PlatformSettings {
+  const logo = row.platform_logo_url || row.logo_url || '/barber_clock_logo.jpg';
   return {
-    platformName: row.platform_name || 'BarberClock',
-    platformLogoUrl: row.platform_logo_url || '/barber_clock_logo.jpg',
-    platformPixKey: row.platform_pix_key || '',
-    platformPixKeyType: row.platform_pix_key_type || 'phone',
-    platformPixReceiverName: row.platform_pix_receiver_name || '',
-    monthlyFee: Number(row.monthly_fee) || 49.9,
-    supportPhone: row.support_phone || '',
-    supportEmail: row.support_email || '',
-    pixInstructions: row.pix_instructions || '',
-    mercadoPagoAccessToken: row.mercado_pago_access_token || '',
-    mercadoPagoPublicKey: row.mercado_pago_public_key || '',
-    mercadoPagoEnabled: Boolean(row.mercado_pago_enabled),
+    platformName: row.platform_name || row.platformName || 'BarberClock',
+    platformLogoUrl: logo,
+    logoUrl: logo,
+    platformPixKey: row.platform_pix_key || row.platformPixKey || '',
+    platformPixKeyType: row.platform_pix_key_type || row.platformPixKeyType || 'phone',
+    platformPixReceiverName: row.platform_pix_receiver_name || row.platformPixReceiverName || '',
+    monthlyFee: Number(row.monthly_fee ?? row.monthlyFee) || 49.9,
+    supportPhone: row.support_phone || row.supportPhone || '',
+    supportEmail: row.support_email || row.supportEmail || '',
+    pixInstructions: row.pix_instructions || row.pixInstructions || '',
+    mercadoPagoAccessToken: row.mercado_pago_access_token || row.mercadoPagoAccessToken || '',
+    mercadoPagoPublicKey: row.mercado_pago_public_key || row.mercadoPagoPublicKey || '',
+    mercadoPagoEnabled: Boolean(row.mercado_pago_enabled ?? row.mercadoPagoEnabled),
   };
 }
 
 function mapSettingsToDb(s: PlatformSettings): any {
+  const logo = s.platformLogoUrl || s.logoUrl || '';
   return {
     id: 'current',
     platform_name: s.platformName || 'BarberClock',
-    platform_logo_url: s.platformLogoUrl || '',
+    platform_logo_url: logo,
+    logo_url: logo,
     platform_pix_key: s.platformPixKey || '',
     platform_pix_key_type: s.platformPixKeyType || 'phone',
     platform_pix_receiver_name: s.platformPixReceiverName || '',
-    monthly_fee: s.monthlyFee || 49.9,
+    monthly_fee: Number(s.monthlyFee) || 49.9,
     support_phone: s.supportPhone || '',
     support_email: s.supportEmail || '',
     pix_instructions: s.pixInstructions || '',
@@ -785,11 +823,11 @@ function mapLandingFromDb(row: any): LandingPageContent {
     videoTitle: row.video_title || '',
     videoDescription: row.video_description || '',
     videoPosterUrl: row.video_poster_url || '',
-    features: Array.isArray(row.features) ? row.features : [],
-    galleryImages: Array.isArray(row.gallery_images) ? row.gallery_images : [],
-    stats: Array.isArray(row.stats) ? row.stats : [],
-    testimonials: Array.isArray(row.testimonials) ? row.testimonials : [],
-    faqs: Array.isArray(row.faqs) ? row.faqs : [],
+    features: safeParseArray(row.features),
+    galleryImages: safeParseArray(row.gallery_images),
+    stats: safeParseArray(row.stats),
+    testimonials: safeParseArray(row.testimonials),
+    faqs: safeParseArray(row.faqs),
     ctaTitle: row.cta_title || '',
     ctaSubtitle: row.cta_subtitle || '',
     ctaButtonText: row.cta_button_text || '',
@@ -808,11 +846,11 @@ function mapLandingToDb(l: LandingPageContent): any {
     video_title: l.videoTitle || '',
     video_description: l.videoDescription || '',
     video_poster_url: l.videoPosterUrl || '',
-    features: l.features || [],
-    gallery_images: l.galleryImages || [],
-    stats: l.stats || [],
-    testimonials: l.testimonials || [],
-    faqs: l.faqs || [],
+    features: safeParseArray(l.features),
+    gallery_images: safeParseArray(l.galleryImages),
+    stats: safeParseArray(l.stats),
+    testimonials: safeParseArray(l.testimonials),
+    faqs: safeParseArray(l.faqs),
     cta_title: l.ctaTitle || '',
     cta_subtitle: l.ctaSubtitle || '',
     cta_button_text: l.ctaButtonText || '',
@@ -1145,7 +1183,7 @@ export const supabaseService = {
       const { data, error } = await client
         .from('platform_settings')
         .select('*')
-        .eq('id', 'current')
+        .limit(1)
         .maybeSingle();
       if (error || !data) return null;
       return mapSettingsFromDb(data);
@@ -1205,7 +1243,7 @@ export const supabaseService = {
       const { data, error } = await client
         .from('landing_page_content')
         .select('*')
-        .eq('id', 'current')
+        .limit(1)
         .maybeSingle();
       if (error || !data) return null;
       return mapLandingFromDb(data);
@@ -1358,13 +1396,16 @@ export const supabaseService = {
   subscribeToChanges(
     onAppointmentsChange: () => void,
     onBarbershopsChange: () => void,
-    onServicesChange: () => void
+    onServicesChange: () => void,
+    onPlatformSettingsChange?: () => void,
+    onLandingContentChange?: () => void,
+    onPlansChange?: () => void
   ) {
     const client = getSupabaseClient();
     if (!client) return () => {};
 
     try {
-      const channel = client
+      let channel = client
         .channel('schema-db-changes')
         .on(
           'postgres_changes',
@@ -1380,8 +1421,33 @@ export const supabaseService = {
           'postgres_changes',
           { event: '*', schema: 'public', table: 'services' },
           () => onServicesChange()
-        )
-        .subscribe();
+        );
+
+      if (onPlatformSettingsChange) {
+        channel = channel.on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'platform_settings' },
+          () => onPlatformSettingsChange()
+        );
+      }
+
+      if (onLandingContentChange) {
+        channel = channel.on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'landing_page_content' },
+          () => onLandingContentChange()
+        );
+      }
+
+      if (onPlansChange) {
+        channel = channel.on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'subscription_plans' },
+          () => onPlansChange()
+        );
+      }
+
+      channel.subscribe();
 
       return () => {
         client.removeChannel(channel);

@@ -96,6 +96,7 @@ interface AppContextType {
   deleteUserAccount: (id: string) => void;
   clearAllDemoData: () => void;
   updatePlatformSettings: (settings: Partial<PlatformSettings>) => void;
+  fetchPlatformSettings: () => Promise<PlatformSettings | null>;
   updateSubscriptionPlan: (id: SubscriptionPlanPeriod, updates: Partial<SubscriptionPlan>) => void;
   updateLandingPageContent: (updates: Partial<LandingPageContent>) => void;
   registerNewBarbershop: (data: {
@@ -478,6 +479,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const freshServices = await supabaseService.getServices();
           if (freshServices && isMounted) {
             setServices(freshServices);
+          }
+        },
+        async () => {
+          const freshSettings = await supabaseService.getPlatformSettings();
+          if (freshSettings && isMounted) {
+            setPlatformSettings((prev) => ({ ...prev, ...freshSettings }));
+          }
+        },
+        async () => {
+          const freshLanding = await supabaseService.getLandingPageContent();
+          if (freshLanding && isMounted) {
+            setLandingPageContent((prev) => ({ ...prev, ...freshLanding }));
+          }
+        },
+        async () => {
+          const freshPlans = await supabaseService.getSubscriptionPlans();
+          if (freshPlans && isMounted && freshPlans.length > 0) {
+            setSubscriptionPlans(freshPlans);
           }
         }
       );
@@ -1204,20 +1223,56 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updatePlatformSettings = (settings: Partial<PlatformSettings>) => {
+    const logo = settings.platformLogoUrl || settings.logoUrl;
+    const normalizedSettings = {
+      ...settings,
+      ...(logo ? { platformLogoUrl: logo, logoUrl: logo } : {}),
+    };
     setPlatformSettings((prev) => {
-      const updated = { ...prev, ...settings };
+      const updated = { ...prev, ...normalizedSettings };
       localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(updated));
       supabaseService.upsertPlatformSettings(updated);
       return updated;
     });
-    if (settings.platformLogoUrl) {
+    if (logo) {
       setLandingPageContent((prev) => {
-        const updated = { ...prev, brandLogoUrl: settings.platformLogoUrl };
+        const updated = { ...prev, brandLogoUrl: logo };
         localStorage.setItem(STORAGE_KEYS.LANDING, JSON.stringify(updated));
         supabaseService.upsertLandingPageContent(updated);
         return updated;
       });
     }
+  };
+
+  const fetchPlatformSettings = async (): Promise<PlatformSettings | null> => {
+    try {
+      if (isSupabaseConfigured()) {
+        const remote = await supabaseService.getPlatformSettings();
+        if (remote) {
+          setPlatformSettings((prev) => {
+            const merged = { ...prev, ...remote };
+            localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(merged));
+            return merged;
+          });
+          return remote;
+        }
+      }
+      const res = await fetch('/api/db');
+      if (res.ok) {
+        const json = await res.json();
+        if (json.settings) {
+          setPlatformSettings((prev) => {
+            const merged = { ...prev, ...json.settings };
+            localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(merged));
+            return merged;
+          });
+          return json.settings;
+        }
+      }
+    } catch (err) {
+      console.warn('Erro ao carregar configurações da plataforma:', err);
+    }
+    return null;
   };
 
   const updateSubscriptionPlan = (id: SubscriptionPlanPeriod, updates: Partial<SubscriptionPlan>) => {
@@ -1603,6 +1658,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deleteUserAccount,
         clearAllDemoData,
         updatePlatformSettings,
+        fetchPlatformSettings,
         updateSubscriptionPlan,
         updateLandingPageContent,
         registerNewBarbershop,

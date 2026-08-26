@@ -48,8 +48,8 @@
       "id": "monthly",
       "name": "Plano Mensal",
       "periodMonths": 1,
-      "price": 49.9,
-      "monthlyEquivalent": 49.9,
+      "price": 49.5,
+      "monthlyEquivalent": 49.5,
       "discountPercent": 0,
       "description": "Ideal para barbearias individuais que desejam flexibilidade sem compromisso de longo prazo.",
       "badge": "Sem Fidelidade",
@@ -110,16 +110,17 @@
   "settings": {
     "platformName": "BarberClock",
     "platformLogoUrl": "/barber_clock_logo.jpg",
-    "platformPixKey": "financeiro@barberclock.com.br",
-    "platformPixKeyType": "email",
-    "platformPixReceiverName": "BARBERCLOCK TECNOLOGIA LTDA",
-    "monthlyFee": 49.9,
-    "supportPhone": "11999887766",
-    "supportEmail": "contato@barberclock.com.br",
+    "platformPixKey": "APP_USR-311448093198424-082021-edb78cc432950797e90e9af5f353202a-43310959",
+    "platformPixKeyType": "random",
+    "platformPixReceiverName": "Daniel Santos",
+    "monthlyFee": 49.5,
+    "supportPhone": "7199211283",
+    "supportEmail": "danjjsantos@hotmail.com",
     "pixInstructions": "Transfira o valor exato da taxa mensal para a chave PIX acima e anexe ou confirme o pagamento para ativação imediata pelo administrador geral.",
-    "mercadoPagoAccessToken": "",
+    "mercadoPagoAccessToken": "APP_USR-311448093198424-082021-edb78cc432950797e90e9af5f353202a-43310959",
     "mercadoPagoPublicKey": "",
-    "mercadoPagoEnabled": true
+    "mercadoPagoEnabled": true,
+    "logoUrl": "/barber_clock_logo.jpg"
   },
   "trialRecords": [],
   "landing": {
@@ -173,113 +174,113 @@
     "galleryImages": [
       {
         "id": "gal_1",
-        "title": "Experiência de Agendamento do Cliente",
         "url": "https://images.unsplash.com/photo-1585747860715-2ba37e788b70?w=800&auto=format&fit=crop&q=80",
+        "title": "Experiência de Agendamento do Cliente",
         "caption": "Interface rápida e intuitiva onde o cliente escolhe serviço, barbeiro, data e horário disponível em segundos."
       },
       {
         "id": "gal_2",
-        "title": "Confirmação com PIX Instantâneo",
         "url": "https://images.unsplash.com/photo-1599351431202-1e0f0137899a?w=800&auto=format&fit=crop&q=80",
+        "title": "Confirmação com PIX Instantâneo",
         "caption": "QR Code automático e código PIX Copia e Cola gerados na hora para o cliente pagar diretamente."
       },
       {
         "id": "gal_3",
-        "title": "Painel do Barbeiro & Gestão de Agenda",
         "url": "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=800&auto=format&fit=crop&q=80",
+        "title": "Painel do Barbeiro & Gestão de Agenda",
         "caption": "Visão detalhada dos horários do dia, status de pagamento dos clientes e controle de faturamento em tempo real."
       },
       {
         "id": "gal_4",
-        "title": "Personalização Visual da sua Barbearia",
         "url": "https://images.unsplash.com/photo-1622286342621-4bd786c2447c?w=800&auto=format&fit=crop&q=80",
+        "title": "Personalização Visual da sua Barbearia",
         "caption": "Defina suas cores, banner, logo, horários de almoço, valores dos cortes e bio da sua barbearia."
       }
     ],
     "stats": [
       {
-        "value": "98%",
         "label": "Redução de Faltas",
+        "value": "98%",
         "subtext": "Com confirmação prévia no PIX"
       },
       {
-        "value": "3.5x",
         "label": "Mais Agendamentos",
+        "value": "3.5x",
         "subtext": "Disponíveis 24h sem esperar resposta"
       },
       {
-        "value": "0%",
         "label": "Taxa sobre os Cortes",
+        "value": "0%",
         "subtext": "Todo o valor do serviço é 100% seu"
       },
       {
-        "value": "1 min",
         "label": "Tempo de Agendamento",
+        "value": "1 min",
         "subtext": "Super rápido para qualquer cliente"
       }
     ],
     "testimonials": [
       {
         "id": "test_1",
-        "name": "Carlos Silva",
-        "shopName": "Barbearia Navalha de Ouro",
         "city": "São Paulo - SP",
-        "avatarUrl": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
-        "comment": "Antes eu perdia horas no WhatsApp respondendo cliente enquanto cortava cabelo. Hoje minha agenda enche sozinha e o dinheiro do PIX cai direto na minha conta antes do cliente sentar na cadeira!",
+        "name": "Carlos Silva",
         "rating": 5,
+        "comment": "Antes eu perdia horas no WhatsApp respondendo cliente enquanto cortava cabelo. Hoje minha agenda enche sozinha e o dinheiro do PIX cai direto na minha conta antes do cliente sentar na cadeira!",
+        "shopName": "Barbearia Navalha de Ouro",
+        "avatarUrl": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
         "revenueGrowth": "+42% faturamento"
       },
       {
         "id": "test_2",
-        "name": "Marcos Rocha",
-        "shopName": "Vintage Barber Club",
         "city": "São Paulo - SP",
-        "avatarUrl": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80",
-        "comment": "O QR Code no balcão foi um divisor de águas. O cliente já sai de um corte e escaneia para marcar o próximo. A taxa mensal da plataforma se paga no primeiro dia do mês.",
+        "name": "Marcos Rocha",
         "rating": 5,
+        "comment": "O QR Code no balcão foi um divisor de águas. O cliente já sai de um corte e escaneia para marcar o próximo. A taxa mensal da plataforma se paga no primeiro dia do mês.",
+        "shopName": "Vintage Barber Club",
+        "avatarUrl": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80",
         "revenueGrowth": "Zero faltas"
       },
       {
         "id": "test_3",
-        "name": "Thiago Lima",
-        "shopName": "Studio Barber Prime",
         "city": "São Paulo - SP",
-        "avatarUrl": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80",
-        "comment": "O suporte do administrador geral é impecável e a aprovação foi super rápida. Recomendo para qualquer barbeiro que quer profissionalizar seu negócio.",
+        "name": "Thiago Lima",
         "rating": 5,
+        "comment": "O suporte do administrador geral é impecável e a aprovação foi super rápida. Recomendo para qualquer barbeiro que quer profissionalizar seu negócio.",
+        "shopName": "Studio Barber Prime",
+        "avatarUrl": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80",
         "revenueGrowth": "+15 novos clientes/semana"
       }
     ],
     "faqs": [
       {
         "id": "faq_1",
-        "question": "Como recebo o dinheiro dos cortes dos meus clientes?",
-        "answer": "O dinheiro do corte vai 100% direto para a sua conta bancária! Na hora do agendamento, o cliente escaneia o QR Code com a SUA chave PIX cadastrada. O BarberHub não desconta nenhuma porcentagem dos seus serviços."
+        "answer": "O dinheiro do corte vai 100% direto para a sua conta bancária! Na hora do agendamento, o cliente escaneia o QR Code com a SUA chave PIX cadastrada. O BarberHub não desconta nenhuma porcentagem dos seus serviços.",
+        "question": "Como recebo o dinheiro dos cortes dos meus clientes?"
       },
       {
         "id": "faq_2",
-        "question": "Quanto custa para manter minha barbearia no ar?",
-        "answer": "Você paga apenas uma taxa fixa de manutenção da plataforma (Plano Mensal, Semestral com desconto ou Anual). Sem taxas ocultas, sem comissões sobre os cortes."
+        "answer": "Você paga apenas uma taxa fixa de manutenção da plataforma (Plano Mensal, Semestral com desconto ou Anual). Sem taxas ocultas, sem comissões sobre os cortes.",
+        "question": "Quanto custa para manter minha barbearia no ar?"
       },
       {
         "id": "faq_3",
-        "question": "Como funciona a aprovação do meu cadastro?",
-        "answer": "Após preencher o formulário simples de credenciamento e escolher seu plano, o Administrador Geral da plataforma valida seu pagamento da taxa via PIX e ativa sua página imediatamente para receber clientes."
+        "answer": "Após preencher o formulário simples de credenciamento e escolher seu plano, o Administrador Geral da plataforma valida seu pagamento da taxa via PIX e ativa sua página imediatamente para receber clientes.",
+        "question": "Como funciona a aprovação do meu cadastro?"
       },
       {
         "id": "faq_4",
-        "question": "Meus clientes precisam baixar algum aplicativo pesado?",
-        "answer": "Não! O BarberHub funciona direto no navegador do celular (web app responsivo). Basta o cliente clicar no seu link do WhatsApp ou escanear seu QR Code que a tela de agendamento abre instantaneamente."
+        "answer": "Não! O BarberHub funciona direto no navegador do celular (web app responsivo). Basta o cliente clicar no seu link do WhatsApp ou escanear seu QR Code que a tela de agendamento abre instantaneamente.",
+        "question": "Meus clientes precisam baixar algum aplicativo pesado?"
       },
       {
         "id": "faq_5",
-        "question": "Posso alterar meus preços e horários quando quiser?",
-        "answer": "Sim! No seu Painel do Barbeiro você tem controle total para adicionar novos serviços, reajustar valores, cadastrar pausas de almoço e bloquear datas especiais."
+        "answer": "Sim! No seu Painel do Barbeiro você tem controle total para adicionar novos serviços, reajustar valores, cadastrar pausas de almoço e bloquear datas especiais.",
+        "question": "Posso alterar meus preços e horários quando quiser?"
       }
     ],
     "ctaTitle": "Pronto para elevar o nível da sua barbearia?",
     "ctaSubtitle": "Cadastre-se agora mesmo, escolha o melhor plano para você e comece a receber agendamentos online hoje.",
     "ctaButtonText": "Quero Credenciar Minha Barbearia"
   },
-  "lastUpdated": "2026-08-25T23:50:00.000Z"
+  "lastUpdated": "2026-08-26T21:42:49.421Z"
 }

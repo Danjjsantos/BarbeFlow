@@ -104,8 +104,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenRegister, onOpen
           >
             <div className="relative">
               <img
+                id="landing-header-brand-logo"
                 src={platformSettings.platformLogoUrl || landingPageContent.brandLogoUrl || '/barber_clock_logo.jpg'}
                 alt={`${platformSettings.platformName} Logo`}
+                onError={(e) => {
+                  e.currentTarget.src = '/barber_clock_logo.jpg';
+                }}
                 className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl object-cover border-2 border-amber-500/80 shadow-lg shadow-amber-500/25 group-hover:scale-105 transition shrink-0 bg-slate-900"
               />
               <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-slate-950"></span>
@@ -878,8 +882,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenRegister, onOpen
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2.5">
             <img
+              id="landing-footer-brand-logo"
               src={platformSettings.platformLogoUrl || landingPageContent.brandLogoUrl || '/barber_clock_logo.jpg'}
               alt={`${platformSettings.platformName} Logo`}
+              onError={(e) => {
+                e.currentTarget.src = '/barber_clock_logo.jpg';
+              }}
               className="w-6 h-6 rounded-lg object-cover border border-amber-500/60 shrink-0 bg-slate-900"
             />
             <span className="font-bold text-slate-300">

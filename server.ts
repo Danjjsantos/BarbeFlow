@@ -106,6 +106,17 @@ function saveLocalDatabase(data: any) {
   }
 }
 
+function safeParseArrayServer(val: any): any[] {
+  if (Array.isArray(val)) return val;
+  if (typeof val === 'string' && val.trim().startsWith('[')) {
+    try {
+      const parsed = JSON.parse(val);
+      if (Array.isArray(parsed)) return parsed;
+    } catch {}
+  }
+  return [];
+}
+
 // Map camelCase to Postgres snake_case for single record writes
 function mapRecordForSupabase(table: string, data: any): { targetTable: string; record: any } | null {
   if (!data) return null;
@@ -222,14 +233,14 @@ function mapRecordForSupabase(table: string, data: any): { targetTable: string; 
         description: data.description || '',
         badge: data.badge || '',
         is_popular: Boolean(data.isPopular),
-        features: data.features || [],
+        features: safeParseArrayServer(data.features),
         active: data.active !== false,
         updated_at: new Date().toISOString(),
       },
     };
   }
   if (table === 'settings' || table === 'platform_settings') {
-    const pLogo = data.platformLogoUrl || data.platform_logo_url || '';
+    const pLogo = data.platformLogoUrl || data.platform_logo_url || data.logoUrl || data.logo_url || '';
     const pName = data.platformName || data.platform_name || 'BarberClock';
     const pPix = data.platformPixKey || data.platform_pix_key || '';
     const pPixType = data.platformPixKeyType || data.platform_pix_key_type || 'phone';
@@ -248,6 +259,7 @@ function mapRecordForSupabase(table: string, data: any): { targetTable: string; 
         id: 'current',
         platform_name: pName,
         platform_logo_url: pLogo,
+        logo_url: pLogo,
         platform_pix_key: pPix,
         platform_pix_key_type: pPixType,
         platform_pix_receiver_name: pPixRec,
@@ -286,11 +298,11 @@ function mapRecordForSupabase(table: string, data: any): { targetTable: string; 
     const vTitle = data.videoTitle || data.video_title || '';
     const vDesc = data.videoDescription || data.video_description || '';
     const vPoster = data.videoPosterUrl || data.video_poster_url || '';
-    const feats = data.features || [];
-    const gals = data.galleryImages || data.gallery_images || [];
-    const sts = data.stats || [];
-    const tests = data.testimonials || [];
-    const fqs = data.faqs || [];
+    const feats = safeParseArrayServer(data.features);
+    const gals = safeParseArrayServer(data.galleryImages || data.gallery_images);
+    const sts = safeParseArrayServer(data.stats);
+    const tests = safeParseArrayServer(data.testimonials);
+    const fqs = safeParseArrayServer(data.faqs);
     const cTitle = data.ctaTitle || data.cta_title || '';
     const cSub = data.ctaSubtitle || data.cta_subtitle || '';
     const cBtn = data.ctaButtonText || data.cta_button_text || '';
@@ -482,10 +494,14 @@ async function startServer() {
         }
       } else if (table === 'settings' || table === 'platform_settings') {
         currentDb.settings = { ...currentDb.settings, ...data };
+        let logoChanged = false;
         if (data.platformLogoUrl || data.platform_logo_url) {
           const logo = data.platformLogoUrl || data.platform_logo_url;
           currentDb.landing = { ...currentDb.landing, brandLogoUrl: logo };
+          logoChanged = true;
         }
+        let feeChanged = false;
+        let updatedMonthlyPlan: any = null;
         if (data.monthlyFee !== undefined || data.monthly_fee !== undefined) {
           const mFee = Number(data.monthlyFee ?? data.monthly_fee) || 49.9;
           currentDb.settings.monthlyFee = mFee;
@@ -496,16 +512,31 @@ async function startServer() {
               price: mFee,
               monthlyEquivalent: mFee,
             };
+            updatedMonthlyPlan = currentDb.plans[mIdx];
+            feeChanged = true;
           }
         }
         dataToSync = currentDb.settings;
+
+        if (logoChanged) {
+          syncToSupabaseAsync('landing_page_content', currentDb.landing, 'upsert').catch(() => {});
+        }
+        if (feeChanged && updatedMonthlyPlan) {
+          syncToSupabaseAsync('subscription_plans', updatedMonthlyPlan, 'upsert').catch(() => {});
+        }
       } else if (table === 'landing' || table === 'landing_page_content') {
         currentDb.landing = { ...currentDb.landing, ...data };
+        let logoChanged = false;
         if (data.brandLogoUrl || data.brand_logo_url) {
           const logo = data.brandLogoUrl || data.brand_logo_url;
           currentDb.settings = { ...currentDb.settings, platformLogoUrl: logo };
+          logoChanged = true;
         }
         dataToSync = currentDb.landing;
+
+        if (logoChanged) {
+          syncToSupabaseAsync('platform_settings', currentDb.settings, 'upsert').catch(() => {});
+        }
       } else if (table === 'trialRecords' || table === 'trial_records') {
         const trialId = typeof data === 'string' ? data : data?.id;
         if (action === 'delete') {

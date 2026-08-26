@@ -189,6 +189,7 @@ export interface Appointment {
 export interface PlatformSettings {
   platformName: string;
   platformLogoUrl?: string;
+  logoUrl?: string;
   platformPixKey: string;
   platformPixKeyType: PixKeyType;
   platformPixReceiverName: string;
