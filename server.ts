@@ -54,13 +54,13 @@ function getLocalDatabase() {
       const raw = fs.readFileSync(DB_FILE, 'utf-8');
       const parsed = JSON.parse(raw);
       return {
-        barbershops: Array.isArray(parsed.barbershops) ? parsed.barbershops : INITIAL_BARBERSHOPS,
-        services: Array.isArray(parsed.services) ? parsed.services : INITIAL_SERVICES,
-        appointments: Array.isArray(parsed.appointments) ? parsed.appointments : INITIAL_APPOINTMENTS,
+        barbershops: Array.isArray(parsed.barbershops) ? parsed.barbershops : [],
+        services: Array.isArray(parsed.services) ? parsed.services : [],
+        appointments: Array.isArray(parsed.appointments) ? parsed.appointments : [],
         users: Array.isArray(parsed.users) ? parsed.users : INITIAL_USERS,
         plans: Array.isArray(parsed.plans) ? parsed.plans : INITIAL_SUBSCRIPTION_PLANS,
         settings: parsed.settings ? { ...INITIAL_PLATFORM_SETTINGS, ...parsed.settings } : INITIAL_PLATFORM_SETTINGS,
-        trialRecords: Array.isArray(parsed.trialRecords) ? parsed.trialRecords : INITIAL_TRIAL_RECORDS,
+        trialRecords: Array.isArray(parsed.trialRecords) ? parsed.trialRecords : [],
         landing: parsed.landing ? { ...INITIAL_LANDING_CONTENT, ...parsed.landing } : INITIAL_LANDING_CONTENT,
         lastUpdated: parsed.lastUpdated || new Date().toISOString(),
       };
@@ -69,13 +69,13 @@ function getLocalDatabase() {
     console.error('Failed to read local database:', e);
   }
   return {
-    barbershops: INITIAL_BARBERSHOPS,
-    services: INITIAL_SERVICES,
-    appointments: INITIAL_APPOINTMENTS,
+    barbershops: [],
+    services: [],
+    appointments: [],
     users: INITIAL_USERS,
     plans: INITIAL_SUBSCRIPTION_PLANS,
     settings: INITIAL_PLATFORM_SETTINGS,
-    trialRecords: INITIAL_TRIAL_RECORDS,
+    trialRecords: [],
     landing: INITIAL_LANDING_CONTENT,
     lastUpdated: new Date().toISOString(),
   };
@@ -163,40 +163,48 @@ async function startServer() {
       const currentDb = getLocalDatabase();
 
       if (table === 'barbershops') {
+        const shopId = typeof data === 'string' ? data : data?.id;
         if (action === 'delete') {
-          currentDb.barbershops = currentDb.barbershops.filter((item: any) => item.id !== data?.id && item.id !== data);
+          currentDb.barbershops = currentDb.barbershops.filter((item: any) => item.id !== shopId);
+          currentDb.services = currentDb.services.filter((item: any) => item.barbershopId !== shopId);
+          currentDb.appointments = currentDb.appointments.filter((item: any) => item.barbershopId !== shopId);
+          currentDb.users = currentDb.users.filter((item: any) => item.barbershopId !== shopId);
         } else {
           const idx = currentDb.barbershops.findIndex((item: any) => item.id === data.id);
           if (idx >= 0) currentDb.barbershops[idx] = { ...currentDb.barbershops[idx], ...data };
           else currentDb.barbershops.push(data);
         }
       } else if (table === 'services') {
+        const srvId = typeof data === 'string' ? data : data?.id;
         if (action === 'delete') {
-          currentDb.services = currentDb.services.filter((item: any) => item.id !== data?.id && item.id !== data);
+          currentDb.services = currentDb.services.filter((item: any) => item.id !== srvId);
         } else {
           const idx = currentDb.services.findIndex((item: any) => item.id === data.id);
           if (idx >= 0) currentDb.services[idx] = { ...currentDb.services[idx], ...data };
           else currentDb.services.push(data);
         }
       } else if (table === 'appointments') {
+        const aptId = typeof data === 'string' ? data : data?.id;
         if (action === 'delete') {
-          currentDb.appointments = currentDb.appointments.filter((item: any) => item.id !== data?.id && item.id !== data);
+          currentDb.appointments = currentDb.appointments.filter((item: any) => item.id !== aptId);
         } else {
           const idx = currentDb.appointments.findIndex((item: any) => item.id === data.id);
           if (idx >= 0) currentDb.appointments[idx] = { ...currentDb.appointments[idx], ...data };
           else currentDb.appointments.unshift(data);
         }
       } else if (table === 'users') {
+        const userId = typeof data === 'string' ? data : data?.id;
         if (action === 'delete') {
-          currentDb.users = currentDb.users.filter((item: any) => item.id !== data?.id && item.id !== data);
+          currentDb.users = currentDb.users.filter((item: any) => item.id !== userId);
         } else {
           const idx = currentDb.users.findIndex((item: any) => item.id === data.id);
           if (idx >= 0) currentDb.users[idx] = { ...currentDb.users[idx], ...data };
           else currentDb.users.push(data);
         }
       } else if (table === 'plans' || table === 'subscription_plans') {
+        const planId = typeof data === 'string' ? data : data?.id;
         if (action === 'delete') {
-          currentDb.plans = currentDb.plans.filter((item: any) => item.id !== data?.id && item.id !== data);
+          currentDb.plans = currentDb.plans.filter((item: any) => item.id !== planId);
         } else {
           const idx = currentDb.plans.findIndex((item: any) => item.id === data.id);
           if (idx >= 0) currentDb.plans[idx] = { ...currentDb.plans[idx], ...data };
@@ -213,8 +221,9 @@ async function startServer() {
           currentDb.settings = { ...currentDb.settings, platformLogoUrl: data.brandLogoUrl };
         }
       } else if (table === 'trialRecords' || table === 'trial_records') {
+        const trialId = typeof data === 'string' ? data : data?.id;
         if (action === 'delete') {
-          currentDb.trialRecords = currentDb.trialRecords.filter((item: any) => item.id !== data?.id && item.id !== data);
+          currentDb.trialRecords = currentDb.trialRecords.filter((item: any) => item.id !== trialId);
         } else {
           const idx = currentDb.trialRecords.findIndex((item: any) => item.id === data.id);
           if (idx >= 0) currentDb.trialRecords[idx] = { ...currentDb.trialRecords[idx], ...data };

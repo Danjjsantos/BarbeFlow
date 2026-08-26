@@ -75,6 +75,7 @@ interface AppContextType {
   // Client & Barber Actions
   createAppointment: (data: Omit<Appointment, 'id' | 'createdAt' | 'status' | 'pixTransactionCode'> & { status?: AppointmentStatus }) => Appointment;
   cancelAppointment: (id: string, reason?: string, cancelledBy?: 'barber' | 'client') => void;
+  deleteAppointment: (id: string) => void;
   
   // Barber Actions
   confirmAppointmentPix: (id: string) => void;
@@ -91,6 +92,9 @@ interface AppContextType {
   rejectBarbershopSubscription: (barbershopId: string) => void;
   updateBarbershopSubscriptionStatus: (barbershopId: string, status: SubscriptionStatus) => void;
   deleteBarbershop: (id: string) => void;
+  deleteTrialRecord: (id: string) => void;
+  deleteUserAccount: (id: string) => void;
+  clearAllDemoData: () => void;
   updatePlatformSettings: (settings: Partial<PlatformSettings>) => void;
   updateSubscriptionPlan: (id: SubscriptionPlanPeriod, updates: Partial<SubscriptionPlan>) => void;
   updateLandingPageContent: (updates: Partial<LandingPageContent>) => void;
@@ -143,73 +147,86 @@ const STORAGE_KEYS = {
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [users, setUsers] = useState<User[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.USERS);
-    if (!saved) return INITIAL_USERS;
-    try {
-      const parsed: User[] = JSON.parse(saved);
-      // Ensure all INITIAL_USERS exist in the user list
-      const merged = [...parsed];
-      INITIAL_USERS.forEach((initUser) => {
-        const exists = merged.some((u) => u.email?.toLowerCase() === initUser.email?.toLowerCase() || u.id === initUser.id);
-        if (!exists) {
-          merged.push(initUser);
+    if (saved !== null) {
+      try {
+        const parsed: User[] = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          // Always ensure the Super Admin account exists so admin access is never locked
+          const superAdmins = INITIAL_USERS.filter((u) => u.role === 'super_admin');
+          const merged = [...parsed];
+          superAdmins.forEach((adminUser) => {
+            const exists = merged.some(
+              (u) => u.email?.toLowerCase() === adminUser.email?.toLowerCase() || u.id === adminUser.id
+            );
+            if (!exists) {
+              merged.push(adminUser);
+            }
+          });
+          return merged;
         }
-      });
-      return merged;
-    } catch {
-      return INITIAL_USERS;
+      } catch {
+        // Ignore JSON error
+      }
     }
+    return INITIAL_USERS;
   });
 
   const [currentUser, setCurrentUser] = useState<User>(() => {
     const savedId = localStorage.getItem(STORAGE_KEYS.CURRENT_USER_ID);
+    const savedUsersRaw = localStorage.getItem(STORAGE_KEYS.USERS);
+    let parsedUsers: User[] = [];
+    if (savedUsersRaw) {
+      try {
+        parsedUsers = JSON.parse(savedUsersRaw);
+      } catch {}
+    }
     if (savedId) {
-      // 1. Check in stored users
-      const savedUsersRaw = localStorage.getItem(STORAGE_KEYS.USERS);
-      if (savedUsersRaw) {
-        try {
-          const parsedUsers: User[] = JSON.parse(savedUsersRaw);
-          const found = parsedUsers.find((u) => u.id === savedId);
-          if (found) return found;
-        } catch {}
-      }
-      // 2. Check in INITIAL_USERS
+      const foundInSaved = parsedUsers.find((u) => u.id === savedId);
+      if (foundInSaved) return foundInSaved;
       const foundInit = INITIAL_USERS.find((u) => u.id === savedId);
       if (foundInit) return foundInit;
     }
-    return INITIAL_USERS[4]; // Default to client Lucas Mendes
+    // Default to Danilo Santos (super_admin) or the first available user
+    return parsedUsers.find((u) => u.role === 'super_admin') || INITIAL_USERS[0];
   });
 
   const [barbershops, setBarbershops] = useState<Barbershop[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.BARBERSHOPS);
-    if (!saved) return INITIAL_BARBERSHOPS;
-    try {
-      const parsed = JSON.parse(saved);
-      return Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_BARBERSHOPS;
-    } catch {
-      return INITIAL_BARBERSHOPS;
+    if (saved !== null) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      } catch {
+        // Fall back to empty
+      }
     }
+    return [];
   });
 
   const [services, setServices] = useState<Service[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.SERVICES);
-    if (!saved) return INITIAL_SERVICES;
-    try {
-      const parsed = JSON.parse(saved);
-      return Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_SERVICES;
-    } catch {
-      return INITIAL_SERVICES;
+    if (saved !== null) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      } catch {
+        // Fall back to empty
+      }
     }
+    return [];
   });
 
   const [appointments, setAppointments] = useState<Appointment[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.APPOINTMENTS);
-    if (!saved) return INITIAL_APPOINTMENTS;
-    try {
-      const parsed = JSON.parse(saved);
-      return Array.isArray(parsed) ? parsed : INITIAL_APPOINTMENTS;
-    } catch {
-      return INITIAL_APPOINTMENTS;
+    if (saved !== null) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      } catch {
+        // Fall back to empty
+      }
     }
+    return [];
   });
 
   const [platformSettings, setPlatformSettings] = useState<PlatformSettings>(() => {
@@ -257,18 +274,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [trialRecords, setTrialRecords] = useState<TrialUserRecord[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.TRIAL_RECORDS);
-    if (!saved) return INITIAL_TRIAL_RECORDS;
-    try {
-      const parsed = JSON.parse(saved);
-      return Array.isArray(parsed) ? parsed : INITIAL_TRIAL_RECORDS;
-    } catch {
-      return INITIAL_TRIAL_RECORDS;
+    if (saved !== null) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      } catch {
+        // Fall back to empty
+      }
     }
+    return [];
   });
 
   const [activeBarbershopId, setActiveBarbershopId] = useState<string>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.ACTIVE_SHOP_ID);
-    return saved || 'shop_navalha';
+    return saved || '';
   });
 
   const [isSupabaseActive, setIsSupabaseActive] = useState<boolean>(isSupabaseConfigured());
@@ -316,21 +335,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // 1. Fetch server persistent database first (persisted on disk)
         const serverData = await fetchServerDbData();
         if (serverData && isMounted) {
-          if (Array.isArray(serverData.barbershops) && serverData.barbershops.length > 0) {
+          if (Array.isArray(serverData.barbershops)) {
             setBarbershops(serverData.barbershops);
             localStorage.setItem(STORAGE_KEYS.BARBERSHOPS, JSON.stringify(serverData.barbershops));
           }
-          if (Array.isArray(serverData.services) && serverData.services.length > 0) {
+          if (Array.isArray(serverData.services)) {
             setServices(serverData.services);
             localStorage.setItem(STORAGE_KEYS.SERVICES, JSON.stringify(serverData.services));
           }
-          if (Array.isArray(serverData.appointments) && serverData.appointments.length > 0) {
+          if (Array.isArray(serverData.appointments)) {
             setAppointments(serverData.appointments);
             localStorage.setItem(STORAGE_KEYS.APPOINTMENTS, JSON.stringify(serverData.appointments));
           }
           if (Array.isArray(serverData.users) && serverData.users.length > 0) {
             setUsers(serverData.users);
             localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(serverData.users));
+            setCurrentUser((curr) => {
+              const fresh = serverData.users.find((u: User) => u.id === curr.id);
+              return fresh || curr;
+            });
           }
           if (Array.isArray(serverData.plans) && serverData.plans.length > 0) {
             setSubscriptionPlans(serverData.plans);
@@ -350,7 +373,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               return merged;
             });
           }
-          if (Array.isArray(serverData.trialRecords) && serverData.trialRecords.length > 0) {
+          if (Array.isArray(serverData.trialRecords)) {
             setTrialRecords(serverData.trialRecords);
             localStorage.setItem(STORAGE_KEYS.TRIAL_RECORDS, JSON.stringify(serverData.trialRecords));
           }
@@ -380,21 +403,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
           if (!isMounted) return;
 
-          if (remoteShops && remoteShops.length > 0) {
+          if (remoteShops && Array.isArray(remoteShops)) {
             setBarbershops(remoteShops);
             localStorage.setItem(STORAGE_KEYS.BARBERSHOPS, JSON.stringify(remoteShops));
           }
-          if (remoteServices && remoteServices.length > 0) {
+          if (remoteServices && Array.isArray(remoteServices)) {
             setServices(remoteServices);
             localStorage.setItem(STORAGE_KEYS.SERVICES, JSON.stringify(remoteServices));
           }
-          if (remoteAppointments && remoteAppointments.length > 0) {
+          if (remoteAppointments && Array.isArray(remoteAppointments)) {
             setAppointments(remoteAppointments);
             localStorage.setItem(STORAGE_KEYS.APPOINTMENTS, JSON.stringify(remoteAppointments));
           }
           if (remoteUsers && remoteUsers.length > 0) {
             setUsers(remoteUsers);
             localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(remoteUsers));
+            setCurrentUser((curr) => {
+              const fresh = remoteUsers.find((u: User) => u.id === curr.id);
+              return fresh || curr;
+            });
           }
           if (remotePlans && remotePlans.length > 0) {
             setSubscriptionPlans(remotePlans);
@@ -407,7 +434,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               return merged;
             });
           }
-          if (remoteTrials && remoteTrials.length > 0) {
+          if (remoteTrials && Array.isArray(remoteTrials)) {
             setTrialRecords(remoteTrials);
             localStorage.setItem(STORAGE_KEYS.TRIAL_RECORDS, JSON.stringify(remoteTrials));
           }
@@ -1077,23 +1104,98 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // 1. Remove from barbershops state
     setBarbershops((prev) => {
       const remaining = prev.filter((shop) => shop.id !== id);
-      if (activeBarbershopId === id && remaining.length > 0) {
-        setActiveBarbershopId(remaining[0].id);
+      if (activeBarbershopId === id) {
+        const nextId = remaining.length > 0 ? remaining[0].id : '';
+        setActiveBarbershopId(nextId);
+        localStorage.setItem(STORAGE_KEYS.ACTIVE_SHOP_ID, nextId);
       }
+      localStorage.setItem(STORAGE_KEYS.BARBERSHOPS, JSON.stringify(remaining));
       return remaining;
     });
 
     // 2. Cascade delete services of this barbershop
-    setServices((prev) => prev.filter((srv) => srv.barbershopId !== id));
+    setServices((prev) => {
+      const remaining = prev.filter((srv) => srv.barbershopId !== id);
+      localStorage.setItem(STORAGE_KEYS.SERVICES, JSON.stringify(remaining));
+      return remaining;
+    });
 
     // 3. Cascade delete appointments of this barbershop
-    setAppointments((prev) => prev.filter((apt) => apt.barbershopId !== id));
+    setAppointments((prev) => {
+      const remaining = prev.filter((apt) => apt.barbershopId !== id);
+      localStorage.setItem(STORAGE_KEYS.APPOINTMENTS, JSON.stringify(remaining));
+      return remaining;
+    });
 
     // 4. Cascade delete user accounts belonging to this barbershop
-    setUsers((prev) => prev.filter((u) => u.barbershopId !== id));
+    setUsers((prev) => {
+      const remaining = prev.filter((u) => u.barbershopId !== id);
+      localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(remaining));
+      return remaining;
+    });
 
-    // 5. Cascade delete in Supabase
+    // 5. Cascade delete in Supabase & Server DB
     supabaseService.deleteBarbershop(id);
+  };
+
+  const deleteAppointment = (id: string) => {
+    setAppointments((prev) => {
+      const remaining = prev.filter((apt) => apt.id !== id);
+      localStorage.setItem(STORAGE_KEYS.APPOINTMENTS, JSON.stringify(remaining));
+      return remaining;
+    });
+    supabaseService.deleteAppointment(id);
+  };
+
+  const deleteTrialRecord = (id: string) => {
+    setTrialRecords((prev) => {
+      const remaining = prev.filter((t) => t.id !== id);
+      localStorage.setItem(STORAGE_KEYS.TRIAL_RECORDS, JSON.stringify(remaining));
+      return remaining;
+    });
+  };
+
+  const deleteUserAccount = (id: string) => {
+    setUsers((prev) => {
+      const remaining = prev.filter((u) => u.id !== id);
+      localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(remaining));
+      return remaining;
+    });
+  };
+
+  const clearAllDemoData = () => {
+    const cleanShops: Barbershop[] = [];
+    const cleanServices: Service[] = [];
+    const cleanAppointments: Appointment[] = [];
+    const cleanTrials: TrialUserRecord[] = [];
+    // Keep only super admins so admin access is never locked
+    const cleanUsers = users.filter((u) => u.role === 'super_admin');
+
+    setBarbershops(cleanShops);
+    setServices(cleanServices);
+    setAppointments(cleanAppointments);
+    setTrialRecords(cleanTrials);
+    setUsers(cleanUsers);
+    setActiveBarbershopId('');
+
+    localStorage.setItem(STORAGE_KEYS.BARBERSHOPS, JSON.stringify(cleanShops));
+    localStorage.setItem(STORAGE_KEYS.SERVICES, JSON.stringify(cleanServices));
+    localStorage.setItem(STORAGE_KEYS.APPOINTMENTS, JSON.stringify(cleanAppointments));
+    localStorage.setItem(STORAGE_KEYS.TRIAL_RECORDS, JSON.stringify(cleanTrials));
+    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(cleanUsers));
+    localStorage.setItem(STORAGE_KEYS.ACTIVE_SHOP_ID, '');
+
+    fetch('/api/db/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        barbershops: cleanShops,
+        services: cleanServices,
+        appointments: cleanAppointments,
+        trialRecords: cleanTrials,
+        users: cleanUsers,
+      }),
+    }).catch((err) => console.warn('Clear demo sync error:', err));
   };
 
   const updatePlatformSettings = (settings: Partial<PlatformSettings>) => {
@@ -1491,6 +1593,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         rejectBarbershopSubscription,
         updateBarbershopSubscriptionStatus,
         deleteBarbershop,
+        deleteAppointment,
+        deleteTrialRecord,
+        deleteUserAccount,
+        clearAllDemoData,
         updatePlatformSettings,
         updateSubscriptionPlan,
         updateLandingPageContent,

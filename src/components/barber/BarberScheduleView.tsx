@@ -30,6 +30,7 @@ import {
   Ban,
   Send,
   ExternalLink,
+  Trash2,
 } from 'lucide-react';
 
 interface BarberScheduleViewProps {
@@ -43,6 +44,7 @@ export const BarberScheduleView: React.FC<BarberScheduleViewProps> = ({ barbersh
     confirmAppointmentPix,
     completeAppointment,
     cancelAppointment,
+    deleteAppointment,
     createAppointment,
     setActiveBarbershopId,
     setCurrentView,
@@ -442,6 +444,19 @@ export const BarberScheduleView: React.FC<BarberScheduleViewProps> = ({ barbersh
                     )}
                   </>
                 )}
+
+                {/* Permanent Delete Option */}
+                <button
+                  onClick={() => {
+                    if (confirm(`Deseja realmente excluir permanentemente o agendamento de ${apt.clientName}?`)) {
+                      deleteAppointment(apt.id);
+                    }
+                  }}
+                  className="p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl transition"
+                  title="Excluir agendamento permanentemente"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
               </div>
             </div>
           ))}
