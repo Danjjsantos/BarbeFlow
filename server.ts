@@ -23,6 +23,12 @@ dotenv.config();
 const DATA_DIR = path.join(process.cwd(), 'data');
 const DB_FILE = path.join(DATA_DIR, 'app_database.json');
 
+// Dynamic Supabase configuration on backend
+let backendSupabaseConfig = {
+  url: (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://ddwkyabkbybyqvulcvxs.supabase.co').replace(/\/+$/, '').replace(/\/rest\/v1\/?$/i, '').trim(),
+  key: (process.env.SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_oWooNwDsp16j9xnP54cBAQ_tQCzfiYX').trim(),
+};
+
 function initLocalDatabase() {
   try {
     if (!fs.existsSync(DATA_DIR)) {
@@ -30,13 +36,13 @@ function initLocalDatabase() {
     }
     if (!fs.existsSync(DB_FILE)) {
       const initialDb = {
-        barbershops: INITIAL_BARBERSHOPS,
-        services: INITIAL_SERVICES,
-        appointments: INITIAL_APPOINTMENTS,
+        barbershops: [],
+        services: [],
+        appointments: [],
         users: INITIAL_USERS,
         plans: INITIAL_SUBSCRIPTION_PLANS,
         settings: INITIAL_PLATFORM_SETTINGS,
-        trialRecords: INITIAL_TRIAL_RECORDS,
+        trialRecords: [],
         landing: INITIAL_LANDING_CONTENT,
         lastUpdated: new Date().toISOString(),
       };
@@ -97,6 +103,232 @@ function saveLocalDatabase(data: any) {
   } catch (e) {
     console.error('Failed to save local database:', e);
     return null;
+  }
+}
+
+// Map camelCase to Postgres snake_case for single record writes
+function mapRecordForSupabase(table: string, data: any): { targetTable: string; record: any } | null {
+  if (!data) return null;
+  if (table === 'barbershops') {
+    return {
+      targetTable: 'barbershops',
+      record: {
+        id: data.id,
+        owner_id: data.ownerId || '',
+        owner_name: data.ownerName || '',
+        owner_phone: data.ownerPhone || '',
+        name: data.name || '',
+        slug: data.slug || '',
+        logo_url: data.logoUrl || '',
+        banner_url: data.bannerUrl || '',
+        phone: data.phone || '',
+        address: data.address || '',
+        city: data.city || '',
+        instagram: data.instagram || '',
+        bio: data.bio || '',
+        theme_color: data.themeColor || '#d97706',
+        pix_key: data.pixKey || '',
+        pix_key_type: data.pixKeyType || 'phone',
+        pix_receiver_name: data.pixReceiverName || '',
+        mercado_pago_access_token: data.mercadoPagoAccessToken || '',
+        mercado_pago_public_key: data.mercadoPagoPublicKey || '',
+        mercado_pago_enabled: Boolean(data.mercadoPagoEnabled),
+        subscription_plan_id: data.subscriptionPlanId || 'trial',
+        subscription_status: data.subscriptionStatus || 'active',
+        subscription_monthly_fee: data.subscriptionMonthlyFee || 49.9,
+        subscription_valid_until: data.subscriptionValidUntil || '',
+        subscription_proof_url: data.subscriptionProofUrl || '',
+        subscription_requested_at: data.subscriptionRequestedAt || '',
+        subscription_last_payment_date: data.subscriptionLastPaymentDate || '',
+        working_hours: data.workingHours || {},
+        slot_interval_minutes: data.slotIntervalMinutes || 30,
+        booking_window_days: data.bookingWindowDays || 30,
+        confirmation_mode: data.confirmationMode || 'pix',
+        updated_at: new Date().toISOString(),
+      },
+    };
+  }
+  if (table === 'services') {
+    return {
+      targetTable: 'services',
+      record: {
+        id: data.id,
+        barbershop_id: data.barbershopId,
+        name: data.name,
+        description: data.description || '',
+        price: Number(data.price) || 0,
+        duration_minutes: Number(data.durationMinutes) || 30,
+        category: data.category || 'cabelo',
+        active: data.active !== false,
+        icon_name: data.iconName || '',
+      },
+    };
+  }
+  if (table === 'appointments') {
+    return {
+      targetTable: 'appointments',
+      record: {
+        id: data.id,
+        barbershop_id: data.barbershopId,
+        barber_name: data.barberName,
+        client_name: data.clientName,
+        client_phone: data.clientPhone,
+        service_id: data.serviceId,
+        service_name: data.serviceName,
+        service_price: Number(data.servicePrice) || 0,
+        duration_minutes: Number(data.durationMinutes) || 30,
+        date: data.date,
+        time: data.time,
+        status: data.status || 'confirmed',
+        pix_key_used: data.pixKeyUsed || '',
+        pix_transaction_code: data.pixTransactionCode || '',
+        pix_paid_at: data.pixPaidAt || '',
+        mercado_pago_payment_id: data.mercadoPagoPaymentId || '',
+        notes: data.notes || '',
+        cancellation_reason: data.cancellationReason || '',
+        cancelled_by: data.cancelledBy || '',
+        cancelled_at: data.cancelledAt || '',
+        payment_method: data.paymentMethod || 'pix',
+        created_at: data.createdAt || new Date().toISOString(),
+      },
+    };
+  }
+  if (table === 'users') {
+    return {
+      targetTable: 'users',
+      record: {
+        id: data.id,
+        name: data.name,
+        phone: data.phone,
+        email: data.email || '',
+        password: data.password || '',
+        role: data.role || 'client',
+        barbershop_id: data.barbershopId || '',
+        avatar_url: data.avatarUrl || '',
+      },
+    };
+  }
+  if (table === 'plans' || table === 'subscription_plans') {
+    return {
+      targetTable: 'subscription_plans',
+      record: {
+        id: data.id,
+        name: data.name,
+        period_months: data.periodMonths || 1,
+        price: Number(data.price) || 0,
+        original_price: data.originalPrice || null,
+        monthly_equivalent: Number(data.monthlyEquivalent) || 0,
+        discount_percent: data.discountPercent || 0,
+        description: data.description || '',
+        badge: data.badge || '',
+        is_popular: Boolean(data.isPopular),
+        features: data.features || [],
+        active: data.active !== false,
+        updated_at: new Date().toISOString(),
+      },
+    };
+  }
+  if (table === 'settings' || table === 'platform_settings') {
+    return {
+      targetTable: 'platform_settings',
+      record: {
+        id: 'current',
+        platform_name: data.platformName || 'BarberClock',
+        platform_logo_url: data.platformLogoUrl || '',
+        platform_pix_key: data.platformPixKey || '',
+        platform_pix_key_type: data.platformPixKeyType || 'phone',
+        platform_pix_receiver_name: data.platformPixReceiverName || '',
+        monthly_fee: Number(data.monthlyFee) || 49.9,
+        support_phone: data.supportPhone || '',
+        support_email: data.supportEmail || '',
+        pix_instructions: data.pixInstructions || '',
+        mercado_pago_access_token: data.mercadoPagoAccessToken || '',
+        mercado_pago_public_key: data.mercadoPagoPublicKey || '',
+        mercado_pago_enabled: Boolean(data.mercadoPagoEnabled),
+        updated_at: new Date().toISOString(),
+      },
+    };
+  }
+  if (table === 'trialRecords' || table === 'trial_records') {
+    return {
+      targetTable: 'trial_records',
+      record: {
+        id: data.id,
+        name: data.name,
+        phone: data.phone,
+        email: data.email || '',
+        barbershop_id: data.barbershopId || '',
+        barbershop_name: data.barbershopName || '',
+        registered_at: data.registeredAt || new Date().toISOString(),
+      },
+    };
+  }
+  if (table === 'landing' || table === 'landing_page_content') {
+    return {
+      targetTable: 'landing_page_content',
+      record: {
+        id: 'current',
+        brand_logo_url: data.brandLogoUrl || '',
+        hero_tag: data.heroTag || '',
+        hero_title: data.heroTitle || '',
+        hero_subtitle: data.heroSubtitle || '',
+        hero_cta_text: data.heroCtaText || '',
+        video_url: data.videoUrl || '',
+        video_title: data.videoTitle || '',
+        video_description: data.videoDescription || '',
+        video_poster_url: data.videoPosterUrl || '',
+        features: data.features || [],
+        gallery_images: data.galleryImages || [],
+        stats: data.stats || [],
+        testimonials: data.testimonials || [],
+        faqs: data.faqs || [],
+        cta_title: data.ctaTitle || '',
+        cta_subtitle: data.ctaSubtitle || '',
+        cta_button_text: data.ctaButtonText || '',
+        updated_at: new Date().toISOString(),
+      },
+    };
+  }
+  return null;
+}
+
+// Background sync to Supabase from server
+async function syncToSupabaseAsync(table: string, data: any, action: 'upsert' | 'delete') {
+  try {
+    const url = backendSupabaseConfig.url;
+    const key = backendSupabaseConfig.key;
+    if (!url || !key || !url.startsWith('http')) return;
+
+    const mapped = mapRecordForSupabase(table, data);
+    if (!mapped) return;
+
+    const { targetTable, record } = mapped;
+    const cleanUrl = url.replace(/\/+$/, '').replace(/\/rest\/v1\/?$/i, '').trim();
+
+    if (action === 'delete') {
+      const idToDelete = typeof data === 'string' ? data : data?.id;
+      if (!idToDelete) return;
+      await fetch(`${cleanUrl}/rest/v1/${targetTable}?id=eq.${encodeURIComponent(idToDelete)}`, {
+        method: 'DELETE',
+        headers: {
+          apikey: key,
+          Authorization: `Bearer ${key}`,
+        },
+      });
+    } else {
+      await fetch(`${cleanUrl}/rest/v1/${targetTable}`, {
+        method: 'POST',
+        headers: {
+          apikey: key,
+          Authorization: `Bearer ${key}`,
+          'Content-Type': 'application/json',
+          Prefer: 'resolution=merge-duplicates',
+        },
+        body: JSON.stringify([record]),
+      });
+    }
+  } catch (err) {
+    console.warn(`[Supabase Auto-Sync] Failed for table ${table}:`, err);
   }
 }
 
@@ -232,10 +464,27 @@ async function startServer() {
       }
 
       const updated = saveLocalDatabase(currentDb);
+      
+      // Auto-sync in background to Supabase if configured
+      syncToSupabaseAsync(table, data, action).catch((err) => {
+        console.warn('Async Supabase sync error:', err);
+      });
+
       return res.json({ success: true, data: updated });
     } catch (e: any) {
       return res.status(500).json({ success: false, error: e?.message });
     }
+  });
+
+  // Set / Update Supabase Configuration dynamically
+  app.post('/api/supabase/config', (req, res) => {
+    const { url, key } = req.body || {};
+    if (url && key) {
+      backendSupabaseConfig.url = String(url).replace(/\/+$/, '').replace(/\/rest\/v1\/?$/i, '').trim();
+      backendSupabaseConfig.key = String(key).trim();
+      return res.json({ success: true, message: 'Configuração do Supabase atualizada no servidor.' });
+    }
+    return res.status(400).json({ success: false, error: 'URL e Chave são obrigatórias.' });
   });
 
   app.post('/api/db/sync', (req, res) => {

@@ -57,6 +57,13 @@ export function saveStoredSupabaseConfig(url: string, key: string) {
     localStorage.setItem(STORAGE_URL_KEY, normalized);
     localStorage.setItem(STORAGE_KEY_KEY, key.trim());
     supabaseInstance = null; // reset client to re-initialize
+
+    // Sync to backend server
+    fetch('/api/supabase/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: normalized, key: key.trim() }),
+    }).catch((err) => console.warn('Failed to sync supabase config to server:', err));
   }
 }
 

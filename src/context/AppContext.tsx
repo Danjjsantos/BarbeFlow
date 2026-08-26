@@ -862,7 +862,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (targetUser) {
       handleSetCurrentUser(targetUser);
     } else {
-      const fallback = INITIAL_USERS.find((u) => u.role === role);
+      const fallback = INITIAL_USERS.find((u) => u.role === role) || INITIAL_USERS[0];
       if (fallback) {
         handleSetCurrentUser(fallback);
       }
@@ -870,10 +870,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const logoutUser = () => {
-    const defaultClient = users.find((u) => u.role === 'client') || INITIAL_USERS[4];
-    setCurrentUser(defaultClient);
+    const defaultUser =
+      users.find((u) => u.role === 'client') ||
+      users.find((u) => u.role === 'super_admin') ||
+      INITIAL_USERS[0];
+    if (defaultUser) {
+      setCurrentUser(defaultUser);
+      localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, defaultUser.id);
+    }
     setCurrentView('landing_page');
-    localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, defaultClient.id);
     localStorage.setItem(STORAGE_KEYS.CURRENT_VIEW, 'landing_page');
     localStorage.removeItem(STORAGE_KEYS.BARBER_TAB);
     localStorage.removeItem('barberhub_admin_tab_v2');
@@ -1532,9 +1537,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setSubscriptionPlans(INITIAL_SUBSCRIPTION_PLANS);
     setLandingPageContent(INITIAL_LANDING_CONTENT);
     setTrialRecords(INITIAL_TRIAL_RECORDS);
-    setCurrentUser(INITIAL_USERS[4]);
-    setActiveBarbershopId('shop_navalha');
-    setCurrentView('client_booking');
+    setCurrentUser(INITIAL_USERS[0]);
+    setActiveBarbershopId('');
+    setCurrentView('landing_page');
   };
 
   return (
