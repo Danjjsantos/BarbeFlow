@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Appointment } from '../../types';
 import {
@@ -11,6 +11,7 @@ import {
 } from '../../utils/formatters';
 import { PixPaymentModal } from './PixPaymentModal';
 import { ClientCancelAppointmentModal } from './ClientCancelAppointmentModal';
+import { NotificationBanner } from '../common/NotificationBanner';
 import {
   Calendar,
   Clock,
@@ -38,7 +39,13 @@ export const ClientMyAppointments: React.FC = () => {
     setCurrentView,
   } = useApp();
 
-  const [phoneSearch, setPhoneSearch] = useState<string>('');
+  const [phoneSearch, setPhoneSearch] = useState<string>(() => {
+    try {
+      return localStorage.getItem('barberclock_last_client_phone') || '';
+    } catch {
+      return '';
+    }
+  });
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [selectedPixApt, setSelectedPixApt] = useState<Appointment | null>(null);
   const [selectedCancelApt, setSelectedCancelApt] = useState<Appointment | null>(null);
@@ -47,6 +54,15 @@ export const ClientMyAppointments: React.FC = () => {
     date: string;
     time: string;
   } | null>(null);
+
+  // Sync phone into localStorage on change
+  useEffect(() => {
+    if (phoneSearch.trim().length >= 8) {
+      try {
+        localStorage.setItem('barberclock_last_client_phone', phoneSearch.trim());
+      } catch {}
+    }
+  }, [phoneSearch]);
 
   const queryClean = phoneSearch.trim().toLowerCase();
   const queryDigits = cleanPhone(phoneSearch);
@@ -173,6 +189,9 @@ export const ClientMyAppointments: React.FC = () => {
           Novo Agendamento
         </button>
       </div>
+
+      {/* Browser Push Proximity Notification Manager */}
+      <NotificationBanner role="client" variant="card" />
 
       {/* Phone filter bar */}
       <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">

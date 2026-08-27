@@ -6,6 +6,7 @@ import { BarberServicesView } from './BarberServicesView';
 import { BarberSettingsView } from './BarberSettingsView';
 import { ChangePasswordModal } from '../common/ChangePasswordModal';
 import { QrCodeModal } from '../common/QrCodeModal';
+import { NotificationBanner } from '../common/NotificationBanner';
 import {
   Calendar,
   DollarSign,
@@ -21,6 +22,7 @@ import {
   CheckCircle2,
   Menu,
   Eye,
+  BellRing,
 } from 'lucide-react';
 
 export const BarberDashboard: React.FC = () => {
@@ -437,7 +439,10 @@ export const BarberDashboard: React.FC = () => {
       </header>
 
       {/* MAIN VIEW CONTENT AREA (CLEAN FULL-WIDTH, NO EXTRA BARS) */}
-      <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto space-y-6">
+      <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto space-y-4 sm:space-y-6">
+        {/* Browser Push Alert Status / Quick Bar */}
+        <NotificationBanner role="barber" variant="compact" />
+
         <div className="animate-in fade-in duration-200">
           {activeBarberTab === 'schedule' && (
             <BarberScheduleView barbershop={userShop} />

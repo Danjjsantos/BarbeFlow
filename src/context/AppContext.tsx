@@ -143,6 +143,9 @@ const STORAGE_KEYS = {
   CURRENT_VIEW: 'barberhub_view_v2',
   BARBER_TAB: 'barberhub_barber_tab_v2',
   ADMIN_TAB: 'barberhub_admin_tab_v2',
+  AUTH_LOGGED_IN: 'barberhub_auth_logged_in_v2',
+  CLIENT_SESSION_VIEW: 'barberhub_client_session_view_v2',
+  CLIENT_SESSION_SHOP_ID: 'barberhub_client_session_shop_id_v2',
 };
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -174,6 +177,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [currentUser, setCurrentUser] = useState<User>(() => {
     const savedId = localStorage.getItem(STORAGE_KEYS.CURRENT_USER_ID);
+    const isLoggedIn = localStorage.getItem(STORAGE_KEYS.AUTH_LOGGED_IN) === 'true';
     const savedUsersRaw = localStorage.getItem(STORAGE_KEYS.USERS);
     let parsedUsers: User[] = [];
     if (savedUsersRaw) {
@@ -187,8 +191,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const foundInit = INITIAL_USERS.find((u) => u.id === savedId);
       if (foundInit) return foundInit;
     }
-    // Default to Danilo Santos (super_admin) or the first available user
-    return parsedUsers.find((u) => u.role === 'super_admin') || INITIAL_USERS[0];
+    if (isLoggedIn) {
+      return parsedUsers.find((u) => u.role === 'super_admin') || INITIAL_USERS[0];
+    }
+    // Default to client user or first available user when not logged in
+    return parsedUsers.find((u) => u.role === 'client') || INITIAL_USERS.find((u) => u.role === 'client') || INITIAL_USERS[0];
   });
 
   const [barbershops, setBarbershops] = useState<Barbershop[]>(() => {
@@ -287,8 +294,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   const [activeBarbershopId, setActiveBarbershopId] = useState<string>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.ACTIVE_SHOP_ID);
-    return saved || '';
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const shopParam = params.get('shop') || params.get('barbearia');
+      if (shopParam) return shopParam;
+
+      const hash = window.location.hash.replace('#', '').trim().toLowerCase();
+      const landingSectionHashes = [
+        'planos', 'cadastro', 'apresentacao', 'sobre', 'precos',
+        'home', 'landing', 'video-demo', 'diferenciais', 'galeria',
+        'calculadora', 'simulador', 'depoimentos', 'faq',
+      ];
+      if (hash && !landingSectionHashes.includes(hash)) {
+        const savedShopsRaw = localStorage.getItem(STORAGE_KEYS.BARBERSHOPS);
+        if (savedShopsRaw) {
+          try {
+            const parsedShops: Barbershop[] = JSON.parse(savedShopsRaw);
+            const found = parsedShops.find((s) => s.slug.toLowerCase() === hash || s.id.toLowerCase() === hash);
+            if (found) return found.id;
+          } catch {}
+        }
+        const foundInit = INITIAL_BARBERSHOPS.find((s) => s.slug.toLowerCase() === hash || s.id.toLowerCase() === hash);
+        if (foundInit) return foundInit.id;
+      }
+
+      // Check client active tab session
+      try {
+        const sessionShop = sessionStorage.getItem(STORAGE_KEYS.CLIENT_SESSION_SHOP_ID);
+        if (sessionShop) return sessionShop;
+      } catch {}
+
+      const saved = localStorage.getItem(STORAGE_KEYS.ACTIVE_SHOP_ID);
+      if (saved) return saved;
+    }
+    return '';
   });
 
   const [isSupabaseActive, setIsSupabaseActive] = useState<boolean>(isSupabaseConfigured());
@@ -515,12 +554,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const shopParam = params.get('shop') || params.get('barbearia');
       const viewParam = params.get('view');
 
-      // 1. If an explicit view parameter is passed in URL
+      // 1. If an explicit view parameter is passed in URL (?view=...)
       if (viewParam && ['client_booking', 'client_appointments', 'barber_dashboard', 'super_admin_dashboard', 'landing_page'].includes(viewParam)) {
         return viewParam as any;
       }
 
-      // 2. If a specific barbershop query param is given, open client booking
+      // 2. If a specific barbershop query param is given (?shop=... or ?barbearia=...)
       if (shopParam) {
         return 'client_booking';
       }
@@ -542,41 +581,60 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         'faq',
       ];
 
-      // 3. If explicit hash for a specific barbershop slug (e.g. /#navalha-de-ouro)
-      if (hash && !landingSectionHashes.includes(hash)) {
-        return 'client_booking';
-      }
-
-      // 4. If explicit landing section anchor (e.g. /#planos)
-      if (hash && landingSectionHashes.includes(hash)) {
-        return 'landing_page';
-      }
-
-      // 5. Restore saved current view from localStorage so page reload DOES NOT redirect to landing_page!
-      const savedView = localStorage.getItem(STORAGE_KEYS.CURRENT_VIEW) as any;
-      if (savedView && ['client_booking', 'client_appointments', 'barber_dashboard', 'super_admin_dashboard', 'landing_page'].includes(savedView)) {
-        return savedView;
-      }
-
-      // 6. Check saved user role if no view saved
+      // 3. Priority: Check if administrator or barber is authenticated (must remain on panel upon page refresh until explicit logoff)
+      const isLoggedIn = localStorage.getItem(STORAGE_KEYS.AUTH_LOGGED_IN) === 'true';
       const savedUserId = localStorage.getItem(STORAGE_KEYS.CURRENT_USER_ID);
-      if (savedUserId) {
-        let role = '';
+
+      if (isLoggedIn && savedUserId) {
+        let userRole = '';
         const savedUsersRaw = localStorage.getItem(STORAGE_KEYS.USERS);
         if (savedUsersRaw) {
           try {
             const parsed: User[] = JSON.parse(savedUsersRaw);
             const u = parsed.find((x) => x.id === savedUserId);
-            if (u) role = u.role;
+            if (u) userRole = u.role;
           } catch {}
         }
-        if (!role) {
+        if (!userRole) {
           const u = INITIAL_USERS.find((x) => x.id === savedUserId);
-          if (u) role = u.role;
+          if (u) userRole = u.role;
         }
 
-        if (role === 'super_admin') return 'super_admin_dashboard';
-        if (role === 'barber') return 'barber_dashboard';
+        const savedView = localStorage.getItem(STORAGE_KEYS.CURRENT_VIEW) as any;
+        if (userRole === 'super_admin') {
+          return savedView === 'client_booking' || savedView === 'client_appointments' ? savedView : 'super_admin_dashboard';
+        }
+        if (userRole === 'barber') {
+          return savedView === 'client_booking' || savedView === 'client_appointments' ? savedView : 'barber_dashboard';
+        }
+      }
+
+      // 4. Priority: Check client active tab session (client remains on booking/appointments upon refresh in same tab)
+      try {
+        const clientSessionView = sessionStorage.getItem(STORAGE_KEYS.CLIENT_SESSION_VIEW);
+        if (clientSessionView && (clientSessionView === 'client_booking' || clientSessionView === 'client_appointments')) {
+          return clientSessionView as any;
+        }
+      } catch {}
+
+      // 5. If explicit hash for a specific barbershop slug (e.g. /#navalha-de-ouro)
+      if (hash && !landingSectionHashes.includes(hash)) {
+        return 'client_booking';
+      }
+
+      // 6. If explicit landing section anchor (e.g. /#planos)
+      if (hash && landingSectionHashes.includes(hash)) {
+        return 'landing_page';
+      }
+
+      // 7. Check saved view in localStorage
+      const savedView = localStorage.getItem(STORAGE_KEYS.CURRENT_VIEW) as any;
+      if (savedView && ['client_booking', 'client_appointments', 'barber_dashboard', 'super_admin_dashboard', 'landing_page'].includes(savedView)) {
+        // If savedView was barber/admin dashboard but user is not logged in, return to landing_page
+        if ((savedView === 'barber_dashboard' || savedView === 'super_admin_dashboard') && !isLoggedIn) {
+          return 'landing_page';
+        }
+        return savedView;
       }
     }
 
@@ -593,7 +651,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
   const [isBarberDrawerOpen, setIsBarberDrawerOpen] = useState<boolean>(false);
 
-  // Handle URL Hash navigation and initial direct link mount
+  // Handle URL Hash navigation and runtime hash changes
   useEffect(() => {
     const handleHashNavigation = () => {
       const hash = window.location.hash.replace('#', '').trim().toLowerCase();
@@ -614,19 +672,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         'faq',
       ];
 
-      // If hash is empty, DO NOT force landing_page (keep current restored view intact)
+      // If hash is empty, do nothing
       if (!hash) {
         return;
       }
 
+      const isLoggedIn = localStorage.getItem(STORAGE_KEYS.AUTH_LOGGED_IN) === 'true';
+
       if (landingSectionHashes.includes(hash)) {
-        // If user clicked an anchor link to presentation/plans section, switch to landing_page
-        setCurrentView((prev) => {
-          if (prev === 'barber_dashboard' || prev === 'super_admin_dashboard') {
-            return prev;
-          }
-          return 'landing_page';
-        });
+        // If user clicked an anchor link to presentation/plans section, only switch if not logged in as admin/barber
+        if (!isLoggedIn) {
+          setCurrentView('landing_page');
+        }
         return;
       }
 
@@ -637,16 +694,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       if (matchedShop) {
         setActiveBarbershopId(matchedShop.id);
-        setCurrentView((prev) => {
-          if (prev === 'barber_dashboard' || prev === 'super_admin_dashboard') {
-            return prev;
-          }
-          return 'client_booking';
-        });
+        try {
+          sessionStorage.setItem(STORAGE_KEYS.CLIENT_SESSION_VIEW, 'client_booking');
+          sessionStorage.setItem(STORAGE_KEYS.CLIENT_SESSION_SHOP_ID, matchedShop.id);
+        } catch {}
+        if (!isLoggedIn) {
+          setCurrentView('client_booking');
+        }
       }
     };
 
-    handleHashNavigation();
     window.addEventListener('hashchange', handleHashNavigation);
     return () => window.removeEventListener('hashchange', handleHashNavigation);
   }, [barbershops]);
@@ -846,7 +903,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.CURRENT_VIEW, currentView);
-  }, [currentView]);
+    try {
+      if (currentView === 'client_booking' || currentView === 'client_appointments') {
+        sessionStorage.setItem(STORAGE_KEYS.CLIENT_SESSION_VIEW, currentView);
+        if (activeBarbershopId) {
+          sessionStorage.setItem(STORAGE_KEYS.CLIENT_SESSION_SHOP_ID, activeBarbershopId);
+        }
+      } else if (currentView === 'landing_page') {
+        sessionStorage.removeItem(STORAGE_KEYS.CLIENT_SESSION_VIEW);
+        sessionStorage.removeItem(STORAGE_KEYS.CLIENT_SESSION_SHOP_ID);
+      }
+    } catch {}
+
+    // Clean up stale landing anchors if on dashboard or client view
+    if (typeof window !== 'undefined' && currentView !== 'landing_page') {
+      const hash = window.location.hash.replace('#', '').trim().toLowerCase();
+      const landingSectionHashes = [
+        'planos', 'cadastro', 'apresentacao', 'sobre', 'precos',
+        'home', 'landing', 'video-demo', 'diferenciais', 'galeria',
+        'calculadora', 'simulador', 'depoimentos', 'faq',
+      ];
+      if (landingSectionHashes.includes(hash)) {
+        try {
+          window.history.replaceState(null, '', window.location.pathname + window.location.search);
+        } catch {}
+      }
+    }
+  }, [currentView, activeBarbershopId]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.BARBER_TAB, activeBarberTab);
@@ -860,6 +943,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const handleSetCurrentUser = (newUser: User) => {
     setCurrentUser(newUser);
     localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, newUser.id);
+    localStorage.setItem(STORAGE_KEYS.AUTH_LOGGED_IN, 'true');
+
     if (newUser.role === 'super_admin') {
       setCurrentView('super_admin_dashboard');
       localStorage.setItem(STORAGE_KEYS.CURRENT_VIEW, 'super_admin_dashboard');
@@ -873,6 +958,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } else {
       setCurrentView('client_booking');
       localStorage.setItem(STORAGE_KEYS.CURRENT_VIEW, 'client_booking');
+      try {
+        sessionStorage.setItem(STORAGE_KEYS.CLIENT_SESSION_VIEW, 'client_booking');
+        if (newUser.barbershopId) {
+          sessionStorage.setItem(STORAGE_KEYS.CLIENT_SESSION_SHOP_ID, newUser.barbershopId);
+        }
+      } catch {}
     }
   };
 
@@ -889,18 +980,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const logoutUser = () => {
-    const defaultUser =
-      users.find((u) => u.role === 'client') ||
-      users.find((u) => u.role === 'super_admin') ||
-      INITIAL_USERS[0];
-    if (defaultUser) {
-      setCurrentUser(defaultUser);
-      localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, defaultUser.id);
-    }
-    setCurrentView('landing_page');
-    localStorage.setItem(STORAGE_KEYS.CURRENT_VIEW, 'landing_page');
+    localStorage.setItem(STORAGE_KEYS.AUTH_LOGGED_IN, 'false');
+    localStorage.removeItem(STORAGE_KEYS.CURRENT_USER_ID);
     localStorage.removeItem(STORAGE_KEYS.BARBER_TAB);
     localStorage.removeItem('barberhub_admin_tab_v2');
+    try {
+      sessionStorage.removeItem(STORAGE_KEYS.CLIENT_SESSION_VIEW);
+      sessionStorage.removeItem(STORAGE_KEYS.CLIENT_SESSION_SHOP_ID);
+    } catch {}
+
+    const defaultClientUser =
+      users.find((u) => u.role === 'client') ||
+      INITIAL_USERS.find((u) => u.role === 'client') ||
+      INITIAL_USERS[0];
+    if (defaultClientUser) {
+      setCurrentUser(defaultClientUser);
+      localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, defaultClientUser.id);
+    }
+
+    setCurrentView('landing_page');
+    localStorage.setItem(STORAGE_KEYS.CURRENT_VIEW, 'landing_page');
+
+    if (typeof window !== 'undefined') {
+      try {
+        window.history.replaceState(null, '', window.location.pathname + window.location.search);
+      } catch {}
+    }
   };
 
   // Create Appointment (Customer)

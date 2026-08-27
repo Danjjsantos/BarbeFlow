@@ -12,6 +12,11 @@ import {
   openWhatsApp,
 } from '../../utils/formatters';
 import { PixPaymentModal } from './PixPaymentModal';
+import { NotificationBanner } from '../common/NotificationBanner';
+import {
+  notifyClientBookingConfirmed,
+  notifyBarberNewBooking,
+} from '../../utils/notifications';
 import {
   Scissors,
   Calendar,
@@ -229,6 +234,11 @@ export const ClientBookingFlow: React.FC = () => {
     }
 
     if (isWhatsappMode) {
+      // Save client phone for future proximity reminders
+      try {
+        localStorage.setItem('barberclock_last_client_phone', clientPhone.trim());
+      } catch {}
+
       // Direct booking with instant confirmation & WhatsApp notification
       const newApt = createAppointment({
         barbershopId: currentShop.id,
@@ -249,6 +259,10 @@ export const ClientBookingFlow: React.FC = () => {
 
       setCreatedAppointment(newApt);
       setIsWhatsappSuccessModalOpen(true);
+
+      // Trigger Push Notifications for Client & Barber
+      notifyClientBookingConfirmed(newApt, currentShop.name);
+      notifyBarberNewBooking(newApt, currentShop.name);
 
       // Trigger pre-formatted WhatsApp message
       const [y, m, d] = selectedDate.split('-').map(Number);
@@ -817,6 +831,11 @@ export const ClientBookingFlow: React.FC = () => {
               </div>
             </div>
 
+            {/* Push Notification Proximity Activator */}
+            <div className="text-left">
+              <NotificationBanner role="client" variant="compact" />
+            </div>
+
             <div className="space-y-2.5">
               <button
                 type="button"
@@ -872,6 +891,11 @@ export const ClientBookingFlow: React.FC = () => {
           onConfirmSuccess={(paymentId) => {
             if (createdAppointment) {
               confirmAppointmentPix(createdAppointment.id);
+              try {
+                localStorage.setItem('barberclock_last_client_phone', createdAppointment.clientPhone);
+              } catch {}
+              notifyClientBookingConfirmed(createdAppointment, currentShop.name);
+              notifyBarberNewBooking(createdAppointment, currentShop.name);
             }
           }}
         />

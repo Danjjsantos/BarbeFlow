@@ -7,6 +7,7 @@ import { QrCodeModal } from '../common/QrCodeModal';
 import { BarberSubscriptionPayModal } from './BarberSubscriptionPayModal';
 import { ChangePasswordModal } from '../common/ChangePasswordModal';
 import { BarbershopMediaManager } from './BarbershopMediaManager';
+import { NotificationBanner } from '../common/NotificationBanner';
 import {
   Settings,
   Clock,
@@ -31,6 +32,7 @@ import {
   AlertTriangle,
   MessageSquare,
   Smartphone,
+  BellRing,
 } from 'lucide-react';
 
 interface BarberSettingsViewProps {
@@ -852,6 +854,25 @@ export const BarberSettingsView: React.FC<BarberSettingsViewProps> = ({ barbersh
               className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs resize-none"
             />
           </div>
+        </div>
+
+        {/* Push Notifications Configuration for Barber */}
+        <div className="p-6 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+              <BellRing className="w-4 h-4" />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                Notificações Push no Navegador
+              </h4>
+              <p className="text-xs text-slate-500">
+                Receba alertas em tempo real no seu dispositivo quando um novo cliente agendar um horário.
+              </p>
+            </div>
+          </div>
+
+          <NotificationBanner role="barber" variant="card" />
         </div>
 
         {/* Security & Access Password Section */}

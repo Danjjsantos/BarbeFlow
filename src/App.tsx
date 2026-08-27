@@ -7,6 +7,8 @@ import { SuperAdminDashboard } from './components/superadmin/SuperAdminDashboard
 import { LandingPage } from './components/landing/LandingPage';
 import { BarberRegisterModal } from './components/barber/BarberRegisterModal';
 import { AuthLoginModal } from './components/common/AuthLoginModal';
+import { NotificationToastContainer } from './components/common/NotificationToast';
+import { useNotificationWatcher } from './hooks/useNotificationWatcher';
 import { Scissors, Shield, Heart, Sparkles, CheckCircle2, User, Eye, Tag } from 'lucide-react';
 
 const AppContent: React.FC = () => {
@@ -25,6 +27,9 @@ const AppContent: React.FC = () => {
     loginModalRole,
     openLoginModal,
   } = useApp();
+
+  // Initialize push notification & proximity reminder background engine
+  useNotificationWatcher();
 
   // Listen and synchronize device/OS dark mode preferences dynamically
   useEffect(() => {
@@ -81,6 +86,9 @@ const AppContent: React.FC = () => {
         initialRole={loginModalRole}
         onOpenRegister={openRegisterModal}
       />
+
+      {/* Global Push & In-App Notification Toast Container */}
+      <NotificationToastContainer />
     </div>
   );
 };
