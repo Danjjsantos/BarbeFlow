@@ -648,7 +648,7 @@ export const BarberSettingsView: React.FC<BarberSettingsViewProps> = ({ barbersh
               <select
                 value={pixKeyType}
                 onChange={(e) => setPixKeyType(e.target.value as PixKeyType)}
-                className="w-full px-3 py-2.5 bg-white border-2 border-slate-300 dark:border-slate-600 rounded-xl text-xs font-bold text-black shadow-xs focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                className="w-full px-3 py-2.5 bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 rounded-xl text-xs font-bold text-slate-900 dark:text-white shadow-xs focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
               >
                 <option value="phone">Telefone</option>
                 <option value="cpf">CPF</option>
@@ -668,7 +668,7 @@ export const BarberSettingsView: React.FC<BarberSettingsViewProps> = ({ barbersh
                 value={pixKey}
                 onChange={(e) => setPixKey(e.target.value)}
                 placeholder="Informe sua chave PIX"
-                className="w-full px-3 py-2.5 bg-white border-2 border-slate-300 dark:border-slate-600 rounded-xl text-xs font-mono font-bold text-black placeholder:text-slate-400 shadow-xs focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                className="w-full px-3 py-2.5 bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 rounded-xl text-xs font-mono font-bold text-slate-900 dark:text-white placeholder:text-slate-400 shadow-xs focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
               />
             </div>
 
@@ -682,7 +682,7 @@ export const BarberSettingsView: React.FC<BarberSettingsViewProps> = ({ barbersh
                 value={pixReceiverName}
                 onChange={(e) => setPixReceiverName(e.target.value)}
                 placeholder="Nome completo do beneficiário"
-                className="w-full px-3 py-2.5 bg-white border-2 border-slate-300 dark:border-slate-600 rounded-xl text-xs font-bold text-black placeholder:text-slate-400 shadow-xs focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                className="w-full px-3 py-2.5 bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 rounded-xl text-xs font-bold text-slate-900 dark:text-white placeholder:text-slate-400 shadow-xs focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
               />
             </div>
           </div>
@@ -715,7 +715,7 @@ export const BarberSettingsView: React.FC<BarberSettingsViewProps> = ({ barbersh
                   placeholder="APP_USR-..."
                   value={mercadoPagoAccessToken}
                   onChange={(e) => setMercadoPagoAccessToken(e.target.value)}
-                  className="w-full px-3 py-2.5 pr-16 bg-white border-2 border-slate-300 dark:border-slate-600 rounded-xl text-xs font-mono font-bold text-black placeholder:text-slate-400"
+                  className="w-full px-3 py-2.5 pr-16 bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 rounded-xl text-xs font-mono font-bold text-slate-900 dark:text-white placeholder:text-slate-400"
                 />
                 <button
                   type="button"

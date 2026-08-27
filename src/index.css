@@ -1,20 +1,56 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *, [data-theme="dark"], [data-theme="dark"] *));
+
 html,
 body,
 #root {
-  background-color: #020617;
-  color: #f8fafc;
   min-height: 100vh;
   margin: 0;
   padding: 0;
   -ms-overflow-style: none; /* IE and Edge */
   scrollbar-width: none; /* Firefox */
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+/* Light mode defaults */
+:root {
+  color-scheme: light;
+}
+
+body {
+  background-color: #f8fafc;
+  color: #0f172a;
+}
+
+/* Dark mode active (via class, data attribute or system preference) */
+:root.dark,
+.dark,
+[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+.dark body,
+.dark #root,
+:root.dark body {
+  background-color: #020617;
+  color: #f8fafc;
 }
 
 html {
-  color-scheme: dark;
   scroll-behavior: smooth;
+}
+
+/* Automatic Device Dark Mode Fallback */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+  }
+  
+  body:not([data-theme="light"] body) {
+    background-color: #020617;
+    color: #f8fafc;
+  }
 }
 
 /* Hide scrollbars globally across all browsers while allowing full scrolling */
@@ -38,10 +74,40 @@ html {
   scrollbar-width: none;
 }
 
-/* Base style for form inputs: ensures black font when typing, unless highlighted with custom color */
-input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not([class*="text-orange"]):not([class*="text-amber"]):not([class*="text-emerald"]):not([class*="text-rose"]):not([class*="text-blue"]):not([class*="text-red"]):not([class*="text-green"]):not([class*="text-white"]),
-textarea:not([class*="text-orange"]):not([class*="text-amber"]):not([class*="text-emerald"]):not([class*="text-rose"]):not([class*="text-blue"]):not([class*="text-red"]):not([class*="text-green"]):not([class*="text-white"]),
-select:not([class*="text-orange"]):not([class*="text-amber"]):not([class*="text-emerald"]):not([class*="text-rose"]):not([class*="text-blue"]):not([class*="text-red"]):not([class*="text-green"]):not([class*="text-white"]) {
-  color: #000000;
+/* Typography and letter colors for Form Inputs and Controls */
+input,
+textarea,
+select {
+  color: #0f172a;
 }
+
+/* When in Dark Mode (device or class), letters dynamically switch to crisp high-contrast light colors */
+.dark input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]):not([type="submit"]):not([type="button"]):not([type="reset"]),
+.dark textarea,
+.dark select,
+:is(.dark *) input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]):not([type="submit"]):not([type="button"]):not([type="reset"]),
+:is(.dark *) textarea,
+:is(.dark *) select {
+  color: #f8fafc;
+}
+
+/* Responsive placeholder styling */
+input::placeholder,
+textarea::placeholder {
+  color: #94a3b8;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #64748b;
+}
+
+@media (prefers-color-scheme: dark) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not([class*="text-amber"]):not([class*="text-orange"]):not([class*="text-emerald"]):not([class*="text-rose"]):not([class*="text-blue"]),
+  textarea:not([class*="text-amber"]):not([class*="text-orange"]):not([class*="text-emerald"]):not([class*="text-rose"]):not([class*="text-blue"]),
+  select:not([class*="text-amber"]):not([class*="text-orange"]):not([class*="text-emerald"]):not([class*="text-rose"]):not([class*="text-blue"]) {
+    color: #f8fafc;
+  }
+}
+
 

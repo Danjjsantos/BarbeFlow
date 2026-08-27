@@ -183,7 +183,7 @@ export const ClientMyAppointments: React.FC = () => {
             placeholder="Digite seu WhatsApp/Telefone para consultar seus horários..."
             value={phoneSearch}
             onChange={(e) => setPhoneSearch(e.target.value)}
-            className="w-full pl-9 pr-9 py-2.5 bg-white border-2 border-slate-300 dark:border-slate-600 rounded-xl text-xs font-bold text-black placeholder:text-slate-400 shadow-xs focus:outline-hidden focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+            className="w-full pl-9 pr-9 py-2.5 bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 rounded-xl text-xs font-bold text-slate-900 dark:text-white placeholder:text-slate-400 shadow-xs focus:outline-hidden focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
           />
           {phoneSearch && (
             <button

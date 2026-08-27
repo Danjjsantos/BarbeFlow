@@ -164,7 +164,7 @@ export const PlatformSettingsModal: React.FC<PlatformSettingsModalProps> = ({
               <select
                 value={platformPixKeyType}
                 onChange={(e) => setPlatformPixKeyType(e.target.value as PixKeyType)}
-                className="w-full px-3 py-2.5 bg-white border-2 border-slate-300 dark:border-slate-600 rounded-xl text-xs font-bold text-black"
+                className="w-full px-3 py-2.5 bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 rounded-xl text-xs font-bold text-slate-900 dark:text-white"
               >
                 <option value="email">E-mail</option>
                 <option value="phone">Telefone</option>
@@ -184,7 +184,7 @@ export const PlatformSettingsModal: React.FC<PlatformSettingsModalProps> = ({
                 value={platformPixKey}
                 onChange={(e) => setPlatformPixKey(e.target.value)}
                 placeholder="Chave PIX do administrador"
-                className="w-full px-3 py-2.5 bg-white border-2 border-slate-300 dark:border-slate-600 rounded-xl text-xs font-mono font-bold text-black placeholder:text-slate-400"
+                className="w-full px-3 py-2.5 bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 rounded-xl text-xs font-mono font-bold text-slate-900 dark:text-white placeholder:text-slate-400"
               />
             </div>
           </div>
@@ -199,7 +199,7 @@ export const PlatformSettingsModal: React.FC<PlatformSettingsModalProps> = ({
               value={platformPixReceiverName}
               onChange={(e) => setPlatformPixReceiverName(e.target.value)}
               placeholder="Nome do titular da conta"
-              className="w-full px-3 py-2.5 bg-white border-2 border-slate-300 dark:border-slate-600 rounded-xl text-xs font-bold text-black placeholder:text-slate-400"
+              className="w-full px-3 py-2.5 bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 rounded-xl text-xs font-bold text-slate-900 dark:text-white placeholder:text-slate-400"
             />
           </div>
 

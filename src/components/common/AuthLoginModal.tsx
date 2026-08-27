@@ -213,7 +213,7 @@ export const AuthLoginModal: React.FC<AuthLoginModalProps> = ({
                 }
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
-                className="w-full pl-10 pr-3.5 py-3 bg-white border-2 border-slate-300 dark:border-slate-600 rounded-xl text-xs sm:text-sm font-bold text-black placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-amber-500 transition"
+                className="w-full pl-10 pr-3.5 py-3 bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 rounded-xl text-xs sm:text-sm font-bold text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-amber-500 transition"
               />
             </div>
           </div>
@@ -240,7 +240,7 @@ export const AuthLoginModal: React.FC<AuthLoginModalProps> = ({
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-10 pr-10 py-3 bg-white border-2 border-slate-300 dark:border-slate-600 rounded-xl text-xs sm:text-sm font-bold text-black placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-amber-500 transition"
+                className="w-full pl-10 pr-10 py-3 bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 rounded-xl text-xs sm:text-sm font-bold text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-amber-500 transition"
               />
               <button
                 type="button"

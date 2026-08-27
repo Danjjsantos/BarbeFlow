@@ -422,7 +422,7 @@ export const ClientBookingFlow: React.FC = () => {
                     placeholder="Ex: Lucas Mendes"
                     value={clientName}
                     onChange={(e) => setClientName(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2.5 bg-white border-2 border-slate-300 dark:border-slate-600 rounded-xl text-sm font-bold text-black placeholder:text-slate-400 shadow-xs focus:outline-hidden focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                    className="w-full pl-9 pr-3 py-2.5 bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 rounded-xl text-sm font-bold text-slate-900 dark:text-white placeholder:text-slate-400 shadow-xs focus:outline-hidden focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
                   />
                 </div>
               </div>
@@ -439,7 +439,7 @@ export const ClientBookingFlow: React.FC = () => {
                     placeholder="(11) 98765-4321"
                     value={clientPhone}
                     onChange={(e) => setClientPhone(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2.5 bg-white border-2 border-slate-300 dark:border-slate-600 rounded-xl text-sm font-bold text-black placeholder:text-slate-400 shadow-xs focus:outline-hidden focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                    className="w-full pl-9 pr-3 py-2.5 bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 rounded-xl text-sm font-bold text-slate-900 dark:text-white placeholder:text-slate-400 shadow-xs focus:outline-hidden focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
                   />
                 </div>
               </div>
@@ -638,7 +638,7 @@ export const ClientBookingFlow: React.FC = () => {
                 placeholder="Ex: Prefiro acabamento mais baixo, pele sensível..."
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-white border-2 border-slate-300 dark:border-slate-600 rounded-xl text-xs font-bold text-black placeholder:text-slate-400 shadow-xs focus:outline-hidden focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 rounded-xl text-xs font-bold text-slate-900 dark:text-white placeholder:text-slate-400 shadow-xs focus:outline-hidden focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
               />
             </div>
           </div>
