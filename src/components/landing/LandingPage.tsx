@@ -103,15 +103,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenRegister, onOpen
             title={`${platformSettings.platformName} - Plataforma de Agendamentos e Gestão de Barbearias`}
           >
             <div className="relative">
-              <img
+              <div
                 id="landing-header-brand-logo"
-                src={platformSettings.platformLogoUrl || landingPageContent.brandLogoUrl || '/barber_clock_logo.jpg'}
-                alt={`${platformSettings.platformName} Logo`}
-                onError={(e) => {
-                  e.currentTarget.src = '/barber_clock_logo.jpg';
-                }}
-                className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl object-cover border-2 border-amber-500/80 shadow-lg shadow-amber-500/25 group-hover:scale-105 transition shrink-0 bg-slate-900"
-              />
+                className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-950 border-2 border-amber-500/80 shadow-lg shadow-amber-500/25 group-hover:scale-105 transition shrink-0 flex items-center justify-center"
+              >
+                <Scissors className="w-5 h-5 sm:w-6 sm:h-6 text-amber-400 -rotate-45" />
+              </div>
               <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-slate-950"></span>
             </div>
             <div>
@@ -881,15 +878,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenRegister, onOpen
       <footer className="py-10 bg-slate-950 border-t border-slate-900 text-xs text-slate-500">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2.5">
-            <img
+            <div
               id="landing-footer-brand-logo"
-              src={platformSettings.platformLogoUrl || landingPageContent.brandLogoUrl || '/barber_clock_logo.jpg'}
-              alt={`${platformSettings.platformName} Logo`}
-              onError={(e) => {
-                e.currentTarget.src = '/barber_clock_logo.jpg';
-              }}
-              className="w-6 h-6 rounded-lg object-cover border border-amber-500/60 shrink-0 bg-slate-900"
-            />
+              className="w-7 h-7 rounded-xl bg-gradient-to-br from-slate-900 to-slate-950 border border-amber-500/70 shadow-md shadow-amber-500/20 shrink-0 flex items-center justify-center"
+            >
+              <Scissors className="w-3.5 h-3.5 text-amber-400 -rotate-45" />
+            </div>
             <span className="font-bold text-slate-300">
               {platformSettings.platformName} © {new Date().getFullYear()}
             </span>

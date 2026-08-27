@@ -41,12 +41,18 @@ export function getStoredSupabaseConfig() {
   let rawUrl = localStorage.getItem(STORAGE_URL_KEY);
   let key = localStorage.getItem(STORAGE_KEY_KEY);
 
-  // If stored URL was the old default or invalid, reset to DEFAULT_SUPABASE_URL
-  if (!rawUrl || rawUrl.includes('wdahhlpgjlagmzkxvrvk') || rawUrl.includes('/rest/v1')) {
+  // If stored URL was the old deprecated project or invalid, reset to DEFAULT_SUPABASE_URL
+  if (!rawUrl || rawUrl.includes('wdahhlpgjlagmzkxvrvk') || rawUrl.includes('/rest/v1') || rawUrl.includes('placeholder')) {
     rawUrl = DEFAULT_SUPABASE_URL;
+    try {
+      localStorage.setItem(STORAGE_URL_KEY, DEFAULT_SUPABASE_URL);
+    } catch {}
   }
   if (!key || key.includes('sb_publishable_u1TvY_Xu')) {
     key = DEFAULT_SUPABASE_ANON_KEY;
+    try {
+      localStorage.setItem(STORAGE_KEY_KEY, DEFAULT_SUPABASE_ANON_KEY);
+    } catch {}
   }
   return { url: normalizeSupabaseUrl(rawUrl), key: key.trim() };
 }

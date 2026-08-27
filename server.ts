@@ -24,9 +24,20 @@ const DATA_DIR = path.join(process.cwd(), 'data');
 const DB_FILE = path.join(DATA_DIR, 'app_database.json');
 
 // Dynamic Supabase configuration on backend
+const DEFAULT_FALLBACK_URL = 'https://ddwkyabkbybyqvulcvxs.supabase.co';
+const DEFAULT_FALLBACK_KEY = 'sb_publishable_oWooNwDsp16j9xnP54cBAQ_tQCzfiYX';
+
+function sanitizeSupabaseUrl(url?: string): string {
+  let cleaned = (url || '').replace(/\/+$/, '').replace(/\/rest\/v1\/?$/i, '').trim();
+  if (!cleaned || cleaned.includes('wdahhlpgjlagmzkxvrvk') || cleaned.includes('placeholder')) {
+    return DEFAULT_FALLBACK_URL;
+  }
+  return cleaned;
+}
+
 let backendSupabaseConfig = {
-  url: (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://ddwkyabkbybyqvulcvxs.supabase.co').replace(/\/+$/, '').replace(/\/rest\/v1\/?$/i, '').trim(),
-  key: (process.env.SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_oWooNwDsp16j9xnP54cBAQ_tQCzfiYX').trim(),
+  url: sanitizeSupabaseUrl(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL),
+  key: (process.env.SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || DEFAULT_FALLBACK_KEY).trim(),
 };
 
 function initLocalDatabase() {
@@ -338,9 +349,9 @@ function mapRecordForSupabase(table: string, data: any): { targetTable: string; 
 // Background sync to Supabase from server
 async function syncToSupabaseAsync(table: string, data: any, action: 'upsert' | 'delete') {
   try {
-    const url = backendSupabaseConfig.url;
+    const url = sanitizeSupabaseUrl(backendSupabaseConfig.url);
     const key = backendSupabaseConfig.key;
-    if (!url || !key || !url.startsWith('http')) return;
+    if (!url || !key || !url.startsWith('http') || url.includes('placeholder')) return;
 
     const mapped = mapRecordForSupabase(table, data);
     if (!mapped) return;
@@ -348,30 +359,42 @@ async function syncToSupabaseAsync(table: string, data: any, action: 'upsert' | 
     const { targetTable, record } = mapped;
     const cleanUrl = url.replace(/\/+$/, '').replace(/\/rest\/v1\/?$/i, '').trim();
 
-    if (action === 'delete') {
-      const idToDelete = typeof data === 'string' ? data : data?.id;
-      if (!idToDelete) return;
-      await fetch(`${cleanUrl}/rest/v1/${targetTable}?id=eq.${encodeURIComponent(idToDelete)}`, {
-        method: 'DELETE',
-        headers: {
-          apikey: key,
-          Authorization: `Bearer ${key}`,
-        },
-      });
-    } else {
-      await fetch(`${cleanUrl}/rest/v1/${targetTable}`, {
-        method: 'POST',
-        headers: {
-          apikey: key,
-          Authorization: `Bearer ${key}`,
-          'Content-Type': 'application/json',
-          Prefer: 'resolution=merge-duplicates',
-        },
-        body: JSON.stringify([record]),
-      });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3500);
+
+    try {
+      if (action === 'delete') {
+        const idToDelete = typeof data === 'string' ? data : data?.id;
+        if (!idToDelete) return;
+        await fetch(`${cleanUrl}/rest/v1/${targetTable}?id=eq.${encodeURIComponent(idToDelete)}`, {
+          method: 'DELETE',
+          headers: {
+            apikey: key,
+            Authorization: `Bearer ${key}`,
+          },
+          signal: controller.signal,
+        });
+      } else {
+        await fetch(`${cleanUrl}/rest/v1/${targetTable}`, {
+          method: 'POST',
+          headers: {
+            apikey: key,
+            Authorization: `Bearer ${key}`,
+            'Content-Type': 'application/json',
+            Prefer: 'resolution=merge-duplicates',
+          },
+          body: JSON.stringify([record]),
+          signal: controller.signal,
+        });
+      }
+    } finally {
+      clearTimeout(timeoutId);
     }
-  } catch (err) {
-    console.warn(`[Supabase Auto-Sync] Failed for table ${table}:`, err);
+  } catch (err: any) {
+    // Graceful background handling - local server JSON database is the primary store
+    if (err?.name !== 'AbortError') {
+      // Intentionally silent or non-fatal
+    }
   }
 }
 
@@ -566,7 +589,8 @@ async function startServer() {
   app.post('/api/supabase/config', (req, res) => {
     const { url, key } = req.body || {};
     if (url && key) {
-      backendSupabaseConfig.url = String(url).replace(/\/+$/, '').replace(/\/rest\/v1\/?$/i, '').trim();
+      const sanitizedUrl = sanitizeSupabaseUrl(String(url));
+      backendSupabaseConfig.url = sanitizedUrl;
       backendSupabaseConfig.key = String(key).trim();
       return res.json({ success: true, message: 'Configuração do Supabase atualizada no servidor.' });
     }

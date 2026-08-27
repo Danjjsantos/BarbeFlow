@@ -53,44 +53,6 @@ const AppContent: React.FC = () => {
         initialRole={loginModalRole}
         onOpenRegister={openRegisterModal}
       />
-
-      {/* Bottom Footer & Global Platform Bar (Displayed strictly on landing page) */}
-      {currentView === 'landing_page' && (
-        <footer className="bg-slate-900 border-t border-slate-800 py-6 px-4 text-xs text-slate-400">
-          <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-5">
-            <div className="flex items-center gap-3 text-center sm:text-left">
-              <img
-                src="/barber_clock_logo.jpg"
-                alt="BarberClock Logo"
-                className="w-9 h-9 rounded-xl object-cover border border-amber-500/80 shadow-md shadow-amber-500/20 shrink-0 bg-slate-950"
-              />
-              <div>
-                <div className="flex items-center gap-2 justify-center sm:justify-start">
-                  <span className="font-extrabold text-sm text-white">
-                    {platformSettings.platformName}
-                  </span>
-                  <span className="text-[10px] bg-orange-500/20 text-orange-300 border border-orange-500/30 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
-                    Plataforma para Barbearias
-                  </span>
-                </div>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  Sistema completo de agendamento online com confirmação instantânea via PIX e gestão inteligente de barbearias.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end w-full sm:w-auto text-xs shrink-0">
-              <button
-                onClick={() => setCurrentView('landing_page')}
-                className="px-4 py-2 rounded-xl font-bold transition flex items-center gap-2 bg-orange-600 text-white shadow-md cursor-pointer"
-              >
-                <Eye className="w-4 h-4 text-orange-200" />
-                <span>Apresentação & Planos</span>
-              </button>
-            </div>
-          </div>
-        </footer>
-      )}
     </div>
   );
 };

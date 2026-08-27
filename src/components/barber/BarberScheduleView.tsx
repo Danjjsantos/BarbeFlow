@@ -10,6 +10,7 @@ import {
   openWhatsApp,
 } from '../../utils/formatters';
 import { CancelAppointmentModal } from './CancelAppointmentModal';
+import { BarberPeriodCalendar } from './BarberPeriodCalendar';
 import {
   Calendar,
   Clock,
@@ -48,6 +49,7 @@ export const BarberScheduleView: React.FC<BarberScheduleViewProps> = ({ barbersh
     createAppointment,
     setActiveBarbershopId,
     setCurrentView,
+    setActiveBarberTab,
   } = useApp();
 
   const [selectedDate, setSelectedDate] = useState<string>(getTodayDateString());
@@ -149,6 +151,15 @@ export const BarberScheduleView: React.FC<BarberScheduleViewProps> = ({ barbersh
 
   return (
     <div className="space-y-6" id="barber-schedule-view">
+      {/* Interactive Period Calendar according to stipulated booking window */}
+      <BarberPeriodCalendar
+        barbershop={barbershop}
+        appointments={appointments}
+        selectedDate={selectedDate}
+        onSelectDate={(newDate) => setSelectedDate(newDate)}
+        onOpenSettings={() => setActiveBarberTab('settings')}
+      />
+
       {/* Date Header & Quick Nav */}
       <div className="bg-white dark:bg-slate-900 p-4 sm:p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">

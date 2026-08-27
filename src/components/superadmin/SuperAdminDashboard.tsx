@@ -49,6 +49,7 @@ import {
   AlertTriangle,
   Camera,
   UserCog,
+  Scissors,
 } from 'lucide-react';
 
 export const SuperAdminDashboard: React.FC = () => {
@@ -137,24 +138,16 @@ export const SuperAdminDashboard: React.FC = () => {
         <div 
           onClick={() => setIsProfileModalOpen(true)}
           className="flex items-center gap-2.5 cursor-pointer group"
-          title="Ver e alterar meu perfil de administrador"
+          title="Ver dados do perfil de administrador"
         >
-          {currentUser.avatarUrl ? (
-            <img
-              src={currentUser.avatarUrl}
-              alt={currentUser.name}
-              className="w-8 h-8 rounded-xl object-cover border border-orange-500/80 shadow-md shadow-orange-500/20 shrink-0"
-            />
-          ) : (
-            <div className="w-8 h-8 rounded-lg bg-orange-600 flex items-center justify-center font-bold">
-              <Shield className="w-4 h-4 text-white" />
-            </div>
-          )}
+          <div className="w-8 h-8 rounded-xl bg-slate-950 border border-amber-500/80 shadow-md shadow-amber-500/20 flex items-center justify-center font-bold shrink-0">
+            <Scissors className="w-4 h-4 text-amber-400 -rotate-45" />
+          </div>
           <div>
-            <span className="font-extrabold text-sm text-white block leading-tight group-hover:text-orange-400 transition">
+            <span className="font-extrabold text-sm text-white block leading-tight group-hover:text-amber-400 transition">
               Painel Administrativo
             </span>
-            <span className="text-[11px] text-orange-400 font-medium">
+            <span className="text-[11px] text-amber-400 font-medium">
               {currentUser.name}
             </span>
           </div>
@@ -180,43 +173,32 @@ export const SuperAdminDashboard: React.FC = () => {
             <div 
               onClick={() => setIsProfileModalOpen(true)}
               className="relative group cursor-pointer shrink-0"
-              title="Clique para alterar sua foto de perfil do armazenamento"
+              title="Clique para ver seu perfil de administrador"
             >
-              {currentUser.avatarUrl ? (
-                <img
-                  src={currentUser.avatarUrl}
-                  alt={currentUser.name}
-                  className="w-12 h-12 rounded-2xl object-cover border-2 border-orange-500 shadow-lg shadow-orange-500/20 group-hover:opacity-90 transition"
-                />
-              ) : (
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-orange-600 to-amber-500 text-white flex items-center justify-center font-black shadow-lg shadow-orange-600/30">
-                  <Shield className="w-6 h-6" />
-                </div>
-              )}
-              <span className="absolute -bottom-1 -right-1 p-1 bg-orange-600 hover:bg-orange-500 text-white rounded-lg shadow-md border-2 border-slate-900 transition group-hover:scale-110">
-                <Camera className="w-3 h-3" />
-              </span>
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-950 border-2 border-amber-500/80 shadow-lg shadow-amber-500/20 flex items-center justify-center font-black group-hover:scale-105 transition">
+                <Scissors className="w-6 h-6 text-amber-400 -rotate-45" />
+              </div>
             </div>
 
             <div className="overflow-hidden flex-1">
               <div className="flex items-center gap-1.5">
                 <h2 
                   onClick={() => setIsProfileModalOpen(true)}
-                  className="font-black text-sm text-white truncate cursor-pointer hover:text-orange-400 transition"
+                  className="font-black text-sm text-white truncate cursor-pointer hover:text-amber-400 transition"
                   title="Clique para editar seu perfil"
                 >
                   {currentUser.name}
                 </h2>
                 <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
               </div>
-              <span className="text-[10px] text-orange-400 font-bold uppercase tracking-wider block">
+              <span className="text-[10px] text-amber-400 font-bold uppercase tracking-wider block">
                 Super Administrador
               </span>
               <button
                 onClick={() => setIsProfileModalOpen(true)}
-                className="text-[10px] text-slate-400 hover:text-orange-300 font-medium flex items-center gap-1 mt-0.5 transition"
+                className="text-[10px] text-slate-400 hover:text-amber-300 font-medium flex items-center gap-1 mt-0.5 transition"
               >
-                <span>Editar foto & perfil</span>
+                <span>Dados do perfil</span>
               </button>
             </div>
           </div>
@@ -265,8 +247,8 @@ export const SuperAdminDashboard: React.FC = () => {
                 }}
                 className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-bold text-slate-300 hover:bg-slate-800 hover:text-white transition text-left"
               >
-                <UserCog className="w-4 h-4 text-orange-400 shrink-0" />
-                <span>Meu Perfil & Foto de Perfil</span>
+                <UserCog className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>Meu Perfil de Administrador</span>
               </button>
 
               <button
