@@ -164,6 +164,7 @@ function mapRecordForSupabase(table: string, data: any): { targetTable: string; 
         slot_interval_minutes: data.slotIntervalMinutes || 30,
         booking_window_days: data.bookingWindowDays || 30,
         confirmation_mode: data.confirmationMode || 'pix',
+        accepted_payment_methods: safeParseArrayServer(data.acceptedPaymentMethods || ['pix_manual', 'cash', 'card']),
         updated_at: new Date().toISOString(),
       },
     };
@@ -203,12 +204,13 @@ function mapRecordForSupabase(table: string, data: any): { targetTable: string; 
         pix_key_used: data.pixKeyUsed || '',
         pix_transaction_code: data.pixTransactionCode || '',
         pix_paid_at: data.pixPaidAt || '',
+        pix_proof_url: data.pixProofUrl || '',
         mercado_pago_payment_id: data.mercadoPagoPaymentId || '',
         notes: data.notes || '',
         cancellation_reason: data.cancellationReason || '',
         cancelled_by: data.cancelledBy || '',
         cancelled_at: data.cancelledAt || '',
-        payment_method: data.paymentMethod || 'pix',
+        payment_method: data.paymentMethod || 'pix_manual',
         created_at: data.createdAt || new Date().toISOString(),
       },
     };
@@ -373,7 +375,7 @@ async function syncToSupabaseAsync(table: string, data: any, action: 'upsert' | 
           signal: controller.signal,
         });
       } else {
-        await fetch(`${cleanUrl}/rest/v1/${targetTable}`, {
+        await fetch(`${cleanUrl}/rest/v1/${targetTable}?on_conflict=id`, {
           method: 'POST',
           headers: {
             apikey: key,
@@ -718,7 +720,7 @@ async function startServer() {
 
     const upsertTable = async (table: string, records: any[]) => {
       if (!records || records.length === 0) return { ok: true };
-      const response = await fetch(`${cleanUrl}/rest/v1/${table}`, {
+      const response = await fetch(`${cleanUrl}/rest/v1/${table}?on_conflict=id`, {
         method: 'POST',
         headers,
         body: JSON.stringify(records),
@@ -757,6 +759,134 @@ async function startServer() {
         success: false,
         message: `Falha na sincronização: ${friendlyMessage}`,
       });
+    }
+  });
+
+  // Dedicated Landing Page Content Sync Route
+  app.post('/api/supabase/sync-landing', async (req, res) => {
+    const { landing, customUrl, customKey } = req.body || {};
+    if (!landing) {
+      return res.status(400).json({ success: false, message: 'Dados de apresentação não fornecidos.' });
+    }
+
+    try {
+      const currentDb = getLocalDatabase();
+      const bLogo = landing.brandLogoUrl || landing.brand_logo_url || '';
+      const hTag = landing.heroTag || landing.hero_tag || '';
+      const hTitle = landing.heroTitle || landing.hero_title || '';
+      const hSub = landing.heroSubtitle || landing.hero_subtitle || '';
+      const hCta = landing.heroCtaText || landing.hero_cta_text || '';
+      const vUrl = landing.videoUrl || landing.video_url || '';
+      const vTitle = landing.videoTitle || landing.video_title || '';
+      const vDesc = landing.videoDescription || landing.video_description || '';
+      const vPoster = landing.videoPosterUrl || landing.video_poster_url || '';
+      const feats = safeParseArrayServer(landing.features);
+      const gals = safeParseArrayServer(landing.galleryImages || landing.gallery_images);
+      const sts = safeParseArrayServer(landing.stats);
+      const tests = safeParseArrayServer(landing.testimonials);
+      const fqs = safeParseArrayServer(landing.faqs);
+      const cTitle = landing.ctaTitle || landing.cta_title || '';
+      const cSub = landing.ctaSubtitle || landing.cta_subtitle || '';
+      const cBtn = landing.ctaButtonText || landing.cta_button_text || '';
+
+      const normalizedLanding = {
+        brandLogoUrl: bLogo,
+        heroTag: hTag,
+        heroTitle: hTitle,
+        heroSubtitle: hSub,
+        heroCtaText: hCta,
+        videoUrl: vUrl,
+        videoTitle: vTitle,
+        videoDescription: vDesc,
+        videoPosterUrl: vPoster,
+        features: feats,
+        galleryImages: gals,
+        stats: sts,
+        testimonials: tests,
+        faqs: fqs,
+        ctaTitle: cTitle,
+        ctaSubtitle: cSub,
+        ctaButtonText: cBtn,
+      };
+
+      currentDb.landing = normalizedLanding;
+      if (bLogo) {
+        currentDb.settings.platformLogoUrl = bLogo;
+      }
+      saveLocalDatabase(currentDb);
+
+      const supabaseUrl = customUrl || backendSupabaseConfig.url || process.env.SUPABASE_URL || 'https://ddwkyabkbybyqvulcvxs.supabase.co';
+      const supabaseKey = (customKey || backendSupabaseConfig.key || process.env.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_oWooNwDsp16j9xnP54cBAQ_tQCzfiYX').trim();
+      const cleanUrl = supabaseUrl.replace(/\/+$/, '').replace(/\/rest\/v1\/?$/i, '').trim();
+
+      const dbRecord = {
+        id: 'current',
+        brand_logo_url: bLogo,
+        hero_tag: hTag,
+        hero_title: hTitle,
+        hero_subtitle: hSub,
+        hero_cta_text: hCta,
+        video_url: vUrl,
+        video_title: vTitle,
+        video_description: vDesc,
+        video_poster_url: vPoster,
+        features: feats,
+        gallery_images: gals,
+        stats: sts,
+        testimonials: tests,
+        faqs: fqs,
+        cta_title: cTitle,
+        cta_subtitle: cSub,
+        cta_button_text: cBtn,
+        updated_at: new Date().toISOString(),
+      };
+
+      const response = await fetch(`${cleanUrl}/rest/v1/landing_page_content?on_conflict=id`, {
+        method: 'POST',
+        headers: {
+          apikey: supabaseKey,
+          Authorization: `Bearer ${supabaseKey}`,
+          'Content-Type': 'application/json',
+          Prefer: 'resolution=merge-duplicates',
+        },
+        body: JSON.stringify([dbRecord]),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        let friendly = errorText;
+        if (response.status === 404 || errorText.includes('42P01') || errorText.includes('does not exist')) {
+          friendly = 'Tabela landing_page_content não encontrada no Supabase. Execute o script SQL no SQL Editor.';
+        }
+        return res.status(400).json({ success: false, message: friendly });
+      }
+
+      // If logo was set, also update platform_settings in Supabase
+      if (bLogo) {
+        fetch(`${cleanUrl}/rest/v1/platform_settings?on_conflict=id`, {
+          method: 'POST',
+          headers: {
+            apikey: supabaseKey,
+            Authorization: `Bearer ${supabaseKey}`,
+            'Content-Type': 'application/json',
+            Prefer: 'resolution=merge-duplicates',
+          },
+          body: JSON.stringify([{
+            id: 'current',
+            platform_logo_url: bLogo,
+            logo_url: bLogo,
+            updated_at: new Date().toISOString(),
+          }]),
+        }).catch(() => {});
+      }
+
+      return res.json({
+        success: true,
+        message: 'Apresentação salva no servidor e sincronizada com o Supabase com sucesso!',
+        data: normalizedLanding,
+      });
+    } catch (e: any) {
+      return res.status(500).json({ success: false, message: e?.message || 'Erro ao sincronizar apresentação' });
     }
   });
 

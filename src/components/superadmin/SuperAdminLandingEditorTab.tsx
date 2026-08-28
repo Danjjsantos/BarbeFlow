@@ -10,6 +10,12 @@ import {
 import { generateId } from '../../utils/formatters';
 import { parseVideoUrl } from '../../utils/videoUtils';
 import {
+  supabaseService,
+  LANDING_PAGE_SQL_SCHEMA,
+  SUPABASE_SQL_SCHEMA,
+  getStoredSupabaseConfig,
+} from '../../lib/supabase';
+import {
   Video,
   Type,
   Image as ImageIcon,
@@ -38,6 +44,14 @@ import {
   MapPin,
   Building2,
   TrendingUp,
+  Database,
+  Copy,
+  Check,
+  ShieldCheck,
+  UploadCloud,
+  FileCode,
+  Radio,
+  Sliders,
 } from 'lucide-react';
 
 const TESTIMONIAL_AVATAR_PRESETS = [
@@ -83,12 +97,30 @@ const DEFAULT_RECOMMENDED_TESTIMONIALS: LandingTestimonial[] = [
 ];
 
 export const SuperAdminLandingEditorTab: React.FC = () => {
-  const { landingPageContent, updateLandingPageContent, setCurrentView } = useApp();
+  const {
+    landingPageContent,
+    updateLandingPageContent,
+    setCurrentView,
+    isSupabaseActive,
+    supabaseStatus,
+    checkSupabaseConnection,
+  } = useApp();
 
   const [activeSection, setActiveSection] = useState<
-    'branding' | 'video' | 'texts' | 'gallery' | 'features' | 'testimonials' | 'faqs'
+    'branding' | 'video' | 'texts' | 'gallery' | 'features' | 'testimonials' | 'faqs' | 'database'
   >('branding');
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [lastSavedTime, setLastSavedTime] = useState<string | null>(null);
+
+  // Supabase sync and SQL copy state
+  const [isSyncingSupabase, setIsSyncingSupabase] = useState(false);
+  const [supabaseSyncMessage, setSupabaseSyncMessage] = useState<{
+    success: boolean;
+    text: string;
+  } | null>(null);
+  const [copiedSqlType, setCopiedSqlType] = useState<'landing' | 'all' | null>(null);
+  const [activeSqlTab, setActiveSqlTab] = useState<'landing' | 'all'>('landing');
 
   // Local state initialized with landingPageContent
   const [brandLogoUrl, setBrandLogoUrl] = useState(
@@ -402,11 +434,13 @@ export const SuperAdminLandingEditorTab: React.FC = () => {
     }
   };
 
-  const handleSaveAll = (e?: React.FormEvent) => {
+  const handleSaveAll = async (e?: React.FormEvent, customOverrides?: Partial<LandingPageContent>) => {
     if (e) e.preventDefault();
+    setIsSaving(true);
+    setSupabaseSyncMessage(null);
     const sanitizedVideoUrl = parseVideoUrl(videoUrl).embedUrl || videoUrl;
 
-    updateLandingPageContent({
+    const payload: LandingPageContent = {
       brandLogoUrl,
       heroTag,
       heroTitle,
@@ -418,15 +452,101 @@ export const SuperAdminLandingEditorTab: React.FC = () => {
       videoPosterUrl,
       galleryImages,
       features,
+      stats: landingPageContent.stats || [],
       testimonials,
       faqs,
       ctaTitle,
       ctaSubtitle,
       ctaButtonText,
-    });
+      ...customOverrides,
+    };
 
+    updateLandingPageContent(payload);
+
+    // Call dedicated Supabase sync with friendly response
+    try {
+      const syncResult = await supabaseService.syncLandingOnlyToSupabase(payload);
+      if (syncResult.success) {
+        setSupabaseSyncMessage({
+          success: true,
+          text: 'Gravado com sucesso no Banco e sincronizado com o Supabase!',
+        });
+      } else {
+        setSupabaseSyncMessage({
+          success: false,
+          text: syncResult.message,
+        });
+      }
+    } catch (err: any) {
+      setSupabaseSyncMessage({
+        success: false,
+        text: err?.message || 'Falha na conexão com Supabase.',
+      });
+    }
+
+    setIsSaving(false);
     setSaveSuccess(true);
-    setTimeout(() => setSaveSuccess(false), 3500);
+    setLastSavedTime(
+      new Date().toLocaleTimeString('pt-BR', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      })
+    );
+    setTimeout(() => setSaveSuccess(false), 4000);
+  };
+
+  const handleManualSupabaseSync = async () => {
+    setIsSyncingSupabase(true);
+    setSupabaseSyncMessage(null);
+    try {
+      const sanitizedVideoUrl = parseVideoUrl(videoUrl).embedUrl || videoUrl;
+      const payload: LandingPageContent = {
+        brandLogoUrl,
+        heroTag,
+        heroTitle,
+        heroSubtitle,
+        heroCtaText,
+        videoUrl: sanitizedVideoUrl,
+        videoTitle,
+        videoDescription,
+        videoPosterUrl,
+        galleryImages,
+        features,
+        stats: landingPageContent.stats || [],
+        testimonials,
+        faqs,
+        ctaTitle,
+        ctaSubtitle,
+        ctaButtonText,
+      };
+
+      const res = await supabaseService.syncLandingOnlyToSupabase(payload);
+      setSupabaseSyncMessage({ success: res.success, text: res.message });
+      if (res.success) {
+        setLastSavedTime(
+          new Date().toLocaleTimeString('pt-BR', {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+          })
+        );
+      }
+    } catch (err: any) {
+      setSupabaseSyncMessage({
+        success: false,
+        text: err?.message || 'Erro ao sincronizar com o Supabase.',
+      });
+    } finally {
+      setIsSyncingSupabase(false);
+    }
+  };
+
+  const handleCopySql = (type: 'landing' | 'all') => {
+    const textToCopy = type === 'landing' ? LANDING_PAGE_SQL_SCHEMA : SUPABASE_SQL_SCHEMA;
+    navigator.clipboard.writeText(textToCopy);
+    setCopiedSqlType(type);
+    setTimeout(() => setCopiedSqlType(null), 3000);
   };
 
   const handleAddGalleryImage = () => {
@@ -480,7 +600,30 @@ export const SuperAdminLandingEditorTab: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={(e) => handleSaveAll(e)}
+            disabled={isSaving}
+            className="px-5 py-2.5 bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
+          >
+            <Save className="w-4 h-4" />
+            {isSaving ? 'Gravando no Banco...' : 'Salvar Apresentação'}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveSection('database')}
+            className={`px-4 py-2.5 rounded-xl font-bold text-xs shadow-sm transition flex items-center gap-2 border ${
+              activeSection === 'database'
+                ? 'bg-amber-500 text-slate-950 border-amber-400 font-extrabold'
+                : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
+            }`}
+          >
+            <Database className="w-4 h-4 text-emerald-400" />
+            <span>Tabelas & Supabase</span>
+          </button>
+
           <button
             type="button"
             onClick={() => setCurrentView('landing_page')}
@@ -491,13 +634,45 @@ export const SuperAdminLandingEditorTab: React.FC = () => {
           </button>
 
           {saveSuccess && (
-            <div className="flex items-center gap-2 px-3 py-2 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-300 rounded-xl text-xs font-bold">
+            <div className="flex items-center gap-2 px-3 py-2 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-300 rounded-xl text-xs font-bold animate-fade-in">
               <CheckCircle2 className="w-4 h-4" />
-              Salvo!
+              Salvo no Banco {lastSavedTime ? `às ${lastSavedTime}` : ''}!
             </div>
           )}
         </div>
       </div>
+
+      {/* Supabase Status & Quick Sync Notification */}
+      {supabaseSyncMessage && (
+        <div
+          className={`p-4 rounded-2xl border flex items-start gap-3 animate-fade-in ${
+            supabaseSyncMessage.success
+              ? 'bg-emerald-950/30 border-emerald-500/40 text-emerald-300'
+              : 'bg-amber-950/30 border-amber-500/40 text-amber-300'
+          }`}
+        >
+          {supabaseSyncMessage.success ? (
+            <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+          ) : (
+            <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+          )}
+          <div className="flex-1 text-xs">
+            <span className="font-bold block text-white text-sm">
+              {supabaseSyncMessage.success
+                ? 'Sincronização Supabase Concluída'
+                : 'Aviso sobre a Sincronização Supabase'}
+            </span>
+            <p className="mt-0.5 leading-relaxed">{supabaseSyncMessage.text}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setActiveSection('database')}
+            className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-[11px] font-bold text-slate-200 hover:text-white transition shrink-0"
+          >
+            Ver Script das Tabelas
+          </button>
+        </div>
+      )}
 
       {/* Navigation Subtabs */}
       <div className="flex flex-wrap gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
@@ -509,6 +684,7 @@ export const SuperAdminLandingEditorTab: React.FC = () => {
           { id: 'features', label: 'Diferenciais & Recursos', icon: Sparkles },
           { id: 'testimonials', label: 'Depoimentos de Barbeiros', icon: MessageSquare },
           { id: 'faqs', label: 'Perguntas Frequentes (FAQ)', icon: HelpCircle },
+          { id: 'database', label: 'Tabelas & Supabase', icon: Database },
         ].map((tab) => {
           const Icon = tab.icon;
           const isActive = activeSection === tab.id;
@@ -866,6 +1042,22 @@ export const SuperAdminLandingEditorTab: React.FC = () => {
                   </div>
                 </div>
               </div>
+
+              {/* Save Video Button */}
+              <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                <span className="text-xs text-slate-500">
+                  {parsedVideo.isValid ? 'Vídeo formatado e pronto para exibição.' : 'Configure o link do seu vídeo.'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleSaveAll()}
+                  disabled={isSaving}
+                  className="px-6 py-2.5 bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  <Save className="w-4 h-4" />
+                  {isSaving ? 'Salvando...' : 'Salvar Vídeo & Mídia'}
+                </button>
+              </div>
             </div>
           );
         })()}
@@ -977,6 +1169,22 @@ export const SuperAdminLandingEditorTab: React.FC = () => {
                   </div>
                 </div>
               </div>
+
+              {/* Save Texts Button */}
+              <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                <span className="text-xs text-slate-500">
+                  Salve os títulos e subtítulos personalizados da página.
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleSaveAll()}
+                  disabled={isSaving}
+                  className="px-6 py-2.5 bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  <Save className="w-4 h-4" />
+                  {isSaving ? 'Salvando...' : 'Salvar Textos & Chamadas'}
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -1082,12 +1290,28 @@ export const SuperAdminLandingEditorTab: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleAddGalleryImage}
-                  className="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center gap-1.5"
+                  className="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   Inserir Foto na Galeria
                 </button>
               </div>
+            </div>
+
+            {/* Save Gallery Button */}
+            <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <span className="text-xs text-slate-500">
+                {galleryImages.length} foto(s) configurada(s) na galeria.
+              </span>
+              <button
+                type="button"
+                onClick={() => handleSaveAll()}
+                disabled={isSaving}
+                className="px-6 py-2.5 bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                <Save className="w-4 h-4" />
+                {isSaving ? 'Salvando...' : 'Salvar Galeria de Fotos'}
+              </button>
             </div>
           </div>
         )}
@@ -1150,6 +1374,22 @@ export const SuperAdminLandingEditorTab: React.FC = () => {
                   </div>
                 </div>
               ))}
+            </div>
+
+            {/* Save Features Button */}
+            <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <span className="text-xs text-slate-500">
+                {features.length} diferencial(is) configurado(s).
+              </span>
+              <button
+                type="button"
+                onClick={() => handleSaveAll()}
+                disabled={isSaving}
+                className="px-6 py-2.5 bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                <Save className="w-4 h-4" />
+                {isSaving ? 'Salvando...' : 'Salvar Diferenciais'}
+              </button>
             </div>
           </div>
         )}
@@ -1915,27 +2155,335 @@ export const SuperAdminLandingEditorTab: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleAddFaq}
-                  className="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center gap-1.5"
+                  className="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   Inserir Pergunta
                 </button>
               </div>
             </div>
+
+            {/* Save FAQs Button */}
+            <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <span className="text-xs text-slate-500">
+                {faqs.length} pergunta(s) frequente(s) configurada(s).
+              </span>
+              <button
+                type="button"
+                onClick={() => handleSaveAll()}
+                disabled={isSaving}
+                className="px-6 py-2.5 bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                <Save className="w-4 h-4" />
+                {isSaving ? 'Salvando...' : 'Salvar Perguntas Frequentes (FAQ)'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* 7. Database & Supabase Tables Section */}
+        {activeSection === 'database' && (
+          <div className="space-y-6">
+            {/* Supabase Connection Overview Card */}
+            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-xs space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-5">
+                <div>
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 mb-2">
+                    <Database className="w-3.5 h-3.5" />
+                    Supabase PostgreSQL & Realtime
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    Tabelas e Sincronização do Supabase
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Garante que todas as configurações de apresentação, logo, vídeos, depoimentos e fotos fiquem salvas permanentemente no banco Supabase.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={checkSupabaseConnection}
+                    className="px-3.5 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs rounded-xl border border-slate-300 dark:border-slate-700 transition flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    Testar Conexão
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleManualSupabaseSync}
+                    disabled={isSyncingSupabase}
+                    className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    {isSyncingSupabase ? (
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <UploadCloud className="w-4 h-4" />
+                    )}
+                    {isSyncingSupabase ? 'Sincronizando...' : 'Sincronizar Apresentação Agora'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Status Info Cards Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700">
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                    Status da Conexão
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`w-3 h-3 rounded-full ${
+                        isSupabaseActive
+                          ? 'bg-emerald-500 animate-pulse'
+                          : 'bg-amber-500'
+                      }`}
+                    />
+                    <span className="text-sm font-black text-slate-900 dark:text-white">
+                      {isSupabaseActive ? 'Supabase Conectado' : 'Aguardando Sincronização'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    {supabaseStatus || 'Pronto para sincronizar dados em tempo real.'}
+                  </p>
+                </div>
+
+                <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700">
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                    Tabela de Apresentação
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <FileCode className="w-4 h-4 text-orange-500" />
+                    <span className="text-sm font-black text-slate-900 dark:text-white font-mono">
+                      landing_page_content
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    Armazena logotipo, vídeos, fotos, diferenciais, depoimentos e FAQs.
+                  </p>
+                </div>
+
+                <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700">
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                    Tabela de Configurações
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <Sliders className="w-4 h-4 text-amber-500" />
+                    <span className="text-sm font-black text-slate-900 dark:text-white font-mono">
+                      platform_settings
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    Armazena nome da plataforma, taxas mensais, PIX e credenciais.
+                  </p>
+                </div>
+              </div>
+
+              {/* Instructions Steps */}
+              <div className="p-5 bg-orange-50/60 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-900/50 rounded-2xl space-y-3">
+                <h4 className="text-xs font-black uppercase text-orange-800 dark:text-orange-300 flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4" />
+                  Como criar as tabelas no Supabase (Passo a Passo)
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-slate-700 dark:text-slate-300">
+                  <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-orange-200/60 dark:border-slate-800 shadow-xs">
+                    <span className="w-5 h-5 rounded-full bg-orange-500 text-white font-black text-[10px] inline-flex items-center justify-center mr-1.5">
+                      1
+                    </span>
+                    <strong className="text-slate-900 dark:text-white">Copie o script SQL</strong> abaixo usando o botão "Copiar SQL".
+                  </div>
+                  <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-orange-200/60 dark:border-slate-800 shadow-xs">
+                    <span className="w-5 h-5 rounded-full bg-orange-500 text-white font-black text-[10px] inline-flex items-center justify-center mr-1.5">
+                      2
+                    </span>
+                    <strong className="text-slate-900 dark:text-white">Abra o SQL Editor</strong> no painel do seu projeto no Supabase.
+                  </div>
+                  <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-orange-200/60 dark:border-slate-800 shadow-xs">
+                    <span className="w-5 h-5 rounded-full bg-orange-500 text-white font-black text-[10px] inline-flex items-center justify-center mr-1.5">
+                      3
+                    </span>
+                    <strong className="text-slate-900 dark:text-white">Cole e clique em Run</strong>. As tabelas serão criadas ou atualizadas instantaneamente!
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* SQL Script Viewer and Selector */}
+            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-xs space-y-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setActiveSqlTab('landing')}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition ${
+                      activeSqlTab === 'landing'
+                        ? 'bg-orange-600 text-white shadow-xs'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                    }`}
+                  >
+                    Script da Apresentação (Recomendado)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveSqlTab('all')}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition ${
+                      activeSqlTab === 'all'
+                        ? 'bg-orange-600 text-white shadow-xs'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                    }`}
+                  >
+                    Script Completo (Todas as 8 Tabelas)
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleCopySql(activeSqlTab)}
+                    className="px-4 py-2 bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center gap-2 border border-slate-700 cursor-pointer"
+                  >
+                    {copiedSqlType === activeSqlTab ? (
+                      <>
+                        <Check className="w-4 h-4 text-emerald-400" />
+                        <span className="text-emerald-400">SQL Copiado!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-4 h-4 text-orange-400" />
+                        <span>Copiar Código SQL</span>
+                      </>
+                    )}
+                  </button>
+
+                  <a
+                    href="https://supabase.com/dashboard/project/_/sql"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center gap-2"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    Abrir SQL Editor do Supabase
+                  </a>
+                </div>
+              </div>
+
+              {/* Code Box */}
+              <div className="relative rounded-2xl bg-slate-950 p-4 font-mono text-xs text-slate-200 overflow-hidden border border-slate-800">
+                <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-800 text-[11px] text-slate-400">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block" />
+                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block" />
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" />
+                    <span className="font-bold text-slate-300 ml-2">
+                      {activeSqlTab === 'landing'
+                        ? 'schema_landing_page_content.sql'
+                        : 'schema_barberclock_full.sql'}
+                    </span>
+                  </div>
+                  <span>PostgreSQL DDL</span>
+                </div>
+                <pre className="max-h-96 overflow-y-auto whitespace-pre-wrap leading-relaxed text-slate-300 scrollbar-thin scrollbar-thumb-slate-700">
+                  {activeSqlTab === 'landing' ? LANDING_PAGE_SQL_SCHEMA : SUPABASE_SQL_SCHEMA}
+                </pre>
+              </div>
+            </div>
+
+            {/* Table Fields Documentation */}
+            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
+              <h4 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
+                <FileCode className="w-4 h-4 text-orange-500" />
+                Estrutura de Colunas da Tabela <code className="text-orange-600 dark:text-orange-400 font-mono">landing_page_content</code>
+              </h4>
+              <p className="text-xs text-slate-500">
+                Abaixo está a especificação dos campos que são sincronizados automaticamente a cada edição na página:
+              </p>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+                  <thead className="bg-slate-100 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 font-bold">
+                    <tr>
+                      <th className="p-3 border-b border-slate-200 dark:border-slate-800">Coluna</th>
+                      <th className="p-3 border-b border-slate-200 dark:border-slate-800">Tipo</th>
+                      <th className="p-3 border-b border-slate-200 dark:border-slate-800">Descrição</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    <tr>
+                      <td className="p-3 font-mono font-bold text-orange-600 dark:text-orange-400">id</td>
+                      <td className="p-3 font-mono text-slate-500">TEXT (PRIMARY KEY)</td>
+                      <td className="p-3 text-slate-600 dark:text-slate-300">Identificador padrão único ('current') para singleton do sistema.</td>
+                    </tr>
+                    <tr>
+                      <td className="p-3 font-mono font-bold text-slate-800 dark:text-slate-200">brand_logo_url</td>
+                      <td className="p-3 font-mono text-slate-500">TEXT</td>
+                      <td className="p-3 text-slate-600 dark:text-slate-300">URL ou Base64 da logo oficial da plataforma BarberClock.</td>
+                    </tr>
+                    <tr>
+                      <td className="p-3 font-mono font-bold text-slate-800 dark:text-slate-200">hero_title / hero_subtitle</td>
+                      <td className="p-3 font-mono text-slate-500">TEXT</td>
+                      <td className="p-3 text-slate-600 dark:text-slate-300">Título e subtítulo de impacto do banner principal da página.</td>
+                    </tr>
+                    <tr>
+                      <td className="p-3 font-mono font-bold text-slate-800 dark:text-slate-200">video_url / video_poster_url</td>
+                      <td className="p-3 font-mono text-slate-500">TEXT</td>
+                      <td className="p-3 text-slate-600 dark:text-slate-300">Link do YouTube / Vimeo do vídeo demonstrativo e foto de capa.</td>
+                    </tr>
+                    <tr>
+                      <td className="p-3 font-mono font-bold text-slate-800 dark:text-slate-200">features</td>
+                      <td className="p-3 font-mono text-slate-500">JSONB</td>
+                      <td className="p-3 text-slate-600 dark:text-slate-300">Lista de cards com os diferenciais e recursos da plataforma.</td>
+                    </tr>
+                    <tr>
+                      <td className="p-3 font-mono font-bold text-slate-800 dark:text-slate-200">gallery_images</td>
+                      <td className="p-3 font-mono text-slate-500">JSONB</td>
+                      <td className="p-3 text-slate-600 dark:text-slate-300">Fotos e capturas de tela demonstrativas da interface do app.</td>
+                    </tr>
+                    <tr>
+                      <td className="p-3 font-mono font-bold text-slate-800 dark:text-slate-200">testimonials</td>
+                      <td className="p-3 font-mono text-slate-500">JSONB</td>
+                      <td className="p-3 text-slate-600 dark:text-slate-300">Depoimentos reais dos barbeiros cadastrados com foto e avaliação.</td>
+                    </tr>
+                    <tr>
+                      <td className="p-3 font-mono font-bold text-slate-800 dark:text-slate-200">faqs</td>
+                      <td className="p-3 font-mono text-slate-500">JSONB</td>
+                      <td className="p-3 text-slate-600 dark:text-slate-300">Perguntas e respostas frequentes para novos barbeiros.</td>
+                    </tr>
+                    <tr>
+                      <td className="p-3 font-mono font-bold text-slate-800 dark:text-slate-200">updated_at</td>
+                      <td className="p-3 font-mono text-slate-500">TIMESTAMPTZ</td>
+                      <td className="p-3 text-slate-600 dark:text-slate-300">Data e hora da última sincronização bem-sucedida.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         )}
 
         {/* Global Save Button */}
-        <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between">
-          <div className="text-xs text-slate-500">
-            Todas as alterações são salvas e publicadas em tempo real na plataforma.
+        <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div>
+            <div className="text-xs font-bold text-slate-900 dark:text-white">
+              Salvar todas as alterações da página
+            </div>
+            <div className="text-[11px] text-slate-500 mt-0.5">
+              {lastSavedTime ? (
+                <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
+                  ✓ Última alteração gravada às {lastSavedTime}
+                </span>
+              ) : (
+                'Todas as alterações são gravadas no banco de dados e publicadas na hora.'
+              )}
+            </div>
           </div>
           <button
             type="submit"
-            className="px-6 py-3 bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-2"
+            disabled={isSaving}
+            className="w-full sm:w-auto px-7 py-3.5 bg-orange-600 hover:bg-orange-500 text-white font-black text-xs rounded-xl shadow-lg shadow-orange-600/30 transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
           >
             <Save className="w-4 h-4" />
-            Salvar Alterações da Página
+            {isSaving ? 'Gravando no Banco de Dados...' : 'Salvar Alterações da Página'}
           </button>
         </div>
       </form>

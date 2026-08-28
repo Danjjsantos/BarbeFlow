@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Barbershop, PixKeyType } from '../../types';
+import { Barbershop, PixKeyType, PaymentMethodType } from '../../types';
 import { formatCurrency, formatPhone, getDayOfWeekName } from '../../utils/formatters';
 import { testMercadoPagoCredentials } from '../../utils/mercadopago';
 import { QrCodeModal } from '../common/QrCodeModal';
@@ -33,6 +33,8 @@ import {
   MessageSquare,
   Smartphone,
   BellRing,
+  Banknote,
+  Sparkles,
 } from 'lucide-react';
 
 interface BarberSettingsViewProps {
@@ -52,6 +54,13 @@ export const BarberSettingsView: React.FC<BarberSettingsViewProps> = ({ barbersh
   const [themeColor, setThemeColor] = useState(barbershop.themeColor || '#d97706');
   const [logoUrl, setLogoUrl] = useState(barbershop.logoUrl || '');
   const [bannerUrl, setBannerUrl] = useState(barbershop.bannerUrl || '');
+
+  // Payment Methods Configuration State
+  const [acceptedPaymentMethods, setAcceptedPaymentMethods] = useState<PaymentMethodType[]>(
+    barbershop.acceptedPaymentMethods && barbershop.acceptedPaymentMethods.length > 0
+      ? barbershop.acceptedPaymentMethods
+      : ['pix_manual', 'cash', 'card']
+  );
 
   // PIX Key State
   const [pixKey, setPixKey] = useState(barbershop.pixKey);
@@ -89,6 +98,10 @@ export const BarberSettingsView: React.FC<BarberSettingsViewProps> = ({ barbersh
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
+  const isPlanEligibleForAutoPix =
+    barbershop.subscriptionPlanId === 'semiannual' ||
+    barbershop.subscriptionPlanId === 'annual';
+
   useEffect(() => {
     setName(barbershop.name);
     setPhone(barbershop.phone);
@@ -99,6 +112,11 @@ export const BarberSettingsView: React.FC<BarberSettingsViewProps> = ({ barbersh
     setThemeColor(barbershop.themeColor || '#d97706');
     setLogoUrl(barbershop.logoUrl || '');
     setBannerUrl(barbershop.bannerUrl || '');
+    setAcceptedPaymentMethods(
+      barbershop.acceptedPaymentMethods && barbershop.acceptedPaymentMethods.length > 0
+        ? barbershop.acceptedPaymentMethods
+        : ['pix_manual', 'cash', 'card']
+    );
     setPixKey(barbershop.pixKey);
     setPixKeyType(barbershop.pixKeyType);
     setPixReceiverName(barbershop.pixReceiverName || barbershop.name);
@@ -108,6 +126,24 @@ export const BarberSettingsView: React.FC<BarberSettingsViewProps> = ({ barbersh
     setConfirmationMode(barbershop.confirmationMode || 'pix');
     setWorkingHours(barbershop.workingHours);
   }, [barbershop]);
+
+  const togglePaymentMethod = (method: PaymentMethodType) => {
+    if (method === 'pix_automatic' && !isPlanEligibleForAutoPix) {
+      return;
+    }
+    setAcceptedPaymentMethods((prev) => {
+      const exists = prev.includes(method);
+      if (exists) {
+        if (prev.length === 1) {
+          alert('Você deve manter pelo menos uma forma de pagamento habilitada para seus clientes.');
+          return prev;
+        }
+        return prev.filter((m) => m !== method);
+      } else {
+        return [...prev, method];
+      }
+    });
+  };
 
   const publicLink = getBarbershopPublicUrl(barbershop.slug);
 
@@ -170,6 +206,7 @@ export const BarberSettingsView: React.FC<BarberSettingsViewProps> = ({ barbersh
       themeColor,
       logoUrl,
       bannerUrl,
+      acceptedPaymentMethods,
       pixKey,
       pixKeyType,
       pixReceiverName,
@@ -487,144 +524,251 @@ export const BarberSettingsView: React.FC<BarberSettingsViewProps> = ({ barbersh
           </div>
         </div>
 
-        {/* SECTION 2: Confirmation Mode for Clients */}
+        {/* SECTION 2: Payment Methods Allowed by Barber */}
         <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <Settings className="w-4 h-4 text-amber-500" />
-                Forma de Confirmação do Agendamento pelo Cliente
+                <CreditCard className="w-4 h-4 text-amber-500" />
+                Formas de Pagamento Aceitas na Barbearia
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                Escolha como os agendamentos dos seus clientes serão processados e confirmados.
+                Selecione quais opções seus clientes poderão escolher ao agendar serviços na página da sua barbearia.
               </p>
             </div>
 
-            <span
-              className={`text-[11px] font-extrabold px-3 py-1 rounded-full border self-start sm:self-auto flex items-center gap-1.5 ${
-                confirmationMode === 'pix'
-                  ? 'bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border-amber-300 dark:border-amber-800'
-                  : 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
-              }`}
-            >
-              {confirmationMode === 'pix' ? (
-                <>
-                  <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
-                  <span>Modo: Automático via PIX</span>
-                </>
-              ) : (
-                <>
-                  <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Modo: Direto + WhatsApp</span>
-                </>
-              )}
-            </span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                {acceptedPaymentMethods.length} forma(s) selecionada(s)
+              </span>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Option 1: Automatic via PIX */}
+            {/* Option 1: Pix Manual (Chave + Comprovante) */}
             <div
-              onClick={() => setConfirmationMode('pix')}
-              className={`p-5 rounded-2xl border-2 transition cursor-pointer relative flex flex-col justify-between ${
-                confirmationMode === 'pix'
-                  ? 'bg-amber-50/50 dark:bg-amber-950/30 border-amber-500 shadow-sm'
-                  : 'bg-white dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 hover:border-slate-300'
+              onClick={() => togglePaymentMethod('pix_manual')}
+              className={`p-4 sm:p-5 rounded-2xl border-2 transition cursor-pointer relative flex flex-col justify-between ${
+                acceptedPaymentMethods.includes('pix_manual')
+                  ? 'bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-500 shadow-xs'
+                  : 'bg-white dark:bg-slate-800/40 border-slate-200 dark:border-slate-700/80 hover:border-slate-300 opacity-75'
               }`}
             >
               <div>
-                <div className="flex items-center justify-between gap-2 mb-2.5">
+                <div className="flex items-center justify-between gap-2 mb-2">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-10 h-10 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center font-bold shrink-0 shadow-xs">
-                      <CreditCard className="w-5 h-5" />
+                    <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold shrink-0 border border-emerald-500/20">
+                      <QrCode className="w-5 h-5" />
                     </div>
                     <div>
                       <h4 className="text-sm font-extrabold text-slate-900 dark:text-white">
-                        Automático via PIX
-                      </h4>
-                      <span className="text-[10px] text-amber-700 dark:text-amber-400 font-bold uppercase tracking-wider">
-                        Pagamento Antecipado Obrigatório
-                      </span>
-                    </div>
-                  </div>
-
-                  <div
-                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                      confirmationMode === 'pix'
-                        ? 'border-amber-600 bg-amber-600 text-white'
-                        : 'border-slate-300 dark:border-slate-600'
-                    }`}
-                  >
-                    {confirmationMode === 'pix' && <Check className="w-3 h-3 stroke-[3]" />}
-                  </div>
-                </div>
-
-                <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed font-medium">
-                  O cliente escolhe o serviço e horário, gera o <strong>QR Code e Copia e Cola do PIX</strong> da sua barbearia e o agendamento só é confirmado após a validação do pagamento.
-                </p>
-
-                <div className="mt-3.5 pt-3 border-t border-slate-200 dark:border-slate-700/80 space-y-1.5 text-[11px] text-slate-500 dark:text-slate-400 font-medium">
-                  <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-bold">
-                    <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
-                    <span>Zera calotes e horários perdidos por faltas</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Zap className="w-3.5 h-3.5 text-sky-500 shrink-0" />
-                    <span>Suporta confirmação automática Mercado Pago</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Option 2: Direct Booking with WhatsApp Message */}
-            <div
-              onClick={() => setConfirmationMode('whatsapp')}
-              className={`p-5 rounded-2xl border-2 transition cursor-pointer relative flex flex-col justify-between ${
-                confirmationMode === 'whatsapp'
-                  ? 'bg-emerald-50/50 dark:bg-emerald-950/30 border-emerald-500 shadow-sm'
-                  : 'bg-white dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 hover:border-slate-300'
-              }`}
-            >
-              <div>
-                <div className="flex items-center justify-between gap-2 mb-2.5">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shrink-0 shadow-xs">
-                      <MessageSquare className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-extrabold text-slate-900 dark:text-white">
-                        Agendamento Direto + WhatsApp
+                        Pix (Chave + Comprovante)
                       </h4>
                       <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-bold uppercase tracking-wider">
-                        Sem Pagamento Antecipado
+                        Transferência Direta
                       </span>
                     </div>
                   </div>
 
                   <div
                     className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                      confirmationMode === 'whatsapp'
+                      acceptedPaymentMethods.includes('pix_manual')
                         ? 'border-emerald-600 bg-emerald-600 text-white'
                         : 'border-slate-300 dark:border-slate-600'
                     }`}
                   >
-                    {confirmationMode === 'whatsapp' && <Check className="w-3 h-3 stroke-[3]" />}
+                    {acceptedPaymentMethods.includes('pix_manual') && <Check className="w-3 h-3 stroke-[3]" />}
                   </div>
                 </div>
 
-                <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed font-medium">
-                  O cliente realiza o agendamento de forma simples e rápida em <strong>1 clique</strong>. O horário é confirmado na hora na agenda e o sistema abre o <strong>WhatsApp</strong> com a mensagem pronta de agendamento para envio.
+                <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                  O cliente escaneia o QR Code da sua chave PIX, copia a chave e anexa a foto do comprovante para confirmar o horário.
                 </p>
+              </div>
 
-                <div className="mt-3.5 pt-3 border-t border-slate-200 dark:border-slate-700/80 space-y-1.5 text-[11px] text-slate-500 dark:text-slate-400 font-medium">
-                  <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-bold">
-                    <Check className="w-3.5 h-3.5 shrink-0" />
-                    <span>Agendamento simples sem fricção de pagamento inicial</span>
+              <div className="mt-3 pt-2.5 border-t border-slate-200 dark:border-slate-700/80 flex items-center justify-between text-[11px] text-emerald-600 dark:text-emerald-400 font-bold">
+                <span>Disponível em todos os planos</span>
+                <span className="text-slate-400 font-normal">Sem taxa extra</span>
+              </div>
+            </div>
+
+            {/* Option 2: Pix Automático (Mercado Pago) */}
+            <div
+              onClick={() => {
+                if (isPlanEligibleForAutoPix) {
+                  togglePaymentMethod('pix_automatic');
+                }
+              }}
+              className={`p-4 sm:p-5 rounded-2xl border-2 transition relative flex flex-col justify-between ${
+                !isPlanEligibleForAutoPix
+                  ? 'bg-slate-50 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 opacity-85 cursor-not-allowed'
+                  : acceptedPaymentMethods.includes('pix_automatic')
+                  ? 'bg-sky-50/50 dark:bg-sky-950/30 border-sky-500 shadow-xs cursor-pointer'
+                  : 'bg-white dark:bg-slate-800/40 border-slate-200 dark:border-slate-700/80 hover:border-slate-300 opacity-75 cursor-pointer'
+              }`}
+            >
+              <div>
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-10 h-10 rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center font-bold shrink-0 border border-sky-500/20">
+                      <Zap className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <h4 className="text-sm font-extrabold text-slate-900 dark:text-white">
+                          Pix Automático (Mercado Pago)
+                        </h4>
+                        {!isPlanEligibleForAutoPix && (
+                          <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-300 border border-amber-500/40 flex items-center gap-1">
+                            <Lock className="w-2.5 h-2.5" />
+                            Semestral e Anual
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[10px] text-sky-700 dark:text-sky-400 font-bold uppercase tracking-wider">
+                        Confirmação Instantânea
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <Smartphone className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                    <span>Cliente paga presencialmente no balcão da barbearia</span>
+
+                  {isPlanEligibleForAutoPix ? (
+                    <div
+                      className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                        acceptedPaymentMethods.includes('pix_automatic')
+                          ? 'border-sky-600 bg-sky-600 text-white'
+                          : 'border-slate-300 dark:border-slate-600'
+                      }`}
+                    >
+                      {acceptedPaymentMethods.includes('pix_automatic') && <Check className="w-3 h-3 stroke-[3]" />}
+                    </div>
+                  ) : (
+                    <Lock className="w-4 h-4 text-slate-400 shrink-0" />
+                  )}
+                </div>
+
+                <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                  Gera QR Code dinâmico do Mercado Pago e valida o recebimento em tempo real na agenda sem você precisar conferir o comprovante.
+                </p>
+              </div>
+
+              <div className="mt-3 pt-2.5 border-t border-slate-200 dark:border-slate-700/80">
+                {!isPlanEligibleForAutoPix ? (
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[11px] text-amber-700 dark:text-amber-400 font-bold">
+                      Não incluso no plano mensal.
+                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsPayModalOpen(true);
+                      }}
+                      className="text-[11px] font-black text-amber-600 hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <Sparkles className="w-3 h-3" />
+                      Fazer Upgrade
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between text-[11px] text-sky-600 dark:text-sky-400 font-bold">
+                    <span>Liberado no seu plano {barbershop.subscriptionPlanId === 'annual' ? 'Anual' : 'Semestral'}</span>
+                    <span>Validação via API</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Option 3: Dinheiro (Presencial / Balcão) */}
+            <div
+              onClick={() => togglePaymentMethod('cash')}
+              className={`p-4 sm:p-5 rounded-2xl border-2 transition cursor-pointer relative flex flex-col justify-between ${
+                acceptedPaymentMethods.includes('cash')
+                  ? 'bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-500 shadow-xs'
+                  : 'bg-white dark:bg-slate-800/40 border-slate-200 dark:border-slate-700/80 hover:border-slate-300 opacity-75'
+              }`}
+            >
+              <div>
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold shrink-0 border border-emerald-500/20">
+                      <Banknote className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-extrabold text-slate-900 dark:text-white">
+                        Dinheiro (No Balcão)
+                      </h4>
+                      <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-bold uppercase tracking-wider">
+                        Pagamento no Local
+                      </span>
+                    </div>
+                  </div>
+
+                  <div
+                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                      acceptedPaymentMethods.includes('cash')
+                        ? 'border-emerald-600 bg-emerald-600 text-white'
+                        : 'border-slate-300 dark:border-slate-600'
+                    }`}
+                  >
+                    {acceptedPaymentMethods.includes('cash') && <Check className="w-3 h-3 stroke-[3]" />}
                   </div>
                 </div>
+
+                <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                  O cliente agenda e o sistema confirma o horário com status <strong>"Pagamento Pendente no Local"</strong>. O pagamento é feito em espécie na barbearia.
+                </p>
+              </div>
+
+              <div className="mt-3 pt-2.5 border-t border-slate-200 dark:border-slate-700/80 flex items-center justify-between text-[11px] text-emerald-600 dark:text-emerald-400 font-bold">
+                <span>Confirmado com aviso de pendência</span>
+                <span className="text-slate-400 font-normal">Presencial</span>
+              </div>
+            </div>
+
+            {/* Option 4: Cartão de Débito / Crédito (Presencial) */}
+            <div
+              onClick={() => togglePaymentMethod('card')}
+              className={`p-4 sm:p-5 rounded-2xl border-2 transition cursor-pointer relative flex flex-col justify-between ${
+                acceptedPaymentMethods.includes('card')
+                  ? 'bg-purple-50/40 dark:bg-purple-950/20 border-purple-500 shadow-xs'
+                  : 'bg-white dark:bg-slate-800/40 border-slate-200 dark:border-slate-700/80 hover:border-slate-300 opacity-75'
+              }`}
+            >
+              <div>
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center font-bold shrink-0 border border-purple-500/20">
+                      <CreditCard className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-extrabold text-slate-900 dark:text-white">
+                        Cartão (Maquininha Presencial)
+                      </h4>
+                      <span className="text-[10px] text-purple-700 dark:text-purple-400 font-bold uppercase tracking-wider">
+                        Débito ou Crédito
+                      </span>
+                    </div>
+                  </div>
+
+                  <div
+                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                      acceptedPaymentMethods.includes('card')
+                        ? 'border-purple-600 bg-purple-600 text-white'
+                        : 'border-slate-300 dark:border-slate-600'
+                    }`}
+                  >
+                    {acceptedPaymentMethods.includes('card') && <Check className="w-3 h-3 stroke-[3]" />}
+                  </div>
+                </div>
+
+                <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                  O cliente agenda e o sistema confirma informando <strong>"Pagamento Pendente no Local (Cartão)"</strong>. O valor é passado na sua máquina após o atendimento.
+                </p>
+              </div>
+
+              <div className="mt-3 pt-2.5 border-t border-slate-200 dark:border-slate-700/80 flex items-center justify-between text-[11px] text-purple-600 dark:text-purple-400 font-bold">
+                <span>Confirmado com aviso de pendência</span>
+                <span className="text-slate-400 font-normal">Maquininha</span>
               </div>
             </div>
           </div>
@@ -690,86 +834,88 @@ export const BarberSettingsView: React.FC<BarberSettingsViewProps> = ({ barbersh
           </div>
 
           {/* Mercado Pago Token Integration for Barber */}
-          <div className="mt-4 p-4 bg-sky-50 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-800 rounded-2xl space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-sky-600 text-white flex items-center justify-center">
-                  <Zap className="w-4 h-4" />
-                </div>
-                <div>
-                  <span className="font-bold text-slate-900 dark:text-white block text-xs">
-                    Integração Mercado Pago (Confirmação Automática de PIX dos Clientes)
-                  </span>
-                  <span className="text-[11px] text-slate-500">
-                    Ao conectar seu Access Token do Mercado Pago, seus clientes pagarão via QR Code dinâmico e os horários serão confirmados automaticamente na hora!
-                  </span>
+          {isPlanEligibleForAutoPix && (
+            <div className="mt-4 p-4 bg-sky-50 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-800 rounded-2xl space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-sky-600 text-white flex items-center justify-center">
+                    <Zap className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="font-bold text-slate-900 dark:text-white block text-xs">
+                      Credenciais Mercado Pago para PIX Automático
+                    </span>
+                    <span className="text-[11px] text-slate-500">
+                      Conecte seu Access Token do Mercado Pago para confirmações 100% automatizadas em tempo real.
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Seu Access Token do Mercado Pago (Produção ou Teste):
-              </label>
-              <div className="relative">
-                <input
-                  type={showMpToken ? 'text' : 'password'}
-                  placeholder="APP_USR-..."
-                  value={mercadoPagoAccessToken}
-                  onChange={(e) => setMercadoPagoAccessToken(e.target.value)}
-                  className="w-full px-3 py-2.5 pr-16 bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 rounded-xl text-xs font-mono font-bold text-slate-900 dark:text-white placeholder:text-slate-400"
-                />
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Seu Access Token do Mercado Pago (Produção ou Teste):
+                </label>
+                <div className="relative">
+                  <input
+                    type={showMpToken ? 'text' : 'password'}
+                    placeholder="APP_USR-..."
+                    value={mercadoPagoAccessToken}
+                    onChange={(e) => setMercadoPagoAccessToken(e.target.value)}
+                    className="w-full px-3 py-2.5 pr-16 bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 rounded-xl text-xs font-mono font-bold text-slate-900 dark:text-white placeholder:text-slate-400"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowMpToken(!showMpToken)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 text-slate-500 hover:text-slate-800 text-[10px] font-bold"
+                  >
+                    {showMpToken ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Gere em: <strong>mercadopago.com.br/developers</strong> &gt; Suas integrações &gt; Credenciais
+                </p>
+              </div>
+
+              <div className="flex items-center justify-between gap-2 pt-1">
                 <button
                   type="button"
-                  onClick={() => setShowMpToken(!showMpToken)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 text-slate-500 hover:text-slate-800 text-[10px] font-bold"
+                  onClick={handleTestMercadoPago}
+                  disabled={isTestingMp}
+                  className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
                 >
-                  {showMpToken ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  {isTestingMp ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Validando Token...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="w-3.5 h-3.5" />
+                      <span>Testar Conexão Mercado Pago</span>
+                    </>
+                  )}
                 </button>
               </div>
-              <p className="text-[10px] text-slate-400 mt-1">
-                Gere em: <strong>mercadopago.com.br/developers</strong> &gt; Suas integrações &gt; Credenciais
-              </p>
-            </div>
 
-            <div className="flex items-center justify-between gap-2 pt-1">
-              <button
-                type="button"
-                onClick={handleTestMercadoPago}
-                disabled={isTestingMp}
-                className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
-              >
-                {isTestingMp ? (
-                  <>
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    <span>Validando Token...</span>
-                  </>
-                ) : (
-                  <>
-                    <Zap className="w-3.5 h-3.5" />
-                    <span>Testar Conexão Mercado Pago</span>
-                  </>
-                )}
-              </button>
+              {mpTestResult && (
+                <div
+                  className={`p-2.5 rounded-xl text-xs font-medium flex items-center gap-2 ${
+                    mpTestResult.success
+                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-300'
+                      : 'bg-rose-100 text-rose-800 dark:bg-rose-950/70 dark:text-rose-300 border border-rose-300'
+                  }`}
+                >
+                  {mpTestResult.success ? (
+                    <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+                  ) : (
+                    <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600" />
+                  )}
+                  <span>{mpTestResult.message}</span>
+                </div>
+              )}
             </div>
-
-            {mpTestResult && (
-              <div
-                className={`p-2.5 rounded-xl text-xs font-medium flex items-center gap-2 ${
-                  mpTestResult.success
-                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-300'
-                    : 'bg-rose-100 text-rose-800 dark:bg-rose-950/70 dark:text-rose-300 border border-rose-300'
-                }`}
-              >
-                {mpTestResult.success ? (
-                  <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
-                ) : (
-                  <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600" />
-                )}
-                <span>{mpTestResult.message}</span>
-              </div>
-            )}
-          </div>
+          )}
         </div>
 
         {/* SECTION 3: Customization, Branding & Media Storage */}

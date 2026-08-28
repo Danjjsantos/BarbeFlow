@@ -81,9 +81,17 @@ export const ClientMyAppointments: React.FC = () => {
       })
     : [];
 
-  const getStatusBadge = (status: Appointment['status']) => {
-    switch (status) {
+  const getStatusBadge = (apt: Appointment) => {
+    switch (apt.status) {
       case 'confirmed':
+        if (apt.paymentMethod === 'presencial') {
+          return (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
+              <Clock className="w-3.5 h-3.5" />
+              Pagar no Local (Pendente)
+            </span>
+          );
+        }
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
             <CheckCircle2 className="w-3.5 h-3.5" />
@@ -286,7 +294,7 @@ export const ClientMyAppointments: React.FC = () => {
                       <span className="font-extrabold text-base text-slate-900 dark:text-white">
                         {apt.serviceName}
                       </span>
-                      {getStatusBadge(apt.status)}
+                      {getStatusBadge(apt)}
                     </div>
 
                     <div className="text-xs font-semibold text-slate-600 dark:text-slate-300">
@@ -399,28 +407,33 @@ export const ClientMyAppointments: React.FC = () => {
       )}
 
       {/* PIX Modal for selected appointment */}
-      {selectedPixApt && (
-        <PixPaymentModal
-          isOpen={true}
-          onClose={() => setSelectedPixApt(null)}
-          title={`Pagar PIX: ${selectedPixApt.serviceName}`}
-          amount={selectedPixApt.servicePrice}
-          pixKey={getBarbershopById(selectedPixApt.barbershopId)?.pixKey || 'pix@barberhub.com.br'}
-          pixKeyType={getBarbershopById(selectedPixApt.barbershopId)?.pixKeyType}
-          receiverName={getBarbershopById(selectedPixApt.barbershopId)?.pixReceiverName || 'BARBEARIA'}
-          description={`Agendamento ${formatDateBr(selectedPixApt.date)} às ${selectedPixApt.time}`}
-          txId={selectedPixApt.pixTransactionCode}
-          barberPhone={getBarbershopById(selectedPixApt.barbershopId)?.phone}
-          appointmentId={selectedPixApt.id}
-          barberAccessToken={getBarbershopById(selectedPixApt.barbershopId)?.mercadoPagoAccessToken}
-          clientEmail={selectedPixApt.clientPhone + '@cliente.com'}
-          clientName={selectedPixApt.clientName}
-          isConfirmed={selectedPixApt.status === 'confirmed'}
-          onConfirmSuccess={() => {
-            confirmAppointmentPix(selectedPixApt.id);
-          }}
-        />
-      )}
+      {selectedPixApt && (() => {
+        const shop = getBarbershopById(selectedPixApt.barbershopId);
+        const allowsAutoPix = shop?.subscriptionPlanId === 'semiannual' || shop?.subscriptionPlanId === 'annual';
+        return (
+          <PixPaymentModal
+            isOpen={true}
+            onClose={() => setSelectedPixApt(null)}
+            title={`Pagar PIX: ${selectedPixApt.serviceName}`}
+            amount={selectedPixApt.servicePrice}
+            pixKey={shop?.pixKey || 'pix@barberhub.com.br'}
+            pixKeyType={shop?.pixKeyType}
+            receiverName={shop?.pixReceiverName || 'BARBEARIA'}
+            description={`Agendamento ${formatDateBr(selectedPixApt.date)} às ${selectedPixApt.time}`}
+            txId={selectedPixApt.pixTransactionCode}
+            barberPhone={shop?.phone}
+            appointmentId={selectedPixApt.id}
+            barberAccessToken={shop?.mercadoPagoAccessToken}
+            clientEmail={selectedPixApt.clientPhone + '@cliente.com'}
+            clientName={selectedPixApt.clientName}
+            isConfirmed={selectedPixApt.status === 'confirmed'}
+            mode={allowsAutoPix && shop?.mercadoPagoAccessToken ? 'pix_automatic' : 'pix_manual'}
+            onConfirmSuccess={(proofUrl, transactionCode) => {
+              confirmAppointmentPix(selectedPixApt.id, proofUrl, transactionCode);
+            }}
+          />
+        );
+      })()}
     </div>
   );
 };

@@ -18,6 +18,7 @@ import {
 import { useApp } from '../../context/AppContext';
 import {
   SUPABASE_SQL_SCHEMA,
+  LANDING_PAGE_SQL_SCHEMA,
   getStoredSupabaseConfig,
   saveStoredSupabaseConfig,
   resetStoredSupabaseConfig,
@@ -49,6 +50,7 @@ export const SupabaseStatusModal: React.FC<SupabaseStatusModalProps> = ({
     message?: string;
   } | null>(null);
   const [activeTab, setActiveTab] = useState<'status' | 'sql' | 'credentials'>('status');
+  const [sqlMode, setSqlMode] = useState<'all' | 'landing'>('all');
 
   useEffect(() => {
     if (isOpen) {
@@ -63,7 +65,8 @@ export const SupabaseStatusModal: React.FC<SupabaseStatusModalProps> = ({
   if (!isOpen) return null;
 
   const handleCopySql = () => {
-    navigator.clipboard.writeText(SUPABASE_SQL_SCHEMA);
+    const text = sqlMode === 'landing' ? LANDING_PAGE_SQL_SCHEMA : SUPABASE_SQL_SCHEMA;
+    navigator.clipboard.writeText(text);
     setCopiedSql(true);
     setTimeout(() => setCopiedSql(false), 2500);
   };
@@ -415,7 +418,7 @@ export const SupabaseStatusModal: React.FC<SupabaseStatusModalProps> = ({
           {/* TAB 3: SQL SCHEMA */}
           {activeTab === 'sql' && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <h4 className="font-bold text-white text-sm">
                     Script SQL de Criação de Tabelas &amp; RLS
@@ -434,34 +437,61 @@ export const SupabaseStatusModal: React.FC<SupabaseStatusModalProps> = ({
                   </p>
                 </div>
 
-                <button
-                  onClick={handleCopySql}
-                  className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition flex items-center gap-1.5 shrink-0"
-                >
-                  {copiedSql ? (
-                    <>
-                      <Check className="w-4 h-4" />
-                      <span>Copiado!</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-4 h-4" />
-                      <span>Copiar SQL</span>
-                    </>
-                  )}
-                </button>
+                <div className="flex items-center gap-2">
+                  <div className="flex bg-slate-900 border border-slate-700 rounded-xl p-0.5 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setSqlMode('landing')}
+                      className={`px-3 py-1.5 rounded-lg font-bold transition ${
+                        sqlMode === 'landing'
+                          ? 'bg-amber-500 text-slate-950 shadow-xs'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      Apresentação
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSqlMode('all')}
+                      className={`px-3 py-1.5 rounded-lg font-bold transition ${
+                        sqlMode === 'all'
+                          ? 'bg-amber-500 text-slate-950 shadow-xs'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      Todas as Tabelas (8)
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={handleCopySql}
+                    className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition flex items-center gap-1.5 shrink-0"
+                  >
+                    {copiedSql ? (
+                      <>
+                        <Check className="w-4 h-4" />
+                        <span>Copiado!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-4 h-4" />
+                        <span>Copiar SQL</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
 
               <div className="relative rounded-2xl bg-slate-950 border border-slate-800 p-4 max-h-72 overflow-y-auto font-mono text-[11px] text-slate-300 leading-relaxed select-all">
-                <pre>{SUPABASE_SQL_SCHEMA}</pre>
+                <pre>{sqlMode === 'landing' ? LANDING_PAGE_SQL_SCHEMA : SUPABASE_SQL_SCHEMA}</pre>
               </div>
 
               <div className="p-3.5 rounded-xl bg-slate-800/40 border border-slate-700/50 flex items-start gap-2.5 text-xs text-slate-300">
                 <Info className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                 <span>
-                  O script cria as 8 tabelas estruturadas (barbershops, services, appointments,
-                  users, subscription_plans, platform_settings, trial_records, landing_page_content),
-                  habilita RLS e ativa as publicações Realtime automaticamente.
+                  {sqlMode === 'landing'
+                    ? 'O script cria e atualiza a tabela landing_page_content e platform_settings, permitindo alterar textos, vídeos, logotipo, fotos, depoimentos e FAQs sem perdas ao recarregar a página.'
+                    : 'O script cria as 8 tabelas estruturadas (barbershops, services, appointments, users, subscription_plans, platform_settings, trial_records, landing_page_content), habilita RLS e ativa as publicações Realtime automaticamente.'}
                 </span>
               </div>
             </div>

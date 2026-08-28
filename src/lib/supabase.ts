@@ -9,6 +9,7 @@ import {
   TrialUserRecord,
   LandingPageContent,
 } from '../types';
+import { INITIAL_LANDING_CONTENT } from '../data/initialData';
 
 // Helper to normalize Supabase URL in case /rest/v1 or trailing slashes were provided
 export function normalizeSupabaseUrl(url: string): string {
@@ -169,6 +170,7 @@ CREATE TABLE IF NOT EXISTS barbershops (
   slot_interval_minutes INTEGER DEFAULT 30,
   booking_window_days INTEGER DEFAULT 30,
   confirmation_mode TEXT DEFAULT 'pix',
+  accepted_payment_methods JSONB DEFAULT '["pix_manual","cash","card"]'::jsonb,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -204,6 +206,7 @@ ALTER TABLE barbershops ADD COLUMN IF NOT EXISTS working_hours JSONB DEFAULT '{}
 ALTER TABLE barbershops ADD COLUMN IF NOT EXISTS slot_interval_minutes INTEGER DEFAULT 30;
 ALTER TABLE barbershops ADD COLUMN IF NOT EXISTS booking_window_days INTEGER DEFAULT 30;
 ALTER TABLE barbershops ADD COLUMN IF NOT EXISTS confirmation_mode TEXT DEFAULT 'pix';
+ALTER TABLE barbershops ADD COLUMN IF NOT EXISTS accepted_payment_methods JSONB DEFAULT '["pix_manual","cash","card"]'::jsonb;
 ALTER TABLE barbershops ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
 ALTER TABLE barbershops ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
 
@@ -249,12 +252,13 @@ CREATE TABLE IF NOT EXISTS appointments (
   pix_key_used TEXT DEFAULT '',
   pix_transaction_code TEXT DEFAULT '',
   pix_paid_at TEXT DEFAULT '',
+  pix_proof_url TEXT DEFAULT '',
   mercado_pago_payment_id TEXT DEFAULT '',
   notes TEXT DEFAULT '',
   cancellation_reason TEXT DEFAULT '',
   cancelled_by TEXT DEFAULT '',
   cancelled_at TEXT DEFAULT '',
-  payment_method TEXT DEFAULT 'pix',
+  payment_method TEXT DEFAULT 'pix_manual',
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -273,12 +277,13 @@ ALTER TABLE appointments ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'confirmed
 ALTER TABLE appointments ADD COLUMN IF NOT EXISTS pix_key_used TEXT DEFAULT '';
 ALTER TABLE appointments ADD COLUMN IF NOT EXISTS pix_transaction_code TEXT DEFAULT '';
 ALTER TABLE appointments ADD COLUMN IF NOT EXISTS pix_paid_at TEXT DEFAULT '';
+ALTER TABLE appointments ADD COLUMN IF NOT EXISTS pix_proof_url TEXT DEFAULT '';
 ALTER TABLE appointments ADD COLUMN IF NOT EXISTS mercado_pago_payment_id TEXT DEFAULT '';
 ALTER TABLE appointments ADD COLUMN IF NOT EXISTS notes TEXT DEFAULT '';
 ALTER TABLE appointments ADD COLUMN IF NOT EXISTS cancellation_reason TEXT DEFAULT '';
 ALTER TABLE appointments ADD COLUMN IF NOT EXISTS cancelled_by TEXT DEFAULT '';
 ALTER TABLE appointments ADD COLUMN IF NOT EXISTS cancelled_at TEXT DEFAULT '';
-ALTER TABLE appointments ADD COLUMN IF NOT EXISTS payment_method TEXT DEFAULT 'pix';
+ALTER TABLE appointments ADD COLUMN IF NOT EXISTS payment_method TEXT DEFAULT 'pix_manual';
 ALTER TABLE appointments ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
 
 -- 4. TABELA DE USUÁRIOS (users)
@@ -434,6 +439,15 @@ ALTER TABLE landing_page_content ADD COLUMN IF NOT EXISTS cta_subtitle TEXT DEFA
 ALTER TABLE landing_page_content ADD COLUMN IF NOT EXISTS cta_button_text TEXT DEFAULT '';
 ALTER TABLE landing_page_content ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
 
+-- Inserção de registros padrão se não existirem
+INSERT INTO platform_settings (id, platform_name) 
+VALUES ('current', 'BarberClock') 
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO landing_page_content (id, hero_title, hero_subtitle, hero_cta_text) 
+VALUES ('current', 'O Sistema de Agendamento Definitivo para a sua Barbearia', 'Aumente seus agendamentos, elimine faltas e receba pagamentos via PIX e Mercado Pago automaticamente.', 'Começar Teste Grátis de 30 Dias') 
+ON CONFLICT (id) DO NOTHING;
+
 -- ============================================================
 -- HABILITAR ROW LEVEL SECURITY (RLS) COM POLÍTICAS ABERTAS P/ CLIENT
 -- ============================================================
@@ -524,9 +538,138 @@ NOTIFY pgrst, 'reload schema';
 `;
 
 // ----------------------------------------------------
+// SQL Script dedicado exclusivamente à Apresentação & Configurações
+// ----------------------------------------------------
+export const LANDING_PAGE_SQL_SCHEMA = `-- ============================================================
+-- BARBERCLOCK - TABELAS DE APRESENTAÇÃO E CONFIGURAÇÕES
+-- Execute este script no SQL Editor do Supabase para criar/atualizar
+-- especificamente as tabelas de Apresentação (Landing Page):
+-- https://supabase.com/dashboard/project/_/sql
+-- ============================================================
+
+-- 1. GARANTIR PERMISSÕES
+GRANT ALL ON SCHEMA public TO postgres, service_role, anon, authenticated;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO postgres, service_role, anon, authenticated;
+
+-- 2. TABELA DE CONTEÚDO DA LANDING PAGE (landing_page_content)
+CREATE TABLE IF NOT EXISTS landing_page_content (
+  id TEXT PRIMARY KEY DEFAULT 'current',
+  brand_logo_url TEXT DEFAULT '',
+  hero_tag TEXT DEFAULT '',
+  hero_title TEXT DEFAULT '',
+  hero_subtitle TEXT DEFAULT '',
+  hero_cta_text TEXT DEFAULT '',
+  video_url TEXT DEFAULT '',
+  video_title TEXT DEFAULT '',
+  video_description TEXT DEFAULT '',
+  video_poster_url TEXT DEFAULT '',
+  features JSONB DEFAULT '[]'::jsonb,
+  gallery_images JSONB DEFAULT '[]'::jsonb,
+  stats JSONB DEFAULT '[]'::jsonb,
+  testimonials JSONB DEFAULT '[]'::jsonb,
+  faqs JSONB DEFAULT '[]'::jsonb,
+  cta_title TEXT DEFAULT '',
+  cta_subtitle TEXT DEFAULT '',
+  cta_button_text TEXT DEFAULT '',
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Migrações idempotentes para garantir todas as colunas
+ALTER TABLE landing_page_content ADD COLUMN IF NOT EXISTS brand_logo_url TEXT DEFAULT '';
+ALTER TABLE landing_page_content ADD COLUMN IF NOT EXISTS hero_tag TEXT DEFAULT '';
+ALTER TABLE landing_page_content ADD COLUMN IF NOT EXISTS hero_title TEXT DEFAULT '';
+ALTER TABLE landing_page_content ADD COLUMN IF NOT EXISTS hero_subtitle TEXT DEFAULT '';
+ALTER TABLE landing_page_content ADD COLUMN IF NOT EXISTS hero_cta_text TEXT DEFAULT '';
+ALTER TABLE landing_page_content ADD COLUMN IF NOT EXISTS video_url TEXT DEFAULT '';
+ALTER TABLE landing_page_content ADD COLUMN IF NOT EXISTS video_title TEXT DEFAULT '';
+ALTER TABLE landing_page_content ADD COLUMN IF NOT EXISTS video_description TEXT DEFAULT '';
+ALTER TABLE landing_page_content ADD COLUMN IF NOT EXISTS video_poster_url TEXT DEFAULT '';
+ALTER TABLE landing_page_content ADD COLUMN IF NOT EXISTS features JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE landing_page_content ADD COLUMN IF NOT EXISTS gallery_images JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE landing_page_content ADD COLUMN IF NOT EXISTS stats JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE landing_page_content ADD COLUMN IF NOT EXISTS testimonials JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE landing_page_content ADD COLUMN IF NOT EXISTS faqs JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE landing_page_content ADD COLUMN IF NOT EXISTS cta_title TEXT DEFAULT '';
+ALTER TABLE landing_page_content ADD COLUMN IF NOT EXISTS cta_subtitle TEXT DEFAULT '';
+ALTER TABLE landing_page_content ADD COLUMN IF NOT EXISTS cta_button_text TEXT DEFAULT '';
+ALTER TABLE landing_page_content ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+
+-- 3. TABELA DE CONFIGURAÇÕES DA PLATAFORMA (platform_settings)
+CREATE TABLE IF NOT EXISTS platform_settings (
+  id TEXT PRIMARY KEY DEFAULT 'current',
+  platform_name TEXT DEFAULT 'BarberClock',
+  platform_logo_url TEXT DEFAULT '',
+  logo_url TEXT DEFAULT '',
+  platform_pix_key TEXT DEFAULT '',
+  platform_pix_key_type TEXT DEFAULT 'phone',
+  platform_pix_receiver_name TEXT DEFAULT '',
+  monthly_fee NUMERIC DEFAULT 49.90,
+  support_phone TEXT DEFAULT '',
+  support_email TEXT DEFAULT '',
+  pix_instructions TEXT DEFAULT '',
+  mercado_pago_access_token TEXT DEFAULT '',
+  mercado_pago_public_key TEXT DEFAULT '',
+  mercado_pago_enabled BOOLEAN DEFAULT false,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE platform_settings ADD COLUMN IF NOT EXISTS platform_name TEXT DEFAULT 'BarberClock';
+ALTER TABLE platform_settings ADD COLUMN IF NOT EXISTS platform_logo_url TEXT DEFAULT '';
+ALTER TABLE platform_settings ADD COLUMN IF NOT EXISTS logo_url TEXT DEFAULT '';
+ALTER TABLE platform_settings ADD COLUMN IF NOT EXISTS platform_pix_key TEXT DEFAULT '';
+ALTER TABLE platform_settings ADD COLUMN IF NOT EXISTS platform_pix_key_type TEXT DEFAULT 'phone';
+ALTER TABLE platform_settings ADD COLUMN IF NOT EXISTS platform_pix_receiver_name TEXT DEFAULT '';
+ALTER TABLE platform_settings ADD COLUMN IF NOT EXISTS monthly_fee NUMERIC DEFAULT 49.90;
+ALTER TABLE platform_settings ADD COLUMN IF NOT EXISTS support_phone TEXT DEFAULT '';
+ALTER TABLE platform_settings ADD COLUMN IF NOT EXISTS support_email TEXT DEFAULT '';
+ALTER TABLE platform_settings ADD COLUMN IF NOT EXISTS pix_instructions TEXT DEFAULT '';
+ALTER TABLE platform_settings ADD COLUMN IF NOT EXISTS mercado_pago_access_token TEXT DEFAULT '';
+ALTER TABLE platform_settings ADD COLUMN IF NOT EXISTS mercado_pago_public_key TEXT DEFAULT '';
+ALTER TABLE platform_settings ADD COLUMN IF NOT EXISTS mercado_pago_enabled BOOLEAN DEFAULT false;
+ALTER TABLE platform_settings ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+
+-- 4. INSERÇÃO DO REGISTRO INICIAL (caso não exista)
+INSERT INTO landing_page_content (id, hero_title, hero_subtitle, hero_cta_text)
+VALUES ('current', 'O Sistema de Agendamento Definitivo para a sua Barbearia', 'Aumente seus agendamentos, elimine faltas e receba pagamentos via PIX e Mercado Pago automaticamente.', 'Começar Teste Grátis de 30 Dias')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO platform_settings (id, platform_name)
+VALUES ('current', 'BarberClock')
+ON CONFLICT (id) DO NOTHING;
+
+-- 5. ROW LEVEL SECURITY (RLS)
+ALTER TABLE landing_page_content ENABLE ROW LEVEL SECURITY;
+ALTER TABLE platform_settings ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public access for landing_page_content" ON landing_page_content;
+CREATE POLICY "Public access for landing_page_content" ON landing_page_content FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Public access for platform_settings" ON platform_settings;
+CREATE POLICY "Public access for platform_settings" ON platform_settings FOR ALL USING (true) WITH CHECK (true);
+
+-- 6. PUBLICAR NO REALTIME (se disponível)
+DO $$
+BEGIN
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE landing_page_content;
+  EXCEPTION WHEN others THEN NULL;
+  END;
+
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE platform_settings;
+  EXCEPTION WHEN others THEN NULL;
+  END;
+END $$;
+
+NOTIFY pgrst, 'reload schema';
+`;
+
+
+// ----------------------------------------------------
 // Data Mappers (DB Snake_Case <-> App CamelCase)
 // ----------------------------------------------------
 function mapBarbershopFromDb(row: any): Barbershop {
+  const acceptedMethods = safeParseArray(row.accepted_payment_methods);
   return {
     id: row.id,
     ownerId: row.owner_id || '',
@@ -559,6 +702,7 @@ function mapBarbershopFromDb(row: any): Barbershop {
     slotIntervalMinutes: Number(row.slot_interval_minutes) || 30,
     bookingWindowDays: Number(row.booking_window_days) || 30,
     confirmationMode: row.confirmation_mode || 'pix',
+    acceptedPaymentMethods: acceptedMethods.length > 0 ? acceptedMethods : ['pix_manual', 'cash', 'card'],
   };
 }
 
@@ -595,6 +739,7 @@ function mapBarbershopToDb(shop: Barbershop): any {
     slot_interval_minutes: shop.slotIntervalMinutes || 30,
     booking_window_days: shop.bookingWindowDays || 30,
     confirmation_mode: shop.confirmationMode || 'pix',
+    accepted_payment_methods: safeParseArray(shop.acceptedPaymentMethods || ['pix_manual', 'cash', 'card']),
     updated_at: new Date().toISOString(),
   };
 }
@@ -644,12 +789,13 @@ function mapAppointmentFromDb(row: any): Appointment {
     pixKeyUsed: row.pix_key_used || '',
     pixTransactionCode: row.pix_transaction_code || '',
     pixPaidAt: row.pix_paid_at || undefined,
+    pixProofUrl: row.pix_proof_url || undefined,
     mercadoPagoPaymentId: row.mercado_pago_payment_id || undefined,
     notes: row.notes || undefined,
     cancellationReason: row.cancellation_reason || undefined,
     cancelledBy: row.cancelled_by || undefined,
     cancelledAt: row.cancelled_at || undefined,
-    paymentMethod: row.payment_method || 'pix',
+    paymentMethod: row.payment_method || 'pix_manual',
     createdAt: row.created_at || new Date().toISOString(),
   };
 }
@@ -671,12 +817,13 @@ function mapAppointmentToDb(apt: Appointment): any {
     pix_key_used: apt.pixKeyUsed || '',
     pix_transaction_code: apt.pixTransactionCode || '',
     pix_paid_at: apt.pixPaidAt || '',
+    pix_proof_url: apt.pixProofUrl || '',
     mercado_pago_payment_id: apt.mercadoPagoPaymentId || '',
     notes: apt.notes || '',
     cancellation_reason: apt.cancellationReason || '',
     cancelled_by: apt.cancelledBy || '',
     cancelled_at: apt.cancelledAt || '',
-    payment_method: apt.paymentMethod || 'pix',
+    payment_method: apt.paymentMethod || 'pix_manual',
     created_at: apt.createdAt || new Date().toISOString(),
   };
 }
@@ -819,24 +966,64 @@ function mapTrialToDb(t: TrialUserRecord): any {
 }
 
 function mapLandingFromDb(row: any): LandingPageContent {
+  if (!row) return INITIAL_LANDING_CONTENT;
+  const feats = safeParseArray(row.features);
+  const gals = safeParseArray(row.gallery_images);
+  const sts = safeParseArray(row.stats);
+  const tests = safeParseArray(row.testimonials);
+  const fqs = safeParseArray(row.faqs);
+
   return {
-    brandLogoUrl: row.brand_logo_url || '/barber_clock_logo.jpg',
-    heroTag: row.hero_tag || '',
-    heroTitle: row.hero_title || '',
-    heroSubtitle: row.hero_subtitle || '',
-    heroCtaText: row.hero_cta_text || '',
-    videoUrl: row.video_url || '',
-    videoTitle: row.video_title || '',
-    videoDescription: row.video_description || '',
-    videoPosterUrl: row.video_poster_url || '',
-    features: safeParseArray(row.features),
-    galleryImages: safeParseArray(row.gallery_images),
-    stats: safeParseArray(row.stats),
-    testimonials: safeParseArray(row.testimonials),
-    faqs: safeParseArray(row.faqs),
-    ctaTitle: row.cta_title || '',
-    ctaSubtitle: row.cta_subtitle || '',
-    ctaButtonText: row.cta_button_text || '',
+    brandLogoUrl:
+      row.brand_logo_url !== undefined && row.brand_logo_url !== null && row.brand_logo_url !== ''
+        ? row.brand_logo_url
+        : (INITIAL_LANDING_CONTENT.brandLogoUrl || '/barber_clock_logo.jpg'),
+    heroTag: row.hero_tag !== undefined && row.hero_tag !== null ? row.hero_tag : INITIAL_LANDING_CONTENT.heroTag,
+    heroTitle:
+      row.hero_title !== undefined && row.hero_title !== null && row.hero_title !== ''
+        ? row.hero_title
+        : INITIAL_LANDING_CONTENT.heroTitle,
+    heroSubtitle:
+      row.hero_subtitle !== undefined && row.hero_subtitle !== null && row.hero_subtitle !== ''
+        ? row.hero_subtitle
+        : INITIAL_LANDING_CONTENT.heroSubtitle,
+    heroCtaText:
+      row.hero_cta_text !== undefined && row.hero_cta_text !== null && row.hero_cta_text !== ''
+        ? row.hero_cta_text
+        : INITIAL_LANDING_CONTENT.heroCtaText,
+    videoUrl:
+      row.video_url !== undefined && row.video_url !== null && row.video_url !== ''
+        ? row.video_url
+        : INITIAL_LANDING_CONTENT.videoUrl,
+    videoTitle:
+      row.video_title !== undefined && row.video_title !== null && row.video_title !== ''
+        ? row.video_title
+        : INITIAL_LANDING_CONTENT.videoTitle,
+    videoDescription:
+      row.video_description !== undefined && row.video_description !== null && row.video_description !== ''
+        ? row.video_description
+        : INITIAL_LANDING_CONTENT.videoDescription,
+    videoPosterUrl:
+      row.video_poster_url !== undefined && row.video_poster_url !== null
+        ? row.video_poster_url
+        : INITIAL_LANDING_CONTENT.videoPosterUrl,
+    features: Array.isArray(feats) && feats.length > 0 ? feats : INITIAL_LANDING_CONTENT.features,
+    galleryImages: Array.isArray(gals) && gals.length > 0 ? gals : INITIAL_LANDING_CONTENT.galleryImages,
+    stats: Array.isArray(sts) && sts.length > 0 ? sts : INITIAL_LANDING_CONTENT.stats,
+    testimonials: Array.isArray(tests) && tests.length > 0 ? tests : INITIAL_LANDING_CONTENT.testimonials,
+    faqs: Array.isArray(fqs) && fqs.length > 0 ? fqs : INITIAL_LANDING_CONTENT.faqs,
+    ctaTitle:
+      row.cta_title !== undefined && row.cta_title !== null && row.cta_title !== ''
+        ? row.cta_title
+        : INITIAL_LANDING_CONTENT.ctaTitle,
+    ctaSubtitle:
+      row.cta_subtitle !== undefined && row.cta_subtitle !== null && row.cta_subtitle !== ''
+        ? row.cta_subtitle
+        : INITIAL_LANDING_CONTENT.ctaSubtitle,
+    ctaButtonText:
+      row.cta_button_text !== undefined && row.cta_button_text !== null && row.cta_button_text !== ''
+        ? row.cta_button_text
+        : INITIAL_LANDING_CONTENT.ctaButtonText,
   };
 }
 
@@ -1251,9 +1438,14 @@ export const supabaseService = {
         .select('*')
         .limit(1)
         .maybeSingle();
-      if (error || !data) return null;
+      if (error) {
+        console.warn('Supabase getLandingPageContent error:', error);
+        return null;
+      }
+      if (!data) return null;
       return mapLandingFromDb(data);
     } catch (e) {
+      console.warn('Supabase getLandingPageContent catch error:', e);
       return null;
     }
   },
@@ -1265,12 +1457,85 @@ export const supabaseService = {
     const client = getSupabaseClient();
     if (!client) return true;
     try {
+      const mapped = mapLandingToDb(content);
       const { error } = await client
         .from('landing_page_content')
-        .upsert(mapLandingToDb(content));
-      return !error;
+        .upsert(mapped, { onConflict: 'id' });
+      if (error) {
+        console.warn('upsertLandingPageContent error:', error);
+        return false;
+      }
+      return true;
     } catch (e) {
+      console.warn('upsertLandingPageContent catch error:', e);
       return false;
+    }
+  },
+
+  // Sincronização direta e dedicada apenas da Apresentação para o Supabase
+  async syncLandingOnlyToSupabase(content: LandingPageContent): Promise<{ success: boolean; message: string }> {
+    const config = getStoredSupabaseConfig();
+    const cleanUrl = normalizeSupabaseUrl(config.url);
+    const key = config.key;
+
+    if (!cleanUrl || !key) {
+      return { success: false, message: 'Supabase não configurado. Verifique a URL e a Chave Anon.' };
+    }
+
+    // 1. Tenta via endpoint do servidor (imune a CORS e bloqueadores)
+    try {
+      const mapped = mapLandingToDb(content);
+      const res = await fetch('/api/supabase/sync-landing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          landing: mapped,
+          customUrl: cleanUrl,
+          customKey: key,
+        }),
+      });
+      const json = await res.json().catch(() => null);
+      if (res.ok && json?.success) {
+        return {
+          success: true,
+          message: json.message || 'Configurações de apresentação sincronizadas com o Supabase!',
+        };
+      } else if (json?.message) {
+        return { success: false, message: json.message };
+      }
+    } catch (err) {
+      console.warn('Backend sync-landing request failed, trying direct client:', err);
+    }
+
+    // 2. Fallback direto pelo cliente Supabase
+    const client = getSupabaseClient();
+    if (!client) {
+      return { success: false, message: 'Cliente Supabase offline ou não configurado.' };
+    }
+
+    try {
+      const mapped = mapLandingToDb(content);
+      const { error } = await client
+        .from('landing_page_content')
+        .upsert(mapped, { onConflict: 'id' });
+
+      if (error) {
+        let msg = error.message;
+        if (msg.includes('42P01') || msg.includes('does not exist') || msg.includes('relation')) {
+          msg = 'A tabela "landing_page_content" não foi encontrada. Copie o script SQL da Apresentação e rode no SQL Editor do Supabase.';
+        }
+        return { success: false, message: `Erro ao sincronizar: ${msg}` };
+      }
+
+      return {
+        success: true,
+        message: 'Apresentação gravada e sincronizada no Supabase com sucesso!',
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        message: `Falha na sincronização: ${err?.message || 'Erro de conexão'}`,
+      };
     }
   },
 

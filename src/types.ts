@@ -10,6 +10,8 @@ export type AppointmentStatus = 'pending_pix' | 'confirmed' | 'completed' | 'can
 
 export type ServiceCategory = 'cabelo' | 'barba' | 'combo' | 'sobrancelha' | 'quimica' | 'outros';
 
+export type PaymentMethodType = 'pix_manual' | 'pix_automatic' | 'cash' | 'card' | 'pix' | 'presencial';
+
 export interface TrialUserRecord {
   id: string;
   name: string;
@@ -147,6 +149,7 @@ export interface Barbershop {
   slotIntervalMinutes: number; // 30 or 45 or 60 min
   bookingWindowDays?: number; // e.g. 8, 15, 30 (1 month), 60 (2 months)
   confirmationMode?: 'pix' | 'whatsapp'; // 'pix' = auto/prepaid via PIX; 'whatsapp' = direct booking & WhatsApp notification
+  acceptedPaymentMethods?: Array<'pix_manual' | 'pix_automatic' | 'cash' | 'card'>;
 }
 
 export interface Service {
@@ -177,12 +180,13 @@ export interface Appointment {
   pixKeyUsed: string;
   pixTransactionCode: string;
   pixPaidAt?: string;
+  pixProofUrl?: string;
   mercadoPagoPaymentId?: string;
   notes?: string;
   cancellationReason?: string;
   cancelledBy?: 'barber' | 'client';
   cancelledAt?: string;
-  paymentMethod: 'pix' | 'presencial';
+  paymentMethod: PaymentMethodType;
   createdAt: string;
 }
 

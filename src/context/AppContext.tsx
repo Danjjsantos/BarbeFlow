@@ -79,7 +79,7 @@ interface AppContextType {
   deleteAppointment: (id: string) => void;
   
   // Barber Actions
-  confirmAppointmentPix: (id: string) => void;
+  confirmAppointmentPix: (id: string, proofUrl?: string, transactionCode?: string) => void;
   completeAppointment: (id: string) => void;
   updateAppointmentStatus: (id: string, status: AppointmentStatus) => void;
   addService: (service: Omit<Service, 'id'>) => void;
@@ -520,9 +520,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }
           if (serverData.landing && typeof serverData.landing === 'object') {
             setLandingPageContent((prev) => {
-              // Server persistent data is the source of truth on refresh
-              const merged = { ...prev, ...serverData.landing };
-              localStorage.setItem(STORAGE_KEYS.LANDING, JSON.stringify(merged));
+              // Server persistent data is the primary source of truth on refresh
+              const merged = { ...INITIAL_LANDING_CONTENT, ...prev, ...serverData.landing };
+              try {
+                localStorage.setItem(STORAGE_KEYS.LANDING, JSON.stringify(merged));
+              } catch {}
               return merged;
             });
           }
@@ -556,15 +558,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
           if (!isMounted) return;
 
-          if (remoteShops && Array.isArray(remoteShops)) {
+          if (remoteShops && Array.isArray(remoteShops) && remoteShops.length > 0) {
             setBarbershops(remoteShops);
             localStorage.setItem(STORAGE_KEYS.BARBERSHOPS, JSON.stringify(remoteShops));
           }
-          if (remoteServices && Array.isArray(remoteServices)) {
+          if (remoteServices && Array.isArray(remoteServices) && remoteServices.length > 0) {
             setServices(remoteServices);
             localStorage.setItem(STORAGE_KEYS.SERVICES, JSON.stringify(remoteServices));
           }
-          if (remoteAppointments && Array.isArray(remoteAppointments)) {
+          if (remoteAppointments && Array.isArray(remoteAppointments) && remoteAppointments.length > 0) {
             setAppointments(remoteAppointments);
             localStorage.setItem(STORAGE_KEYS.APPOINTMENTS, JSON.stringify(remoteAppointments));
           }
@@ -587,14 +589,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               return merged;
             });
           }
-          if (remoteTrials && Array.isArray(remoteTrials)) {
+          if (remoteTrials && Array.isArray(remoteTrials) && remoteTrials.length > 0) {
             setTrialRecords(remoteTrials);
             localStorage.setItem(STORAGE_KEYS.TRIAL_RECORDS, JSON.stringify(remoteTrials));
           }
           if (remoteLanding) {
             setLandingPageContent((prev) => {
-              const merged = { ...prev, ...remoteLanding };
-              localStorage.setItem(STORAGE_KEYS.LANDING, JSON.stringify(merged));
+              const merged = { ...INITIAL_LANDING_CONTENT, ...prev, ...remoteLanding };
+              try {
+                localStorage.setItem(STORAGE_KEYS.LANDING, JSON.stringify(merged));
+              } catch {}
               return merged;
             });
           }
@@ -1212,7 +1216,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Confirm PIX
-  const confirmAppointmentPix = (id: string) => {
+  const confirmAppointmentPix = (id: string, proofUrl?: string, transactionCode?: string) => {
     const now = new Date();
     const formattedDate = `${now.toISOString().split('T')[0]} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
     setAppointments((prev) =>
@@ -1222,6 +1226,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           ...apt,
           status: 'confirmed',
           pixPaidAt: formattedDate,
+          pixProofUrl: proofUrl || apt.pixProofUrl,
+          pixTransactionCode: transactionCode || apt.pixTransactionCode,
         };
         supabaseService.upsertAppointment(updated);
         return updated;
@@ -1552,15 +1558,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setLandingPageContent((prev) => {
       const updated = { ...prev, ...sanitizedUpdates };
-      localStorage.setItem(STORAGE_KEYS.LANDING, JSON.stringify(updated));
+      try {
+        localStorage.setItem(STORAGE_KEYS.LANDING, JSON.stringify(updated));
+      } catch {}
       saveToServerDb('landing', updated, 'upsert');
       supabaseService.upsertLandingPageContent(updated);
       return updated;
     });
+
     if (sanitizedUpdates.brandLogoUrl) {
       setPlatformSettings((prev) => {
         const updated = { ...prev, platformLogoUrl: sanitizedUpdates.brandLogoUrl };
-        localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(updated));
+        try {
+          localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(updated));
+        } catch {}
         saveToServerDb('platform_settings', updated, 'upsert');
         supabaseService.upsertPlatformSettings(updated);
         return updated;

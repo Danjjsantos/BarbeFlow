@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Service, Barbershop, Appointment } from '../../types';
+import { Service, Barbershop, Appointment, PaymentMethodType } from '../../types';
 import {
   formatCurrency,
   formatPhone,
@@ -40,6 +40,11 @@ import {
   ArrowLeft,
   KeyRound,
   MessageSquare,
+  CreditCard,
+  Banknote,
+  QrCode,
+  Zap,
+  Check,
 } from 'lucide-react';
 
 export const ClientBookingFlow: React.FC = () => {
@@ -78,12 +83,40 @@ export const ClientBookingFlow: React.FC = () => {
   const [selectedTime, setSelectedTime] = useState<string>('');
   const [notes, setNotes] = useState('');
 
-  // PIX Modal State
-  const [isPixModalOpen, setIsPixModalOpen] = useState(false);
-  const [isWhatsappSuccessModalOpen, setIsWhatsappSuccessModalOpen] = useState(false);
-  const [createdAppointment, setCreatedAppointment] = useState<Appointment | null>(null);
+  // Payment Selection State
+  const isShopEligibleForAutoPix =
+    currentShop?.subscriptionPlanId === 'semiannual' ||
+    currentShop?.subscriptionPlanId === 'annual';
 
-  const isWhatsappMode = currentShop?.confirmationMode === 'whatsapp';
+  const allowedPaymentMethods: PaymentMethodType[] = useMemo(() => {
+    if (!currentShop) return ['pix_manual', 'cash', 'card'];
+    const configured = currentShop.acceptedPaymentMethods || [];
+    if (configured.length > 0) {
+      return configured.filter((m) => {
+        if (m === 'pix_automatic' && !isShopEligibleForAutoPix) return false;
+        return true;
+      });
+    }
+    if (currentShop.confirmationMode === 'whatsapp') {
+      return ['cash', 'card'];
+    }
+    return ['pix_manual', 'cash', 'card'];
+  }, [currentShop, isShopEligibleForAutoPix]);
+
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethodType>(
+    allowedPaymentMethods[0] || 'pix_manual'
+  );
+
+  useEffect(() => {
+    if (allowedPaymentMethods.length > 0 && !allowedPaymentMethods.includes(selectedPaymentMethod)) {
+      setSelectedPaymentMethod(allowedPaymentMethods[0]);
+    }
+  }, [allowedPaymentMethods, selectedPaymentMethod]);
+
+  // PIX Modal & Direct Success Modal State
+  const [isPixModalOpen, setIsPixModalOpen] = useState(false);
+  const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
+  const [createdAppointment, setCreatedAppointment] = useState<Appointment | null>(null);
 
   // Generate days list according to barber's configured booking window
   const bookingWindowDays = currentShop?.bookingWindowDays || 15;
@@ -177,7 +210,6 @@ export const ClientBookingFlow: React.FC = () => {
     const nowMinutes = currentHour * 60 + currentMin;
 
     for (let m = startMinutes; m < endMinutes; m += interval) {
-      // Check if inside break
       if (breakStartMinutes !== -1 && m >= breakStartMinutes && m < breakEndMinutes) {
         continue;
       }
@@ -233,13 +265,20 @@ export const ClientBookingFlow: React.FC = () => {
       return;
     }
 
-    if (isWhatsappMode) {
-      // Save client phone for future proximity reminders
-      try {
-        localStorage.setItem('barberclock_last_client_phone', clientPhone.trim());
-      } catch {}
+    // Save client phone for future proximity reminders
+    try {
+      localStorage.setItem('barberclock_last_client_phone', clientPhone.trim());
+    } catch {}
 
-      // Direct booking with instant confirmation & WhatsApp notification
+    const isPresencialMethod = selectedPaymentMethod === 'cash' || selectedPaymentMethod === 'card';
+
+    if (isPresencialMethod) {
+      // Direct booking with pending payment status
+      const paymentLabel = selectedPaymentMethod === 'cash' ? 'Dinheiro (Pagar no Local)' : 'Cartão (Pagar no Local)';
+      const fullNotes = notes.trim()
+        ? `${notes.trim()} | Pagamento: ${paymentLabel}`
+        : `Pagamento: ${paymentLabel}`;
+
       const newApt = createAppointment({
         barbershopId: currentShop.id,
         barberName: currentShop.ownerName,
@@ -252,15 +291,15 @@ export const ClientBookingFlow: React.FC = () => {
         date: selectedDate,
         time: selectedTime,
         pixKeyUsed: currentShop.pixKey,
-        notes: notes.trim(),
+        notes: fullNotes,
         paymentMethod: 'presencial',
         status: 'confirmed',
       });
 
       setCreatedAppointment(newApt);
-      setIsWhatsappSuccessModalOpen(true);
+      setIsSuccessModalOpen(true);
 
-      // Trigger Push Notifications for Client & Barber
+      // Trigger Push Notifications
       notifyClientBookingConfirmed(newApt, currentShop.name);
       notifyBarberNewBooking(newApt, currentShop.name);
 
@@ -268,13 +307,13 @@ export const ClientBookingFlow: React.FC = () => {
       const [y, m, d] = selectedDate.split('-').map(Number);
       const dayOfWeekIdx = new Date(y, m - 1, d).getDay();
       const dayName = getDayOfWeekName(dayOfWeekIdx);
-      const text = `Olá *${currentShop.name}*! 👋\n\nAcabei de realizar um agendamento:\n\n✂️ *Serviço:* ${selectedService.name}\n📅 *Data:* ${formatDateBr(selectedDate)} (${dayName})\n⏰ *Horário:* ${selectedTime}\n👤 *Cliente:* ${clientName.trim()}\n📱 *WhatsApp:* ${formatPhone(clientPhone.trim())}\n💰 *Valor:* ${formatCurrency(selectedService.price)} (Pagamento no local)\n${notes.trim() ? `📝 *Observações:* ${notes.trim()}\n` : ''}\nFavor confirmar o recebimento. Obrigado!`;
+      const text = `Olá *${currentShop.name}*! 👋\n\nAcabei de realizar um agendamento:\n\n✂️ *Serviço:* ${selectedService.name}\n📅 *Data:* ${formatDateBr(selectedDate)} (${dayName})\n⏰ *Horário:* ${selectedTime}\n👤 *Cliente:* ${clientName.trim()}\n📱 *WhatsApp:* ${formatPhone(clientPhone.trim())}\n💰 *Valor:* ${formatCurrency(selectedService.price)} (*Pagamento Pendente no Local via ${selectedPaymentMethod === 'cash' ? 'Dinheiro' : 'Cartão'}*)\n${notes.trim() ? `📝 *Observações:* ${notes.trim()}\n` : ''}\nFavor confirmar o recebimento. Obrigado!`;
 
       openWhatsApp(currentShop.phone, text);
       return;
     }
 
-    // PIX Mode:
+    // PIX Mode (Manual or Automatic):
     const newApt = createAppointment({
       barbershopId: currentShop.id,
       barberName: currentShop.ownerName,
@@ -656,6 +695,160 @@ export const ClientBookingFlow: React.FC = () => {
               />
             </div>
           </div>
+
+          {/* STEP 4: Forma de Pagamento */}
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs">
+            <div className="flex items-center gap-2.5 mb-4">
+              <span className="w-7 h-7 rounded-xl bg-amber-500 text-slate-950 font-black text-xs flex items-center justify-center shadow-xs">
+                4
+              </span>
+              <div>
+                <h2 className="text-base font-bold text-slate-900 dark:text-white">
+                  Forma de Pagamento
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Selecione como deseja realizar o pagamento
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {allowedPaymentMethods.includes('pix_manual') && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedPaymentMethod('pix_manual')}
+                  className={`p-4 rounded-2xl border-2 text-left transition relative flex items-start gap-3.5 cursor-pointer ${
+                    selectedPaymentMethod === 'pix_manual'
+                      ? 'border-amber-500 bg-amber-50/40 dark:bg-amber-950/20 shadow-md ring-2 ring-amber-500/20'
+                      : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-white dark:bg-slate-800/60'
+                  }`}
+                >
+                  <div className={`p-2.5 rounded-xl shrink-0 ${
+                    selectedPaymentMethod === 'pix_manual'
+                      ? 'bg-amber-500 text-slate-950'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                  }`}>
+                    <QrCode className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="font-extrabold text-xs text-slate-900 dark:text-white">
+                        PIX Direto
+                      </span>
+                      {selectedPaymentMethod === 'pix_manual' && (
+                        <Check className="w-4 h-4 text-amber-500" />
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">
+                      QR Code / Chave PIX com envio de comprovante
+                    </p>
+                  </div>
+                </button>
+              )}
+
+              {allowedPaymentMethods.includes('pix_automatic') && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedPaymentMethod('pix_automatic')}
+                  className={`p-4 rounded-2xl border-2 text-left transition relative flex items-start gap-3.5 cursor-pointer ${
+                    selectedPaymentMethod === 'pix_automatic'
+                      ? 'border-emerald-500 bg-emerald-50/40 dark:bg-emerald-950/20 shadow-md ring-2 ring-emerald-500/20'
+                      : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-white dark:bg-slate-800/60'
+                  }`}
+                >
+                  <div className={`p-2.5 rounded-xl shrink-0 ${
+                    selectedPaymentMethod === 'pix_automatic'
+                      ? 'bg-emerald-500 text-white'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                  }`}>
+                    <Zap className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="font-extrabold text-xs text-slate-900 dark:text-white flex items-center gap-1.5">
+                        PIX Automático
+                        <span className="text-[9px] font-black uppercase px-1.5 py-0.2 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 rounded-md">
+                          Mercado Pago
+                        </span>
+                      </span>
+                      {selectedPaymentMethod === 'pix_automatic' && (
+                        <Check className="w-4 h-4 text-emerald-500" />
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">
+                      Confirmação instantânea em tempo real
+                    </p>
+                  </div>
+                </button>
+              )}
+
+              {allowedPaymentMethods.includes('cash') && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedPaymentMethod('cash')}
+                  className={`p-4 rounded-2xl border-2 text-left transition relative flex items-start gap-3.5 cursor-pointer ${
+                    selectedPaymentMethod === 'cash'
+                      ? 'border-amber-500 bg-amber-50/40 dark:bg-amber-950/20 shadow-md ring-2 ring-amber-500/20'
+                      : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-white dark:bg-slate-800/60'
+                  }`}
+                >
+                  <div className={`p-2.5 rounded-xl shrink-0 ${
+                    selectedPaymentMethod === 'cash'
+                      ? 'bg-amber-500 text-slate-950'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                  }`}>
+                    <Banknote className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="font-extrabold text-xs text-slate-900 dark:text-white">
+                        Dinheiro
+                      </span>
+                      {selectedPaymentMethod === 'cash' && (
+                        <Check className="w-4 h-4 text-amber-500" />
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">
+                      Pagamento pendente para acertar no local
+                    </p>
+                  </div>
+                </button>
+              )}
+
+              {allowedPaymentMethods.includes('card') && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedPaymentMethod('card')}
+                  className={`p-4 rounded-2xl border-2 text-left transition relative flex items-start gap-3.5 cursor-pointer ${
+                    selectedPaymentMethod === 'card'
+                      ? 'border-amber-500 bg-amber-50/40 dark:bg-amber-950/20 shadow-md ring-2 ring-amber-500/20'
+                      : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-white dark:bg-slate-800/60'
+                  }`}
+                >
+                  <div className={`p-2.5 rounded-xl shrink-0 ${
+                    selectedPaymentMethod === 'card'
+                      ? 'bg-amber-500 text-slate-950'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                  }`}>
+                    <CreditCard className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="font-extrabold text-xs text-slate-900 dark:text-white">
+                        Cartão
+                      </span>
+                      {selectedPaymentMethod === 'card' && (
+                        <Check className="w-4 h-4 text-amber-500" />
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">
+                      Débito ou Crédito na maquininha do barbeiro
+                    </p>
+                  </div>
+                </button>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Right Column: Order Summary & PIX Payment Confirmation Button (4 cols) */}
@@ -705,6 +898,18 @@ export const ClientBookingFlow: React.FC = () => {
                     {selectedTime || 'Selecione'}
                   </span>
                 </div>
+                <div className="flex justify-between border-t border-slate-200 dark:border-slate-700 pt-1.5">
+                  <span className="text-slate-500">Forma de Pagamento:</span>
+                  <span className="font-bold text-slate-800 dark:text-slate-200">
+                    {selectedPaymentMethod === 'cash'
+                      ? 'Dinheiro no Local'
+                      : selectedPaymentMethod === 'card'
+                      ? 'Cartão no Local'
+                      : selectedPaymentMethod === 'pix_automatic'
+                      ? 'PIX Automático'
+                      : 'PIX Direto'}
+                  </span>
+                </div>
               </div>
 
               <div className="border-t-2 border-dashed border-slate-200 dark:border-slate-700 pt-3 flex justify-between items-center">
@@ -715,15 +920,20 @@ export const ClientBookingFlow: React.FC = () => {
                   </span>
                 </div>
                 <div className="text-right">
-                  {isWhatsappMode ? (
+                  {selectedPaymentMethod === 'cash' || selectedPaymentMethod === 'card' ? (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 px-2 py-0.5 rounded-md border border-amber-300 dark:border-amber-800">
+                      <Clock className="w-3 h-3" />
+                      Pendente no Local
+                    </span>
+                  ) : selectedPaymentMethod === 'pix_automatic' ? (
                     <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 px-2 py-0.5 rounded-md">
-                      <MessageSquare className="w-3 h-3" />
-                      Pagar no Local
+                      <Zap className="w-3 h-3" />
+                      PIX Automático
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 px-2 py-0.5 rounded-md">
                       <ShieldCheck className="w-3 h-3" />
-                      PIX Instantâneo
+                      PIX com Comprovante
                     </span>
                   )}
                 </div>
@@ -731,24 +941,34 @@ export const ClientBookingFlow: React.FC = () => {
             </div>
 
             {/* Explanation Box */}
-            {isWhatsappMode ? (
+            {selectedPaymentMethod === 'cash' || selectedPaymentMethod === 'card' ? (
+              <div className="bg-amber-50 dark:bg-amber-950/40 p-3.5 rounded-2xl border border-amber-200 dark:border-amber-800/80 text-xs text-amber-900 dark:text-amber-300 space-y-1">
+                <div className="font-bold flex items-center gap-1.5 text-amber-800 dark:text-amber-300">
+                  <Banknote className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                  Pagamento Pendente no Local ({selectedPaymentMethod === 'cash' ? 'Dinheiro' : 'Cartão'}):
+                </div>
+                <p className="text-[11px] leading-relaxed text-amber-700 dark:text-amber-400">
+                  Seu horário será <strong>confirmado na agenda</strong> com status de <strong>Pagamento Pendente</strong>. Você realizará o acerto em {selectedPaymentMethod === 'cash' ? 'dinheiro' : 'cartão'} presencialmente na barbearia.
+                </p>
+              </div>
+            ) : selectedPaymentMethod === 'pix_automatic' ? (
               <div className="bg-emerald-50 dark:bg-emerald-950/40 p-3.5 rounded-2xl border border-emerald-200 dark:border-emerald-800/80 text-xs text-emerald-900 dark:text-emerald-300 space-y-1">
                 <div className="font-bold flex items-center gap-1.5 text-emerald-800 dark:text-emerald-300">
-                  <MessageSquare className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                  Agendamento Direto via WhatsApp:
+                  <Zap className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                  PIX Automático Mercado Pago:
                 </div>
                 <p className="text-[11px] leading-relaxed text-emerald-700 dark:text-emerald-400">
-                  Ao clicar abaixo, seu horário é <strong>confirmado na hora</strong> na agenda e o WhatsApp é aberto com a mensagem pronta de agendamento. O pagamento é realizado diretamente no local.
+                  Geramos um QR Code dinâmico do Mercado Pago. A confirmação do agendamento ocorre em tempo real assim que o banco processar a transferência.
                 </p>
               </div>
             ) : (
               <div className="bg-emerald-50 dark:bg-emerald-950/40 p-3.5 rounded-2xl border border-emerald-200 dark:border-emerald-800/80 text-xs text-emerald-900 dark:text-emerald-300 space-y-1">
                 <div className="font-bold flex items-center gap-1.5 text-emerald-800 dark:text-emerald-300">
                   <ShieldCheck className="w-4 h-4 shrink-0" />
-                  Como funciona a confirmação:
+                  PIX Direto com Envio de Comprovante:
                 </div>
                 <p className="text-[11px] leading-relaxed text-emerald-700 dark:text-emerald-400">
-                  Ao clicar no botão abaixo, geramos o QR Code e código Copia e Cola do PIX da barbearia. Após o pagamento, seu horário é confirmado automaticamente.
+                  Abriremos o QR Code e chave PIX da barbearia. Basta realizar a transferência e anexar a foto ou PDF do comprovante para liberar seu horário.
                 </p>
               </div>
             )}
@@ -760,17 +980,19 @@ export const ClientBookingFlow: React.FC = () => {
               className={`w-full py-4 px-6 rounded-2xl font-black text-sm transition shadow-lg flex items-center justify-center gap-2 ${
                 !selectedService || !selectedTime || !clientName || !clientPhone
                   ? 'bg-slate-200 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
-                  : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/25 hover:scale-[1.01]'
+                  : selectedPaymentMethod === 'cash' || selectedPaymentMethod === 'card'
+                  ? 'bg-amber-500 hover:bg-amber-600 text-slate-950 shadow-amber-500/25 hover:scale-[1.01] cursor-pointer'
+                  : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/25 hover:scale-[1.01] cursor-pointer'
               }`}
             >
-              {isWhatsappMode ? (
+              {selectedPaymentMethod === 'cash' || selectedPaymentMethod === 'card' ? (
                 <>
-                  <MessageSquare className="w-4 h-4" />
-                  <span>Confirmar e Enviar no WhatsApp</span>
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Confirmar Agendamento (Pagar no Local)</span>
                 </>
               ) : (
                 <>
-                  <span>Agendar e Pagar com PIX</span>
+                  <span>Agendar e Abrir PIX</span>
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}
@@ -787,23 +1009,23 @@ export const ClientBookingFlow: React.FC = () => {
         </div>
       </form>
 
-      {/* WhatsApp Success Modal */}
-      {isWhatsappSuccessModalOpen && createdAppointment && (
+      {/* Success Modal (Cash / Card - Pending Payment) */}
+      {isSuccessModalOpen && createdAppointment && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
           <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-5 text-center relative">
-            <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-950/80 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto shadow-inner">
+            <div className="w-16 h-16 bg-amber-100 dark:bg-amber-950/80 text-amber-600 dark:text-amber-400 rounded-full flex items-center justify-center mx-auto shadow-inner">
               <CheckCircle2 className="w-8 h-8" />
             </div>
 
             <div>
-              <span className="inline-block px-3 py-1 bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 text-xs font-black rounded-full mb-2 border border-emerald-300 dark:border-emerald-800">
+              <span className="inline-block px-3 py-1 bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 text-xs font-black rounded-full mb-2 border border-amber-300 dark:border-amber-800">
                 Horário Agendado com Sucesso!
               </span>
               <h3 className="text-xl font-black text-slate-900 dark:text-white">
                 Agendamento Confirmado
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                Seu horário já está reservado e registrado na agenda da <strong>{currentShop.name}</strong>.
+                Seu horário está registrado na agenda da <strong>{currentShop.name}</strong>.
               </p>
             </div>
 
@@ -824,7 +1046,14 @@ export const ClientBookingFlow: React.FC = () => {
                 <span className="font-semibold text-slate-800 dark:text-slate-200">{createdAppointment.clientName}</span>
               </div>
               <div className="flex justify-between border-t border-slate-200 dark:border-slate-700 pt-2">
-                <span className="text-slate-500 font-bold">Valor (Pagar no Local):</span>
+                <span className="text-slate-500 font-bold">Status do Pagamento:</span>
+                <span className="font-black text-amber-600 dark:text-amber-400 text-xs flex items-center gap-1">
+                  <Clock className="w-3.5 h-3.5" />
+                  Pendente no Local ({selectedPaymentMethod === 'cash' ? 'Dinheiro' : 'Cartão'})
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500 font-bold">Valor a Pagar:</span>
                 <span className="font-black text-emerald-600 dark:text-emerald-400 text-sm">
                   {formatCurrency(createdAppointment.servicePrice)}
                 </span>
@@ -843,7 +1072,7 @@ export const ClientBookingFlow: React.FC = () => {
                   const [y, m, d] = createdAppointment.date.split('-').map(Number);
                   const dayOfWeekIdx = new Date(y, m - 1, d).getDay();
                   const dayName = getDayOfWeekName(dayOfWeekIdx);
-                  const text = `Olá *${currentShop.name}*! 👋\n\nAcabei de realizar um agendamento:\n\n✂️ *Serviço:* ${createdAppointment.serviceName}\n📅 *Data:* ${formatDateBr(createdAppointment.date)} (${dayName})\n⏰ *Horário:* ${createdAppointment.time}\n👤 *Cliente:* ${createdAppointment.clientName}\n📱 *WhatsApp:* ${formatPhone(createdAppointment.clientPhone)}\n💰 *Valor:* ${formatCurrency(createdAppointment.servicePrice)} (Pagamento no local)\n${createdAppointment.notes ? `📝 *Observações:* ${createdAppointment.notes}\n` : ''}\nFavor confirmar o recebimento. Obrigado!`;
+                  const text = `Olá *${currentShop.name}*! 👋\n\nAcabei de realizar um agendamento:\n\n✂️ *Serviço:* ${createdAppointment.serviceName}\n📅 *Data:* ${formatDateBr(createdAppointment.date)} (${dayName})\n⏰ *Horário:* ${createdAppointment.time}\n👤 *Cliente:* ${createdAppointment.clientName}\n📱 *WhatsApp:* ${formatPhone(createdAppointment.clientPhone)}\n💰 *Valor:* ${formatCurrency(createdAppointment.servicePrice)} (*Pagamento Pendente no Local via ${selectedPaymentMethod === 'cash' ? 'Dinheiro' : 'Cartão'}*)\n${createdAppointment.notes ? `📝 *Observações:* ${createdAppointment.notes}\n` : ''}\nFavor confirmar o recebimento. Obrigado!`;
                   openWhatsApp(currentShop.phone, text);
                 }}
                 className="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-xl transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/25 cursor-pointer"
@@ -855,7 +1084,7 @@ export const ClientBookingFlow: React.FC = () => {
               <button
                 type="button"
                 onClick={() => {
-                  setIsWhatsappSuccessModalOpen(false);
+                  setIsSuccessModalOpen(false);
                   setSelectedTime('');
                   setNotes('');
                 }}
@@ -887,10 +1116,11 @@ export const ClientBookingFlow: React.FC = () => {
           barberPhone={currentShop.phone}
           barberAccessToken={currentShop.mercadoPagoAccessToken}
           clientName={createdAppointment.clientName}
+          mode={selectedPaymentMethod === 'pix_automatic' ? 'pix_automatic' : 'pix_manual'}
           isConfirmed={createdAppointment.status === 'confirmed'}
-          onConfirmSuccess={(paymentId) => {
+          onConfirmSuccess={(paymentId, proofUrl, transactionCode) => {
             if (createdAppointment) {
-              confirmAppointmentPix(createdAppointment.id);
+              confirmAppointmentPix(createdAppointment.id, proofUrl, transactionCode);
               try {
                 localStorage.setItem('barberclock_last_client_phone', createdAppointment.clientPhone);
               } catch {}
