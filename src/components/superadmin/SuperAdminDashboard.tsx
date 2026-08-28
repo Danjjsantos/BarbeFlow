@@ -66,6 +66,7 @@ export const SuperAdminDashboard: React.FC = () => {
     switchRole,
     logoutUser,
     isSupabaseActive,
+    getBarbershopPublicUrl,
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<'shops' | 'plans' | 'landing_editor'>(() => {
@@ -727,9 +728,12 @@ export const SuperAdminDashboard: React.FC = () => {
                                 <span className="font-bold text-sm text-slate-900 dark:text-white block">
                                   {shop.name}
                                 </span>
-                                <span className="text-[11px] text-slate-500">
+                                <span className="text-[11px] text-slate-500 block">
                                   {shop.ownerName} • {formatPhone(shop.ownerPhone)}
                                 </span>
+                                <code className="text-[10px] text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 rounded-md font-mono mt-0.5 inline-block">
+                                  ?view={shop.slug}
+                                </code>
                               </div>
                             </div>
                           </td>

@@ -28,6 +28,7 @@ export const Header: React.FC<HeaderProps> = () => {
     setIsBarberDrawerOpen,
     newAppointmentsCount,
     markAppointmentsAsSeen,
+    getBarbershopPublicUrl,
   } = useApp();
 
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
@@ -37,8 +38,8 @@ export const Header: React.FC<HeaderProps> = () => {
     ? getBarbershopById(currentUser.barbershopId)
     : activeShop;
 
-  // Generate public booking URL preview
-  const publicBookingUrl = `${window.location.origin}/#${userShop?.slug || 'navalha-de-ouro'}`;
+  // Generate public booking URL preview with ?view=nomedabarbearia
+  const publicBookingUrl = getBarbershopPublicUrl(userShop?.slug || 'navalha-de-ouro');
 
   const isBarber = currentUser.role === 'barber';
 

@@ -40,7 +40,7 @@ interface BarberSettingsViewProps {
 }
 
 export const BarberSettingsView: React.FC<BarberSettingsViewProps> = ({ barbershop }) => {
-  const { updateBarbershop, platformSettings, currentUser, setActiveBarbershopId, setCurrentView } = useApp();
+  const { updateBarbershop, platformSettings, currentUser, setActiveBarbershopId, setCurrentView, getBarbershopPublicUrl } = useApp();
 
   // Basic Info Form State
   const [name, setName] = useState(barbershop.name);
@@ -109,7 +109,7 @@ export const BarberSettingsView: React.FC<BarberSettingsViewProps> = ({ barbersh
     setWorkingHours(barbershop.workingHours);
   }, [barbershop]);
 
-  const publicLink = `${window.location.origin}/#${barbershop.slug}`;
+  const publicLink = getBarbershopPublicUrl(barbershop.slug);
 
   const handleTestMercadoPago = async () => {
     if (!mercadoPagoAccessToken.trim()) {

@@ -41,6 +41,7 @@ export const BarberDashboard: React.FC = () => {
     markAppointmentsAsSeen,
     setActiveBarbershopId,
     setCurrentView,
+    getBarbershopPublicUrl,
   } = useApp();
 
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
@@ -71,7 +72,7 @@ export const BarberDashboard: React.FC = () => {
     (s) => s.barbershopId === userShop.id
   ).length;
 
-  const publicLink = `${window.location.origin}/#${userShop.slug}`;
+  const publicLink = getBarbershopPublicUrl(userShop.slug);
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(publicLink);
