@@ -103,9 +103,7 @@ function saveLocalDatabase(data: any) {
     if (!fs.existsSync(DATA_DIR)) {
       fs.mkdirSync(DATA_DIR, { recursive: true });
     }
-    const current = getLocalDatabase();
     const updated = {
-      ...current,
       ...data,
       lastUpdated: new Date().toISOString(),
     };
@@ -444,6 +442,15 @@ async function startServer() {
   // ----------------------------------------------------
   // Local Database Persistence API
   // ----------------------------------------------------
+  app.get('/api/db', (req, res) => {
+    try {
+      const db = getLocalDatabase();
+      return res.json(db);
+    } catch (e: any) {
+      return res.status(500).json({ success: false, error: e?.message });
+    }
+  });
+
   app.get('/api/db/data', (req, res) => {
     try {
       const db = getLocalDatabase();

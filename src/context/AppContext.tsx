@@ -24,7 +24,7 @@ import {
 } from '../data/initialData';
 import { generateId, getTodayDateString, formatPhone } from '../utils/formatters';
 import { parseVideoUrl } from '../utils/videoUtils';
-import { supabaseService, isSupabaseConfigured, fetchServerDbData } from '../lib/supabase';
+import { supabaseService, isSupabaseConfigured, fetchServerDbData, saveToServerDb } from '../lib/supabase';
 
 interface AppContextType {
   currentUser: User;
@@ -518,8 +518,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               return merged;
             });
           }
-          if (serverData.landing) {
+          if (serverData.landing && typeof serverData.landing === 'object') {
             setLandingPageContent((prev) => {
+              // Server persistent data is the source of truth on refresh
               const merged = { ...prev, ...serverData.landing };
               localStorage.setItem(STORAGE_KEYS.LANDING, JSON.stringify(merged));
               return merged;
@@ -1552,6 +1553,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setLandingPageContent((prev) => {
       const updated = { ...prev, ...sanitizedUpdates };
       localStorage.setItem(STORAGE_KEYS.LANDING, JSON.stringify(updated));
+      saveToServerDb('landing', updated, 'upsert');
       supabaseService.upsertLandingPageContent(updated);
       return updated;
     });
@@ -1559,6 +1561,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setPlatformSettings((prev) => {
         const updated = { ...prev, platformLogoUrl: sanitizedUpdates.brandLogoUrl };
         localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(updated));
+        saveToServerDb('platform_settings', updated, 'upsert');
         supabaseService.upsertPlatformSettings(updated);
         return updated;
       });
