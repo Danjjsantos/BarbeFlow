@@ -23,6 +23,7 @@ import {
   INITIAL_TRIAL_RECORDS,
 } from '../data/initialData';
 import { generateId, getTodayDateString, formatPhone } from '../utils/formatters';
+import { parseVideoUrl } from '../utils/videoUtils';
 import { supabaseService, isSupabaseConfigured, fetchServerDbData } from '../lib/supabase';
 
 interface AppContextType {
@@ -1539,15 +1540,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateLandingPageContent = (updates: Partial<LandingPageContent>) => {
+    // Normalize video URL if updated to prevent X-Frame-Options embedding errors
+    const sanitizedUpdates = { ...updates };
+    if (sanitizedUpdates.videoUrl !== undefined) {
+      const parsed = parseVideoUrl(sanitizedUpdates.videoUrl);
+      if (parsed.isValid && parsed.embedUrl) {
+        sanitizedUpdates.videoUrl = parsed.embedUrl;
+      }
+    }
+
     setLandingPageContent((prev) => {
-      const updated = { ...prev, ...updates };
+      const updated = { ...prev, ...sanitizedUpdates };
       localStorage.setItem(STORAGE_KEYS.LANDING, JSON.stringify(updated));
       supabaseService.upsertLandingPageContent(updated);
       return updated;
     });
-    if (updates.brandLogoUrl) {
+    if (sanitizedUpdates.brandLogoUrl) {
       setPlatformSettings((prev) => {
-        const updated = { ...prev, platformLogoUrl: updates.brandLogoUrl };
+        const updated = { ...prev, platformLogoUrl: sanitizedUpdates.brandLogoUrl };
         localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(updated));
         supabaseService.upsertPlatformSettings(updated);
         return updated;

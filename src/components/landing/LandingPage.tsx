@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { SubscriptionPlan } from '../../types';
 import { formatCurrency, openWhatsApp } from '../../utils/formatters';
+import { parseVideoUrl } from '../../utils/videoUtils';
 import {
   Scissors,
   CheckCircle2,
@@ -299,35 +300,55 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenRegister, onOpen
 
           {/* Video Container */}
           <div className="rounded-3xl overflow-hidden border-2 border-orange-500/30 bg-slate-950 shadow-2xl shadow-orange-950/50 aspect-video relative group">
-            {landingPageContent.videoUrl.includes('youtube.com') ||
-            landingPageContent.videoUrl.includes('youtu.be') ? (
-              <iframe
-                src={landingPageContent.videoUrl}
-                title="Demonstração do Sistema para Barbearias"
-                className="w-full h-full"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
-            ) : (
-              <div className="w-full h-full relative flex items-center justify-center">
-                <img
-                  src={landingPageContent.videoPosterUrl}
-                  alt="Demonstração em Vídeo"
-                  className="w-full h-full object-cover opacity-70"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent flex flex-col items-center justify-center text-center p-6">
-                  <div className="w-20 h-20 rounded-full bg-orange-600 text-white flex items-center justify-center shadow-2xl transform group-hover:scale-110 transition cursor-pointer mb-4">
-                    <Play className="w-8 h-8 ml-1 fill-white" />
+            {(() => {
+              const videoInfo = parseVideoUrl(landingPageContent.videoUrl);
+
+              if (videoInfo.isValid && (videoInfo.type === 'youtube' || videoInfo.type === 'vimeo' || videoInfo.type === 'other')) {
+                return (
+                  <iframe
+                    src={videoInfo.embedUrl}
+                    title={landingPageContent.videoTitle || 'Demonstração do Sistema para Barbearias'}
+                    className="w-full h-full border-0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    referrerPolicy="strict-origin-when-cross-origin"
+                    allowFullScreen
+                  />
+                );
+              }
+
+              if (videoInfo.isValid && videoInfo.type === 'direct') {
+                return (
+                  <video
+                    src={videoInfo.embedUrl}
+                    poster={landingPageContent.videoPosterUrl || videoInfo.thumbnailUrl}
+                    controls
+                    className="w-full h-full object-cover"
+                    playsInline
+                  />
+                );
+              }
+
+              return (
+                <div className="w-full h-full relative flex items-center justify-center">
+                  <img
+                    src={landingPageContent.videoPosterUrl || 'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=1200&auto=format&fit=crop&q=80'}
+                    alt="Demonstração em Vídeo"
+                    className="w-full h-full object-cover opacity-70"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent flex flex-col items-center justify-center text-center p-6">
+                    <div className="w-20 h-20 rounded-full bg-orange-600 text-white flex items-center justify-center shadow-2xl transform group-hover:scale-110 transition cursor-pointer mb-4">
+                      <Play className="w-8 h-8 ml-1 fill-white" />
+                    </div>
+                    <h3 className="text-lg font-bold text-white max-w-md">
+                      Clique para assistir o fluxo do cliente ao barbeiro
+                    </h3>
+                    <span className="text-xs text-orange-400 font-semibold mt-1">
+                      Duração: 2 minutos • Passo a passo completo
+                    </span>
                   </div>
-                  <h3 className="text-lg font-bold text-white max-w-md">
-                    Clique para assistir o fluxo do cliente ao barbeiro
-                  </h3>
-                  <span className="text-xs text-orange-400 font-semibold mt-1">
-                    Duração: 2 minutos • Passo a passo completo
-                  </span>
                 </div>
-              </div>
-            )}
+              );
+            })()}
           </div>
 
           {/* Quick Steps after video */}
