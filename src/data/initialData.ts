@@ -280,9 +280,25 @@ export const INITIAL_LANDING_CONTENT: LandingPageContent = {
 
 export const INITIAL_USERS: User[] = [
   {
+    id: 'client_guest_default',
+    name: 'Cliente Visitante',
+    phone: '',
+    email: '',
+    role: 'client',
+  },
+  {
     id: 'user_superadmin_dan',
     name: 'Danilo Santos (Admin Geral)',
     phone: '11999998888',
+    email: 'danjs23@gmail.com',
+    password: 'admin123',
+    role: 'super_admin',
+    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+  },
+  {
+    id: 'user_superadmin_dan_alt',
+    name: 'Danilo Santos (Admin Geral)',
+    phone: '11999998887',
     email: 'danjjsantos@gmail.com',
     password: 'admin123',
     role: 'super_admin',
@@ -290,7 +306,7 @@ export const INITIAL_USERS: User[] = [
   },
   {
     id: 'user_superadmin',
-    name: 'Roberto Mendes (Admin Geral)',
+    name: 'Administrador Geral',
     phone: '11988887777',
     email: 'admin@barberhub.com.br',
     password: 'admin123',

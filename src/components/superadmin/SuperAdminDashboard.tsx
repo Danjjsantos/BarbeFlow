@@ -132,6 +132,49 @@ export const SuperAdminDashboard: React.FC = () => {
     }
   };
 
+  // Role Access Guard: Only super_admin role can view this dashboard
+  if (currentUser.role !== 'super_admin') {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
+        <div className="max-w-md w-full p-8 bg-slate-900 border border-slate-800 rounded-3xl text-center shadow-2xl">
+          <div className="w-16 h-16 rounded-2xl bg-rose-500/10 text-rose-400 border border-rose-500/20 flex items-center justify-center mx-auto mb-4">
+            <Shield className="w-8 h-8" />
+          </div>
+          <h3 className="text-xl font-bold text-white mb-2">Acesso Restrito ao Administrador Geral</h3>
+          <p className="text-sm text-slate-400 mb-6 leading-relaxed">
+            Você está conectado como <strong className="text-white">{currentUser.name || currentUser.email || 'Usuário'}</strong>.
+            Esta área é de gestão exclusiva da administração da plataforma.
+          </p>
+          <div className="flex flex-col gap-3">
+            {currentUser.role === 'barber' ? (
+              <button
+                onClick={() => setCurrentView('barber_dashboard')}
+                className="w-full py-3.5 px-4 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl shadow-lg transition flex items-center justify-center gap-2"
+              >
+                <Scissors className="w-5 h-5" />
+                Ir para o Meu Painel de Barbeiro
+              </button>
+            ) : (
+              <button
+                onClick={() => setCurrentView('landing_page')}
+                className="w-full py-3.5 px-4 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl shadow-lg transition flex items-center justify-center gap-2"
+              >
+                Ir para a Página Inicial
+              </button>
+            )}
+            <button
+              onClick={logoutUser}
+              className="w-full py-3 px-4 bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium rounded-xl transition flex items-center justify-center gap-2"
+            >
+              <LogOut className="w-4 h-4" />
+              Sair da Conta
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-[calc(100vh-5rem)] bg-slate-100 dark:bg-slate-950 flex flex-col lg:flex-row" id="super-admin-dashboard">
       {/* Mobile Toggle Bar for Left Sidebar */}

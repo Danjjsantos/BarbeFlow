@@ -76,21 +76,10 @@ export const AuthLoginModal: React.FC<AuthLoginModalProps> = ({
     setIsLoading(true);
 
     setTimeout(() => {
-      const result = loginUser(identifier.trim(), password.trim());
+      const result = loginUser(identifier.trim(), password.trim(), activeTab);
       setIsLoading(false);
 
       if (result.success && result.user) {
-        // Check role compatibility
-        if (activeTab === 'super_admin' && result.user.role !== 'super_admin') {
-          setErrorMessage('Esta conta pertence a um barbeiro/cliente, não ao Administrador Geral.');
-          return;
-        }
-
-        if (activeTab === 'barber' && result.user.role !== 'barber' && result.user.role !== 'super_admin') {
-          setErrorMessage('Esta conta não possui perfil de barbeiro credenciado.');
-          return;
-        }
-
         setSuccessMessage(`Autenticado com sucesso. Bem-vindo(a), ${result.user.name.split(' ')[0]}!`);
         confetti({
           particleCount: 70,

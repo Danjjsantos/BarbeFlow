@@ -340,11 +340,11 @@ export const BarberRegisterModal: React.FC<BarberRegisterModalProps> = ({
   const handleGoToBarberDashboard = () => {
     if (createdShop) {
       setActiveBarbershopId(createdShop.id);
-      const shopUser = users.find((u) => u.barbershopId === createdShop.id) || {
+      const shopUser = users.find((u) => u.barbershopId === createdShop.id || u.id === createdShop.ownerId) || {
         id: createdShop.ownerId,
         name: createdShop.ownerName,
-        phone: createdShop.phone,
-        email: ownerEmail || `${createdShop.slug}@barberhub.com.br`,
+        phone: createdShop.phone || createdShop.ownerPhone,
+        email: ownerEmail.trim() || `${createdShop.slug}@barberhub.com.br`,
         role: 'barber' as const,
         barbershopId: createdShop.id,
       };

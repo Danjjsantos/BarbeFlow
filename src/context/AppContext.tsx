@@ -68,7 +68,7 @@ interface AppContextType {
   loginModalRole: 'barber' | 'super_admin';
   setLoginModalRole: (role: 'barber' | 'super_admin') => void;
   openLoginModal: (role?: 'barber' | 'super_admin') => void;
-  loginUser: (identifier: string, pass: string) => { success: boolean; message?: string; user?: User };
+  loginUser: (identifier: string, pass: string, expectedRole?: 'barber' | 'super_admin') => { success: boolean; message?: string; user?: User };
   updateUserPassword: (userId: string, newPassword: string) => { success: boolean; message: string };
   updateUserProfile: (userId: string, updates: Partial<User>) => { success: boolean; message: string };
   logoutUser: () => void;
@@ -297,17 +297,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         parsedUsers = JSON.parse(savedUsersRaw);
       } catch {}
     }
-    if (savedId) {
+    if (savedId && isLoggedIn) {
       const foundInSaved = parsedUsers.find((u) => u.id === savedId);
       if (foundInSaved) return foundInSaved;
       const foundInit = INITIAL_USERS.find((u) => u.id === savedId);
       if (foundInit) return foundInit;
     }
-    if (isLoggedIn) {
-      return parsedUsers.find((u) => u.role === 'super_admin') || INITIAL_USERS[0];
-    }
-    // Default to client user or first available user when not logged in
-    return parsedUsers.find((u) => u.role === 'client') || INITIAL_USERS.find((u) => u.role === 'client') || INITIAL_USERS[0];
+    // Default to client user when not authenticated - NEVER default to super_admin
+    return (
+      parsedUsers.find((u) => u.role === 'client') ||
+      INITIAL_USERS.find((u) => u.role === 'client') || {
+        id: 'client_guest_default',
+        name: 'Cliente Visitante',
+        phone: '',
+        email: '',
+        role: 'client' as const,
+      }
+    );
   });
 
   const [barbershops, setBarbershops] = useState<Barbershop[]>(() => {
@@ -896,48 +902,81 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Authenticate and Login User
   const loginUser = (
     identifier: string,
-    pass: string
+    pass: string,
+    expectedRole?: 'barber' | 'super_admin'
   ): { success: boolean; message?: string; user?: User } => {
     const cleanId = identifier.trim().toLowerCase();
     const cleanPhone = identifier.replace(/\D/g, '');
 
-    // Search user by email, phone, id or barbershop name
-    const foundUser = users.find((u) => {
+    // 1. Search user by email, phone, id in state
+    let foundUser = users.find((u) => {
       const matchEmail = u.email && u.email.toLowerCase() === cleanId;
-      const matchPhone = cleanPhone && u.phone.replace(/\D/g, '') === cleanPhone;
-      const matchId = u.id.toLowerCase() === cleanId;
+      const matchPhone = cleanPhone && u.phone && u.phone.replace(/\D/g, '') === cleanPhone;
+      const matchId = u.id && u.id.toLowerCase() === cleanId;
       return matchEmail || matchPhone || matchId;
     });
 
+    // 2. If not found in users state, check if identifier matches a registered barbershop owner
     if (!foundUser) {
-      // Fallback check against INITIAL_USERS
-      const fallbackUser = INITIAL_USERS.find((u) => {
-        const matchEmail = u.email && u.email.toLowerCase() === cleanId;
-        const matchPhone = cleanPhone && u.phone.replace(/\D/g, '') === cleanPhone;
-        return matchEmail || matchPhone;
+      const matchedShop = barbershops.find((s) => {
+        const sPhone = (s.phone || s.ownerPhone || '').replace(/\D/g, '');
+        const sEmail = (s.email || (s as any).ownerEmail || '').toLowerCase();
+        const sName = (s.ownerName || '').toLowerCase();
+        return (
+          (cleanId && sEmail === cleanId) ||
+          (cleanPhone && sPhone === cleanPhone) ||
+          (cleanId && sName === cleanId)
+        );
       });
 
-      if (!fallbackUser) {
-        return {
-          success: false,
-          message: 'Usuário não encontrado. Verifique seu e-mail ou WhatsApp digitado.',
-        };
+      if (matchedShop) {
+        const existingShopUser = users.find((u) => u.barbershopId === matchedShop.id || u.id === matchedShop.ownerId);
+        if (existingShopUser) {
+          foundUser = existingShopUser;
+        } else {
+          // Construct and save user for this barbershop
+          const autoUser: User = {
+            id: matchedShop.ownerId || `usr_${matchedShop.id}`,
+            name: matchedShop.ownerName,
+            phone: matchedShop.phone || matchedShop.ownerPhone || '',
+            email: (matchedShop as any).email || (matchedShop as any).ownerEmail || cleanId,
+            password: '123456',
+            role: 'barber',
+            barbershopId: matchedShop.id,
+            avatarUrl: matchedShop.logoUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+          };
+          const updatedUserList = [...users, autoUser];
+          setUsers(updatedUserList);
+          localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(updatedUserList));
+          saveToServerDb('users', autoUser, 'upsert');
+          supabaseService.upsertUser(autoUser);
+          foundUser = autoUser;
+        }
       }
-
-      // Check password for fallback user
-      const expectedPass = fallbackUser.password || (fallbackUser.role === 'super_admin' ? 'admin123' : '123456');
-      if (pass !== expectedPass) {
-        return {
-          success: false,
-          message: 'Senha incorreta. Tente novamente.',
-        };
-      }
-
-      handleSetCurrentUser(fallbackUser);
-      return { success: true, user: fallbackUser };
     }
 
-    // Validate password
+    // 3. Fallback check against INITIAL_USERS (Super Admins, etc.)
+    if (!foundUser) {
+      const fallbackUser = INITIAL_USERS.find((u) => {
+        const matchEmail = u.email && u.email.toLowerCase() === cleanId;
+        const matchPhone = cleanPhone && u.phone && u.phone.replace(/\D/g, '') === cleanPhone;
+        const matchId = u.id && u.id.toLowerCase() === cleanId;
+        return matchEmail || matchPhone || matchId;
+      });
+
+      if (fallbackUser) {
+        foundUser = fallbackUser;
+      }
+    }
+
+    if (!foundUser) {
+      return {
+        success: false,
+        message: 'Usuário não encontrado. Verifique seu e-mail ou WhatsApp digitado.',
+      };
+    }
+
+    // 4. Validate password
     const expectedPass = foundUser.password || (foundUser.role === 'super_admin' ? 'admin123' : '123456');
     if (pass !== expectedPass) {
       return {
@@ -946,8 +985,60 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
     }
 
-    handleSetCurrentUser(foundUser);
-    return { success: true, user: foundUser };
+    // 5. Strict Role Validation: Prevent role crossover
+    if (expectedRole === 'super_admin') {
+      if (foundUser.role !== 'super_admin') {
+        return {
+          success: false,
+          message: 'Esta conta pertence a um barbeiro/cliente e não possui permissão de Administrador Geral. Acesse pela aba "Sou Barbeiro".',
+        };
+      }
+    } else if (expectedRole === 'barber') {
+      if (foundUser.role === 'super_admin') {
+        return {
+          success: false,
+          message: 'Esta conta é do Administrador Geral da plataforma. Acesse pela aba "Administrador Geral".',
+        };
+      }
+    }
+
+    // 6. For barbers, ensure barbershopId is accurately linked and active
+    let userToLogin = { ...foundUser };
+    if (userToLogin.role === 'barber') {
+      let linkedShop = userToLogin.barbershopId ? barbershops.find((s) => s.id === userToLogin.barbershopId) : null;
+      if (!linkedShop) {
+        linkedShop = barbershops.find((s) => {
+          const sPhone = (s.phone || s.ownerPhone || '').replace(/\D/g, '');
+          const uPhone = (userToLogin.phone || '').replace(/\D/g, '');
+          const sEmail = (s.email || (s as any).ownerEmail || '').toLowerCase();
+          const uEmail = (userToLogin.email || '').toLowerCase();
+          return (
+            s.ownerId === userToLogin.id ||
+            (sPhone && uPhone && sPhone === uPhone) ||
+            (sEmail && uEmail && sEmail === uEmail)
+          );
+        }) || null;
+      }
+
+      if (linkedShop && userToLogin.barbershopId !== linkedShop.id) {
+        userToLogin.barbershopId = linkedShop.id;
+        const updatedList = users.map((u) => (u.id === userToLogin.id ? userToLogin : u));
+        setUsers(updatedList);
+        try {
+          localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(updatedList));
+          saveToServerDb('users', userToLogin, 'upsert');
+          supabaseService.upsertUser(userToLogin);
+        } catch {}
+      }
+
+      if (linkedShop) {
+        setActiveBarbershopId(linkedShop.id);
+        localStorage.setItem(STORAGE_KEYS.ACTIVE_SHOP_ID, linkedShop.id);
+      }
+    }
+
+    handleSetCurrentUser(userToLogin);
+    return { success: true, user: userToLogin };
   };
 
   const updateUserPassword = (
@@ -1168,17 +1259,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Adjust view automatically when switching user role if necessary
   const handleSetCurrentUser = (newUser: User) => {
-    setCurrentUser(newUser);
-    localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, newUser.id);
-    localStorage.setItem(STORAGE_KEYS.AUTH_LOGGED_IN, 'true');
+    let resolvedUser = { ...newUser };
+    let resolvedShopId = resolvedUser.barbershopId;
 
-    if (newUser.role === 'super_admin') {
+    if (resolvedUser.role === 'super_admin') {
       setCurrentView('super_admin_dashboard');
       localStorage.setItem(STORAGE_KEYS.CURRENT_VIEW, 'super_admin_dashboard');
-    } else if (newUser.role === 'barber') {
-      if (newUser.barbershopId) {
-        setActiveBarbershopId(newUser.barbershopId);
-        localStorage.setItem(STORAGE_KEYS.ACTIVE_SHOP_ID, newUser.barbershopId);
+    } else if (resolvedUser.role === 'barber') {
+      if (!resolvedShopId || !barbershops.some((s) => s.id === resolvedShopId)) {
+        const foundShop = barbershops.find((s) => {
+          const sPhone = (s.phone || s.ownerPhone || '').replace(/\D/g, '');
+          const uPhone = (resolvedUser.phone || '').replace(/\D/g, '');
+          const sEmail = (s.email || (s as any).ownerEmail || '').toLowerCase();
+          const uEmail = (resolvedUser.email || '').toLowerCase();
+          return (
+            s.ownerId === resolvedUser.id ||
+            (sPhone && uPhone && sPhone === uPhone) ||
+            (sEmail && uEmail && sEmail === uEmail)
+          );
+        }) || null;
+
+        if (foundShop) {
+          resolvedShopId = foundShop.id;
+          resolvedUser.barbershopId = foundShop.id;
+        }
+      }
+
+      if (resolvedShopId) {
+        setActiveBarbershopId(resolvedShopId);
+        localStorage.setItem(STORAGE_KEYS.ACTIVE_SHOP_ID, resolvedShopId);
       }
       setCurrentView('barber_dashboard');
       localStorage.setItem(STORAGE_KEYS.CURRENT_VIEW, 'barber_dashboard');
@@ -1187,11 +1296,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       localStorage.setItem(STORAGE_KEYS.CURRENT_VIEW, 'client_booking');
       try {
         sessionStorage.setItem(STORAGE_KEYS.CLIENT_SESSION_VIEW, 'client_booking');
-        if (newUser.barbershopId) {
-          sessionStorage.setItem(STORAGE_KEYS.CLIENT_SESSION_SHOP_ID, newUser.barbershopId);
+        if (resolvedShopId) {
+          sessionStorage.setItem(STORAGE_KEYS.CLIENT_SESSION_SHOP_ID, resolvedShopId);
         }
       } catch {}
     }
+
+    setCurrentUser(resolvedUser);
+    localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, resolvedUser.id);
+    localStorage.setItem(STORAGE_KEYS.AUTH_LOGGED_IN, 'true');
   };
 
   const switchRole = (role: 'client' | 'barber' | 'super_admin') => {
@@ -1944,8 +2057,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return newShop;
   };
 
-  const getBarbershopById = (id: string) => {
-    return barbershops.find((shop) => shop.id === id);
+  const getBarbershopById = (idOrSlug: string) => {
+    if (!idOrSlug) return undefined;
+    const clean = idOrSlug.trim().toLowerCase();
+    const cleanNoAccent = clean.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    return barbershops.find((shop) => {
+      if (shop.id === idOrSlug || shop.id.toLowerCase() === clean) return true;
+      if (shop.slug && shop.slug.toLowerCase() === clean) return true;
+      if (shop.slug) {
+        const slugNoAccent = shop.slug.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        if (slugNoAccent === cleanNoAccent) return true;
+      }
+      if (shop.ownerId && (shop.ownerId === idOrSlug || shop.ownerId.toLowerCase() === clean)) return true;
+      return false;
+    });
   };
 
   const getServicesForBarbershop = (barbershopId: string) => {

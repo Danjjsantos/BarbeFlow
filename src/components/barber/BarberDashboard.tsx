@@ -39,9 +39,11 @@ export const BarberDashboard: React.FC = () => {
     setIsBarberDrawerOpen,
     newAppointmentsCount,
     markAppointmentsAsSeen,
+    activeBarbershopId,
     setActiveBarbershopId,
     setCurrentView,
     getBarbershopPublicUrl,
+    openRegisterModal,
   } = useApp();
 
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
@@ -55,15 +57,100 @@ export const BarberDashboard: React.FC = () => {
     }
   }, [activeBarberTab]);
 
-  // Barber shop for current user
-  const userShop = currentUser.barbershopId
-    ? getBarbershopById(currentUser.barbershopId)
-    : barbershops[0];
+  // Multi-tier resilient shop resolution for current barber
+  const userShop = (() => {
+    // If Super Admin is viewing, respect activeBarbershopId or default to first
+    if (currentUser.role === 'super_admin') {
+      if (activeBarbershopId) {
+        const active = getBarbershopById(activeBarbershopId);
+        if (active) return active;
+      }
+      return barbershops.length > 0 ? barbershops[0] : undefined;
+    }
+
+    // 1. Direct ID match on currentUser.barbershopId
+    if (currentUser.barbershopId) {
+      const direct = getBarbershopById(currentUser.barbershopId);
+      if (direct) return direct;
+    }
+    // 2. Direct ID match on activeBarbershopId
+    if (activeBarbershopId) {
+      const active = getBarbershopById(activeBarbershopId);
+      if (active && (active.ownerId === currentUser.id || active.phone === currentUser.phone)) {
+        return active;
+      }
+    }
+    // 3. Match by ownerId
+    const byOwnerId = barbershops.find((s) => s.ownerId === currentUser.id);
+    if (byOwnerId) return byOwnerId;
+
+    // 4. Match by phone or ownerPhone
+    const cleanUserPhone = (currentUser.phone || '').replace(/\D/g, '');
+    if (cleanUserPhone) {
+      const byPhone = barbershops.find((s) => {
+        const sPhone = (s.phone || s.ownerPhone || '').replace(/\D/g, '');
+        return sPhone && sPhone === cleanUserPhone;
+      });
+      if (byPhone) return byPhone;
+    }
+
+    // 5. Match by ownerEmail or email
+    const cleanUserEmail = (currentUser.email || '').trim().toLowerCase();
+    if (cleanUserEmail) {
+      const byEmail = barbershops.find((s) => {
+        const sEmail = (s.email || (s as any).ownerEmail || '').trim().toLowerCase();
+        return sEmail && sEmail === cleanUserEmail;
+      });
+      if (byEmail) return byEmail;
+    }
+
+    // 6. Match by owner name
+    const cleanUserName = (currentUser.name || '').trim().toLowerCase();
+    if (cleanUserName) {
+      const byName = barbershops.find((s) => (s.ownerName || '').trim().toLowerCase() === cleanUserName);
+      if (byName) return byName;
+    }
+
+    // Do NOT fallback to another user's shop
+    return undefined;
+  })();
+
+  // Keep activeBarbershopId synchronized with resolved userShop
+  useEffect(() => {
+    if (userShop && userShop.id && activeBarbershopId !== userShop.id) {
+      setActiveBarbershopId(userShop.id);
+    }
+  }, [userShop, activeBarbershopId, setActiveBarbershopId]);
 
   if (!userShop) {
     return (
-      <div className="max-w-4xl mx-auto p-12 text-center text-slate-500">
-        Nenhuma barbearia vinculada a este usuário.
+      <div className="min-h-[70vh] flex items-center justify-center p-4">
+        <div className="max-w-md w-full p-8 bg-slate-900 border border-slate-800 rounded-3xl text-center shadow-2xl">
+          <div className="w-16 h-16 rounded-2xl bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center justify-center mx-auto mb-4">
+            <Scissors className="w-8 h-8" />
+          </div>
+          <h3 className="text-xl font-bold text-white mb-2">Nenhuma barbearia vinculada</h3>
+          <p className="text-sm text-slate-400 mb-6 leading-relaxed">
+            Não localizamos uma barbearia cadastrada para o usuário{' '}
+            <strong className="text-white">{currentUser.name || currentUser.email || 'Barbeiro'}</strong>.
+          </p>
+          <div className="flex flex-col gap-3">
+            <button
+              onClick={() => openRegisterModal()}
+              className="w-full py-3.5 px-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold rounded-xl shadow-lg transition flex items-center justify-center gap-2"
+            >
+              <Scissors className="w-5 h-5" />
+              Cadastrar Barbearia Agora
+            </button>
+            <button
+              onClick={logoutUser}
+              className="w-full py-3 px-4 bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium rounded-xl transition flex items-center justify-center gap-2"
+            >
+              <LogOut className="w-4 h-4" />
+              Sair / Trocar de Conta
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -316,6 +403,20 @@ export const BarberDashboard: React.FC = () => {
       )}
 
       {/* TOP HEADER BAR FOR BARBER DASHBOARD */}
+      {currentUser.role === 'super_admin' && (
+        <div className="bg-indigo-950/90 border-b border-indigo-800/80 px-4 py-2 text-xs flex items-center justify-between text-indigo-200 z-50">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse"></span>
+            <span>Modo Administrador Geral: Visualizando a barbearia <strong>{userShop.name}</strong></span>
+          </div>
+          <button
+            onClick={() => setCurrentView('super_admin_dashboard')}
+            className="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg transition text-[11px]"
+          >
+            Voltar ao Painel Admin
+          </button>
+        </div>
+      )}
       <header className="sticky top-0 z-40 bg-slate-950/95 backdrop-blur-xl border-b border-slate-800 shadow-xl">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-3">
           {/* Left: Brand Logo & Barber Shop Details */}
