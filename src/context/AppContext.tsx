@@ -24,7 +24,7 @@ import {
 } from '../data/initialData';
 import { generateId, getTodayDateString, formatPhone } from '../utils/formatters';
 import { parseVideoUrl } from '../utils/videoUtils';
-import { supabaseService, isSupabaseConfigured, fetchServerDbData, saveToServerDb } from '../lib/supabase';
+import { supabaseService, isSupabaseConfigured, fetchServerDbData, saveToServerDb, syncAllToServerDb } from '../lib/supabase';
 
 interface AppContextType {
   currentUser: User;
@@ -478,35 +478,63 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
+  // Helper function to safely merge lists by unique ID (preserves local records and updates with remote data)
+  function mergeById<T extends { id: string }>(remoteList: T[] = [], localList: T[] = []): T[] {
+    const map = new Map<string, T>();
+    (localList || []).forEach((item) => {
+      if (item && item.id) map.set(item.id, item);
+    });
+    (remoteList || []).forEach((item) => {
+      if (item && item.id) {
+        const existing = map.get(item.id);
+        map.set(item.id, existing ? { ...existing, ...item } : item);
+      }
+    });
+    return Array.from(map.values());
+  }
+
   // Initial Database Hydration (Server disk DB + Supabase) & Realtime Subscription
   useEffect(() => {
     let isMounted = true;
 
     const hydrateData = async () => {
       try {
+        // Read current local storage values before network fetch
+        const localShopsRaw = localStorage.getItem(STORAGE_KEYS.BARBERSHOPS);
+        const localServicesRaw = localStorage.getItem(STORAGE_KEYS.SERVICES);
+        const localAppointmentsRaw = localStorage.getItem(STORAGE_KEYS.APPOINTMENTS);
+        const localUsersRaw = localStorage.getItem(STORAGE_KEYS.USERS);
+        const localTrialsRaw = localStorage.getItem(STORAGE_KEYS.TRIAL_RECORDS);
+
+        const localShops: Barbershop[] = localShopsRaw ? JSON.parse(localShopsRaw) : [];
+        const localServices: Service[] = localServicesRaw ? JSON.parse(localServicesRaw) : [];
+        const localAppointments: Appointment[] = localAppointmentsRaw ? JSON.parse(localAppointmentsRaw) : [];
+        const localUsers: User[] = localUsersRaw ? JSON.parse(localUsersRaw) : [];
+        const localTrials: TrialUserRecord[] = localTrialsRaw ? JSON.parse(localTrialsRaw) : [];
+
         // 1. Fetch server persistent database first (persisted on disk)
         const serverData = await fetchServerDbData();
         if (serverData && isMounted) {
-          if (Array.isArray(serverData.barbershops)) {
-            setBarbershops(serverData.barbershops);
-            localStorage.setItem(STORAGE_KEYS.BARBERSHOPS, JSON.stringify(serverData.barbershops));
-          }
-          if (Array.isArray(serverData.services)) {
-            setServices(serverData.services);
-            localStorage.setItem(STORAGE_KEYS.SERVICES, JSON.stringify(serverData.services));
-          }
-          if (Array.isArray(serverData.appointments)) {
-            setAppointments(serverData.appointments);
-            localStorage.setItem(STORAGE_KEYS.APPOINTMENTS, JSON.stringify(serverData.appointments));
-          }
-          if (Array.isArray(serverData.users) && serverData.users.length > 0) {
-            setUsers(serverData.users);
-            localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(serverData.users));
-            setCurrentUser((curr) => {
-              const fresh = serverData.users.find((u: User) => u.id === curr.id);
-              return fresh || curr;
-            });
-          }
+          const mergedShops = mergeById(serverData.barbershops || [], localShops);
+          setBarbershops(mergedShops);
+          localStorage.setItem(STORAGE_KEYS.BARBERSHOPS, JSON.stringify(mergedShops));
+
+          const mergedServices = mergeById(serverData.services || [], localServices);
+          setServices(mergedServices);
+          localStorage.setItem(STORAGE_KEYS.SERVICES, JSON.stringify(mergedServices));
+
+          const mergedAppointments = mergeById(serverData.appointments || [], localAppointments);
+          setAppointments(mergedAppointments);
+          localStorage.setItem(STORAGE_KEYS.APPOINTMENTS, JSON.stringify(mergedAppointments));
+
+          const mergedUsers = mergeById(serverData.users || [], localUsers);
+          setUsers(mergedUsers);
+          localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(mergedUsers));
+          setCurrentUser((curr) => {
+            const fresh = mergedUsers.find((u: User) => u.id === curr.id);
+            return fresh || curr;
+          });
+
           if (Array.isArray(serverData.plans) && serverData.plans.length > 0) {
             setSubscriptionPlans(serverData.plans);
             localStorage.setItem(STORAGE_KEYS.PLANS, JSON.stringify(serverData.plans));
@@ -520,7 +548,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }
           if (serverData.landing && typeof serverData.landing === 'object') {
             setLandingPageContent((prev) => {
-              // Server persistent data is the primary source of truth on refresh
               const merged = { ...INITIAL_LANDING_CONTENT, ...prev, ...serverData.landing };
               try {
                 localStorage.setItem(STORAGE_KEYS.LANDING, JSON.stringify(merged));
@@ -528,9 +555,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               return merged;
             });
           }
-          if (Array.isArray(serverData.trialRecords)) {
-            setTrialRecords(serverData.trialRecords);
-            localStorage.setItem(STORAGE_KEYS.TRIAL_RECORDS, JSON.stringify(serverData.trialRecords));
+          const mergedTrials = mergeById(serverData.trialRecords || [], localTrials);
+          setTrialRecords(mergedTrials);
+          localStorage.setItem(STORAGE_KEYS.TRIAL_RECORDS, JSON.stringify(mergedTrials));
+
+          // If local has entries not in server disk DB, immediately sync them
+          if (
+            (localShops.length > 0 && (!serverData.barbershops || serverData.barbershops.length < mergedShops.length)) ||
+            (localUsers.length > 0 && (!serverData.users || serverData.users.length < mergedUsers.length)) ||
+            (localServices.length > 0 && (!serverData.services || serverData.services.length < mergedServices.length))
+          ) {
+            syncAllToServerDb({
+              barbershops: mergedShops,
+              services: mergedServices,
+              appointments: mergedAppointments,
+              users: mergedUsers,
+              trialRecords: mergedTrials,
+            });
           }
         }
 
@@ -558,26 +599,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
           if (!isMounted) return;
 
-          if (remoteShops && Array.isArray(remoteShops) && remoteShops.length > 0) {
-            setBarbershops(remoteShops);
-            localStorage.setItem(STORAGE_KEYS.BARBERSHOPS, JSON.stringify(remoteShops));
-          }
-          if (remoteServices && Array.isArray(remoteServices) && remoteServices.length > 0) {
-            setServices(remoteServices);
-            localStorage.setItem(STORAGE_KEYS.SERVICES, JSON.stringify(remoteServices));
-          }
-          if (remoteAppointments && Array.isArray(remoteAppointments) && remoteAppointments.length > 0) {
-            setAppointments(remoteAppointments);
-            localStorage.setItem(STORAGE_KEYS.APPOINTMENTS, JSON.stringify(remoteAppointments));
-          }
-          if (remoteUsers && remoteUsers.length > 0) {
-            setUsers(remoteUsers);
-            localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(remoteUsers));
-            setCurrentUser((curr) => {
-              const fresh = remoteUsers.find((u: User) => u.id === curr.id);
-              return fresh || curr;
+          setBarbershops((curr) => {
+            const merged = mergeById(remoteShops || [], curr);
+            localStorage.setItem(STORAGE_KEYS.BARBERSHOPS, JSON.stringify(merged));
+            return merged;
+          });
+
+          setServices((curr) => {
+            const merged = mergeById(remoteServices || [], curr);
+            localStorage.setItem(STORAGE_KEYS.SERVICES, JSON.stringify(merged));
+            return merged;
+          });
+
+          setAppointments((curr) => {
+            const merged = mergeById(remoteAppointments || [], curr);
+            localStorage.setItem(STORAGE_KEYS.APPOINTMENTS, JSON.stringify(merged));
+            return merged;
+          });
+
+          setUsers((curr) => {
+            const merged = mergeById(remoteUsers || [], curr);
+            localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(merged));
+            setCurrentUser((currU) => {
+              const fresh = merged.find((u: User) => u.id === currU.id);
+              return fresh || currU;
             });
-          }
+            return merged;
+          });
+
           if (remotePlans && remotePlans.length > 0) {
             setSubscriptionPlans(remotePlans);
             localStorage.setItem(STORAGE_KEYS.PLANS, JSON.stringify(remotePlans));
@@ -590,8 +639,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             });
           }
           if (remoteTrials && Array.isArray(remoteTrials) && remoteTrials.length > 0) {
-            setTrialRecords(remoteTrials);
-            localStorage.setItem(STORAGE_KEYS.TRIAL_RECORDS, JSON.stringify(remoteTrials));
+            setTrialRecords((curr) => {
+              const merged = mergeById(remoteTrials || [], curr);
+              localStorage.setItem(STORAGE_KEYS.TRIAL_RECORDS, JSON.stringify(merged));
+              return merged;
+            });
           }
           if (remoteLanding) {
             setLandingPageContent((prev) => {
@@ -622,37 +674,58 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         async () => {
           const freshAppointments = await supabaseService.getAppointments();
           if (freshAppointments && isMounted) {
-            setAppointments(freshAppointments);
+            setAppointments((curr) => {
+              const merged = mergeById(freshAppointments, curr);
+              localStorage.setItem(STORAGE_KEYS.APPOINTMENTS, JSON.stringify(merged));
+              return merged;
+            });
           }
         },
         async () => {
           const freshShops = await supabaseService.getBarbershops();
           if (freshShops && isMounted) {
-            setBarbershops(freshShops);
+            setBarbershops((curr) => {
+              const merged = mergeById(freshShops, curr);
+              localStorage.setItem(STORAGE_KEYS.BARBERSHOPS, JSON.stringify(merged));
+              return merged;
+            });
           }
         },
         async () => {
           const freshServices = await supabaseService.getServices();
           if (freshServices && isMounted) {
-            setServices(freshServices);
+            setServices((curr) => {
+              const merged = mergeById(freshServices, curr);
+              localStorage.setItem(STORAGE_KEYS.SERVICES, JSON.stringify(merged));
+              return merged;
+            });
           }
         },
         async () => {
           const freshSettings = await supabaseService.getPlatformSettings();
           if (freshSettings && isMounted) {
-            setPlatformSettings((prev) => ({ ...prev, ...freshSettings }));
+            setPlatformSettings((prev) => {
+              const merged = { ...prev, ...freshSettings };
+              localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(merged));
+              return merged;
+            });
           }
         },
         async () => {
           const freshLanding = await supabaseService.getLandingPageContent();
           if (freshLanding && isMounted) {
-            setLandingPageContent((prev) => ({ ...prev, ...freshLanding }));
+            setLandingPageContent((prev) => {
+              const merged = { ...prev, ...freshLanding };
+              localStorage.setItem(STORAGE_KEYS.LANDING, JSON.stringify(merged));
+              return merged;
+            });
           }
         },
         async () => {
           const freshPlans = await supabaseService.getSubscriptionPlans();
           if (freshPlans && isMounted && freshPlans.length > 0) {
             setSubscriptionPlans(freshPlans);
+            localStorage.setItem(STORAGE_KEYS.PLANS, JSON.stringify(freshPlans));
           }
         }
       );
@@ -1755,6 +1828,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       pixKey: data.pixKey,
       pixKeyType: data.pixKeyType || 'phone',
       pixReceiverName: data.barberName.toUpperCase(),
+      acceptedPaymentMethods: ['pix_manual', 'cash', 'card'],
       subscriptionPlanId: selectedPlan.id,
       // Trial is automatically activated for 30 days! Paid plans start in pending status until PIX is confirmed
       subscriptionStatus: isTrial ? 'active' : 'pending',
@@ -1780,6 +1854,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     // If trial plan, record usage to prevent duplicate registration
+    let updatedTrials = trialRecords;
     if (isTrial) {
       const newTrialRecord: TrialUserRecord = {
         id: generateId('trial_rec'),
@@ -1790,7 +1865,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         barbershopName: data.shopName,
         registeredAt: getTodayDateString(),
       };
-      setTrialRecords((prev) => [...prev, newTrialRecord]);
+      updatedTrials = [...trialRecords, newTrialRecord];
+      setTrialRecords(updatedTrials);
+      localStorage.setItem(STORAGE_KEYS.TRIAL_RECORDS, JSON.stringify(updatedTrials));
+      saveToServerDb('trialRecords', newTrialRecord, 'upsert');
       supabaseService.upsertTrialRecord(newTrialRecord);
     }
 
@@ -1828,9 +1906,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       },
     ];
 
-    setUsers((prev) => [...prev, newUser]);
-    setBarbershops((prev) => [...prev, newShop]);
-    setServices((prev) => [...prev, ...defaultServices]);
+    const updatedUsers = [...users.filter((u) => u.id !== newUser.id), newUser];
+    const updatedShops = [...barbershops.filter((s) => s.id !== newShop.id), newShop];
+    const updatedServices = [...services, ...defaultServices];
+
+    setUsers(updatedUsers);
+    setBarbershops(updatedShops);
+    setServices(updatedServices);
+    setActiveBarbershopId(newShopId);
+    setCurrentUser(newUser);
+
+    // Synchronously write to localStorage immediately so any refresh has full state
+    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(updatedUsers));
+    localStorage.setItem(STORAGE_KEYS.BARBERSHOPS, JSON.stringify(updatedShops));
+    localStorage.setItem(STORAGE_KEYS.SERVICES, JSON.stringify(updatedServices));
+    localStorage.setItem(STORAGE_KEYS.ACTIVE_SHOP_ID, newShopId);
+    localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, newUser.id);
+    localStorage.setItem(STORAGE_KEYS.AUTH_LOGGED_IN, 'true');
+    localStorage.setItem(STORAGE_KEYS.CURRENT_VIEW, 'barber_dashboard');
+
+    // Sync to Server DB immediately
+    saveToServerDb('users', newUser, 'upsert');
+    saveToServerDb('barbershops', newShop, 'upsert');
+    defaultServices.forEach((srv) => saveToServerDb('services', srv, 'upsert'));
+    syncAllToServerDb({
+      barbershops: updatedShops,
+      services: updatedServices,
+      users: updatedUsers,
+      trialRecords: updatedTrials,
+    });
 
     // Sync new shop and services to Supabase
     supabaseService.upsertUser(newUser);

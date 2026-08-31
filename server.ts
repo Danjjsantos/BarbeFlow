@@ -53,7 +53,7 @@ function initLocalDatabase() {
         users: INITIAL_USERS,
         plans: INITIAL_SUBSCRIPTION_PLANS,
         settings: INITIAL_PLATFORM_SETTINGS,
-        trialRecords: [],
+        trialRecords: INITIAL_TRIAL_RECORDS || [],
         landing: INITIAL_LANDING_CONTENT,
         lastUpdated: new Date().toISOString(),
       };

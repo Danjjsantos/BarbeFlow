@@ -348,6 +348,12 @@ export const BarberRegisterModal: React.FC<BarberRegisterModalProps> = ({
         role: 'barber' as const,
         barbershopId: createdShop.id,
       };
+      try {
+        localStorage.setItem('barberhub_active_shop_id_v2', createdShop.id);
+        localStorage.setItem('barberhub_current_user_id_v2', shopUser.id);
+        localStorage.setItem('barberhub_auth_logged_in_v2', 'true');
+        localStorage.setItem('barberhub_view_v2', 'barber_dashboard');
+      } catch {}
       setCurrentUser(shopUser);
       setCurrentView('barber_dashboard');
     }
@@ -357,6 +363,10 @@ export const BarberRegisterModal: React.FC<BarberRegisterModalProps> = ({
   const handleGoToPublicBooking = () => {
     if (createdShop) {
       setActiveBarbershopId(createdShop.id);
+      try {
+        localStorage.setItem('barberhub_active_shop_id_v2', createdShop.id);
+        localStorage.setItem('barberhub_view_v2', 'client_booking');
+      } catch {}
       setCurrentView('client_booking');
     }
     onClose();
