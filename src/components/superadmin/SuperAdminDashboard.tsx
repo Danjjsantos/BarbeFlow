@@ -50,6 +50,7 @@ import {
   Camera,
   UserCog,
   Scissors,
+  RefreshCw,
 } from 'lucide-react';
 
 export const SuperAdminDashboard: React.FC = () => {
@@ -66,6 +67,8 @@ export const SuperAdminDashboard: React.FC = () => {
     switchRole,
     logoutUser,
     isSupabaseActive,
+    syncAllToSupabase,
+    supabaseStatus,
     getBarbershopPublicUrl,
   } = useApp();
 
@@ -89,6 +92,8 @@ export const SuperAdminDashboard: React.FC = () => {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [shopToDelete, setShopToDelete] = useState<Barbershop | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isSyncingSupabase, setIsSyncingSupabase] = useState(false);
+  const [supabaseFeedback, setSupabaseFeedback] = useState<{ success: boolean; message: string } | null>(null);
 
   // Filter pending barbershops that need approval
   const pendingBarbershops = barbershops.filter(
@@ -704,16 +709,47 @@ export const SuperAdminDashboard: React.FC = () => {
             <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 sm:p-8 shadow-xs space-y-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <h3 className="text-xl font-bold text-slate-900 dark:text-white">
-                    Todas as Barbearias Cadastradas
-                  </h3>
+                  <div className="flex items-center gap-2.5">
+                    <h3 className="text-xl font-bold text-slate-900 dark:text-white">
+                      Todas as Barbearias Cadastradas
+                    </h3>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                      <Database className="w-3 h-3 text-emerald-500" />
+                      Tabela Supabase: <code className="font-mono text-emerald-600 dark:text-emerald-400">barbershops</code>
+                    </span>
+                  </div>
                   <p className="text-xs text-slate-500 mt-1">
-                    Pesquise, altere o status de assinatura e gerencie os parceiros da plataforma.
+                    Pesquise, altere o status de assinatura e gerencie os parceiros salvos na nuvem.
                   </p>
                 </div>
 
-                {/* Filters */}
+                {/* Filters and Supabase Sync Action */}
                 <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setIsSyncingSupabase(true);
+                      setSupabaseFeedback(null);
+                      try {
+                        const res = await syncAllToSupabase();
+                        setSupabaseFeedback(res);
+                        if (res.success) {
+                          setTimeout(() => setSupabaseFeedback(null), 6000);
+                        }
+                      } catch (err: any) {
+                        setSupabaseFeedback({ success: false, message: err?.message || 'Falha ao sincronizar' });
+                      } finally {
+                        setIsSyncingSupabase(false);
+                      }
+                    }}
+                    disabled={isSyncingSupabase}
+                    className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-sm transition flex items-center gap-1.5 cursor-pointer"
+                    title="Sincronizar todas as barbearias cadastradas na tabela barbershops do Supabase"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isSyncingSupabase ? 'animate-spin' : ''}`} />
+                    <span>{isSyncingSupabase ? 'Sincronizando...' : 'Salvar Barbearias no Supabase'}</span>
+                  </button>
+
                   <div className="relative">
                     <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                     <input
@@ -721,7 +757,7 @@ export const SuperAdminDashboard: React.FC = () => {
                       placeholder="Buscar barbearia, dono, cidade..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs focus:outline-hidden focus:ring-2 focus:ring-orange-500 w-56 sm:w-64"
+                      className="pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs focus:outline-hidden focus:ring-2 focus:ring-orange-500 w-48 sm:w-56"
                     />
                   </div>
 
@@ -738,6 +774,32 @@ export const SuperAdminDashboard: React.FC = () => {
                   </select>
                 </div>
               </div>
+
+              {/* Supabase feedback alert */}
+              {supabaseFeedback && (
+                <div
+                  className={`p-3.5 rounded-2xl border text-xs flex items-center justify-between gap-3 animate-in fade-in ${
+                    supabaseFeedback.success
+                      ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200'
+                      : 'bg-rose-50 dark:bg-rose-950/40 border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    {supabaseFeedback.success ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                    )}
+                    <span>{supabaseFeedback.message}</span>
+                  </div>
+                  <button
+                    onClick={() => setSupabaseFeedback(null)}
+                    className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
 
               {/* Table */}
               <div className="overflow-x-auto">

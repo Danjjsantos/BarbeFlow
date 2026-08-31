@@ -1196,10 +1196,30 @@ export const supabaseService = {
     // Always persist to server database file
     saveToServerDb('barbershops', shop, 'upsert');
 
+    const mapped = mapBarbershopToDb(shop);
+
+    // Try server-side proxy first (bypasses browser CORS / adblocker / network issues)
+    try {
+      const config = getStoredSupabaseConfig();
+      const cleanUrl = normalizeSupabaseUrl(config.url);
+      const key = config.key;
+      if (cleanUrl && key) {
+        fetch('/api/supabase/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            barbershops: [mapped],
+            customUrl: cleanUrl,
+            customKey: key,
+          }),
+        }).catch((err) => console.warn('Background backend sync for barbershop failed:', err));
+      }
+    } catch {}
+
     const client = getSupabaseClient();
     if (!client) return true;
     try {
-      const { error } = await client.from('barbershops').upsert(mapBarbershopToDb(shop));
+      const { error } = await client.from('barbershops').upsert(mapped);
       if (error) console.warn('upsertBarbershop error:', error);
       return !error;
     } catch (e) {
@@ -1240,10 +1260,29 @@ export const supabaseService = {
     // Always persist to server database file
     saveToServerDb('services', srv, 'upsert');
 
+    const mapped = mapServiceToDb(srv);
+
+    try {
+      const config = getStoredSupabaseConfig();
+      const cleanUrl = normalizeSupabaseUrl(config.url);
+      const key = config.key;
+      if (cleanUrl && key) {
+        fetch('/api/supabase/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            services: [mapped],
+            customUrl: cleanUrl,
+            customKey: key,
+          }),
+        }).catch((err) => console.warn('Background backend sync for service failed:', err));
+      }
+    } catch {}
+
     const client = getSupabaseClient();
     if (!client) return true;
     try {
-      const { error } = await client.from('services').upsert(mapServiceToDb(srv));
+      const { error } = await client.from('services').upsert(mapped);
       if (error) console.warn('upsertService error:', error);
       return !error;
     } catch (e) {
@@ -1329,10 +1368,29 @@ export const supabaseService = {
     // Always persist to server database file
     saveToServerDb('users', user, 'upsert');
 
+    const mapped = mapUserToDb(user);
+
+    try {
+      const config = getStoredSupabaseConfig();
+      const cleanUrl = normalizeSupabaseUrl(config.url);
+      const key = config.key;
+      if (cleanUrl && key) {
+        fetch('/api/supabase/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            users: [mapped],
+            customUrl: cleanUrl,
+            customKey: key,
+          }),
+        }).catch((err) => console.warn('Background backend sync for user failed:', err));
+      }
+    } catch {}
+
     const client = getSupabaseClient();
     if (!client) return true;
     try {
-      const { error } = await client.from('users').upsert(mapUserToDb(user));
+      const { error } = await client.from('users').upsert(mapped);
       if (error) console.warn('upsertUser error:', error);
       return !error;
     } catch (e) {
