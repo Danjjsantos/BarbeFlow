@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
+import { SubscriptionPlanPeriod } from '../../types';
 import { generatePixPayload, generateQrCodeDataUrl } from '../../utils/pix';
 import {
   createMercadoPagoPix,
@@ -17,32 +18,78 @@ import {
   Zap,
   RefreshCw,
   AlertTriangle,
+  Sparkles,
+  ShieldCheck,
+  Calendar,
 } from 'lucide-react';
 
 interface BarberSubscriptionPayModalProps {
   isOpen: boolean;
   onClose: () => void;
   barbershopId: string;
+  initialPlanId?: SubscriptionPlanPeriod;
 }
 
 export const BarberSubscriptionPayModal: React.FC<BarberSubscriptionPayModalProps> = ({
   isOpen,
   onClose,
   barbershopId,
+  initialPlanId,
 }) => {
   const {
     getBarbershopById,
     platformSettings,
+    subscriptionPlans,
     submitSubscriptionPaymentProof,
     approveBarbershopSubscription,
     updateBarbershop,
   } = useApp();
 
   const shop = getBarbershopById(barbershopId);
+
+  // Available selectable paid plans (excluding trial for direct purchase)
+  const paidPlans = subscriptionPlans.filter((p) => p.id !== 'trial' && p.active);
+
+  // Determine initial selected plan
+  const defaultPlanId: SubscriptionPlanPeriod = (() => {
+    if (initialPlanId && initialPlanId !== 'trial') return initialPlanId;
+    if (shop?.subscriptionPlanId && shop.subscriptionPlanId !== 'trial') {
+      return shop.subscriptionPlanId as SubscriptionPlanPeriod;
+    }
+    return 'monthly';
+  })();
+
+  const [selectedPlanId, setSelectedPlanId] = useState<SubscriptionPlanPeriod>(defaultPlanId);
   const [copiedCode, setCopiedCode] = useState(false);
   const [proofNote, setProofNote] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [isApprovedAuto, setIsApprovedAuto] = useState(false);
+
+  // Reset selected plan when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      const initId = (initialPlanId && initialPlanId !== 'trial'
+        ? initialPlanId
+        : shop?.subscriptionPlanId && shop.subscriptionPlanId !== 'trial'
+        ? (shop.subscriptionPlanId as SubscriptionPlanPeriod)
+        : 'monthly') as SubscriptionPlanPeriod;
+      setSelectedPlanId(initId);
+      setSubmitted(false);
+      setIsApprovedAuto(false);
+      setCopiedCode(false);
+    }
+  }, [isOpen, initialPlanId, shop?.subscriptionPlanId]);
+
+  const currentSelectedPlan = paidPlans.find((p) => p.id === selectedPlanId) || paidPlans[0] || {
+    id: 'monthly',
+    name: 'Plano Mensal',
+    price: 49.9,
+    periodMonths: 1,
+    description: 'Acesso completo por 30 dias.',
+  };
+
+  const planPrice = currentSelectedPlan.price;
+  const planDays = (currentSelectedPlan.periodMonths || 1) * 30;
 
   // Mercado Pago states
   const [isGeneratingPix, setIsGeneratingPix] = useState(false);
@@ -55,9 +102,7 @@ export const BarberSubscriptionPayModal: React.FC<BarberSubscriptionPayModalProp
 
   const pollIntervalRef = useRef<any>(null);
 
-  const monthlyFee = shop ? shop.subscriptionMonthlyFee || platformSettings.monthlyFee : 49.9;
-
-  // Initialize PIX via Mercado Pago
+  // Initialize PIX via Mercado Pago whenever selected plan or modal state changes
   useEffect(() => {
     if (!isOpen || !shop || submitted || isApprovedAuto) return;
 
@@ -66,15 +111,20 @@ export const BarberSubscriptionPayModal: React.FC<BarberSubscriptionPayModalProp
     async function initSubscriptionPix() {
       setIsGeneratingPix(true);
       setApiError(null);
+      setPaymentId('');
+      setMpQrCodePayload('');
+      setMpQrCodeBase64('');
+      setGeneratedDataUrl('');
+
       try {
         const phoneDigits = (shop?.ownerPhone || '').replace(/\D/g, '');
         const res = await createMercadoPagoPix({
-          amount: monthlyFee,
-          description: `Mensalidade BarberHub - ${shop?.name || 'Assinatura'}`,
+          amount: planPrice,
+          description: `Assinatura BarberHub (${currentSelectedPlan.name}) - ${shop?.name || 'Barbearia'}`,
           payerEmail: phoneDigits ? `barbeiro_${phoneDigits}@barberhub.com.br` : 'barbeiro@barberhub.com.br',
           payerName: shop?.ownerName || shop?.name || 'Barbeiro Parceiro',
           accessToken: platformSettings.mercadoPagoAccessToken,
-          externalReference: `sub_${shop?.id}_${Date.now()}`,
+          externalReference: `sub_${shop?.id}_${selectedPlanId}_${Date.now()}`,
         });
 
         if (isMounted) {
@@ -101,9 +151,9 @@ export const BarberSubscriptionPayModal: React.FC<BarberSubscriptionPayModalProp
             const fallback = generatePixPayload({
               pixKey: platformSettings.platformPixKey,
               receiverName: platformSettings.platformPixReceiverName,
-              amount: monthlyFee,
-              txId: `MENSAL${shop?.slug.substring(0, 8).toUpperCase()}`,
-              description: `Mensalidade BarberHub - ${shop?.name}`,
+              amount: planPrice,
+              txId: `SUB${selectedPlanId.toUpperCase().slice(0, 4)}${shop?.slug.substring(0, 6).toUpperCase()}`,
+              description: `Assinatura ${currentSelectedPlan.name} - ${shop?.name}`,
             });
             setMpQrCodePayload(fallback);
             const url = await generateQrCodeDataUrl(fallback, 300);
@@ -117,9 +167,9 @@ export const BarberSubscriptionPayModal: React.FC<BarberSubscriptionPayModalProp
           const fallback = generatePixPayload({
             pixKey: platformSettings.platformPixKey,
             receiverName: platformSettings.platformPixReceiverName,
-            amount: monthlyFee,
-            txId: `MENSAL${shop?.slug.substring(0, 8).toUpperCase()}`,
-            description: `Mensalidade BarberHub - ${shop?.name}`,
+            amount: planPrice,
+            txId: `SUB${selectedPlanId.toUpperCase().slice(0, 4)}${shop?.slug.substring(0, 6).toUpperCase()}`,
+            description: `Assinatura ${currentSelectedPlan.name} - ${shop?.name}`,
           });
           setMpQrCodePayload(fallback);
           const url = await generateQrCodeDataUrl(fallback, 300);
@@ -135,7 +185,7 @@ export const BarberSubscriptionPayModal: React.FC<BarberSubscriptionPayModalProp
     return () => {
       isMounted = false;
     };
-  }, [isOpen, shop, monthlyFee, platformSettings.mercadoPagoAccessToken, platformSettings.platformPixKey, platformSettings.platformPixReceiverName]);
+  }, [isOpen, shop, selectedPlanId, planPrice, platformSettings.mercadoPagoAccessToken, platformSettings.platformPixKey, platformSettings.platformPixReceiverName]);
 
   // Polling for Mercado Pago status
   useEffect(() => {
@@ -170,7 +220,7 @@ export const BarberSubscriptionPayModal: React.FC<BarberSubscriptionPayModalProp
     });
 
     if (shop) {
-      approveBarbershopSubscription(shop.id, 30);
+      approveBarbershopSubscription(shop.id, planDays, selectedPlanId);
     }
 
     setTimeout(() => {
@@ -183,9 +233,9 @@ export const BarberSubscriptionPayModal: React.FC<BarberSubscriptionPayModalProp
   const fallbackPixPayload = generatePixPayload({
     pixKey: platformSettings.platformPixKey,
     receiverName: platformSettings.platformPixReceiverName,
-    amount: monthlyFee,
-    txId: `MENSAL${shop.slug.substring(0, 8).toUpperCase()}`,
-    description: `Mensalidade BarberHub - ${shop.name}`,
+    amount: planPrice,
+    txId: `SUB${selectedPlanId.toUpperCase().slice(0, 4)}${shop.slug.substring(0, 6).toUpperCase()}`,
+    description: `Assinatura ${currentSelectedPlan.name} - ${shop.name}`,
   });
 
   const finalPixPayload = mpQrCodePayload || fallbackPixPayload;
@@ -200,7 +250,7 @@ export const BarberSubscriptionPayModal: React.FC<BarberSubscriptionPayModalProp
     e.preventDefault();
     const note =
       proofNote.trim() ||
-      `Comprovante PIX de ${formatCurrency(monthlyFee)} pago em ${getTodayDateString()}`;
+      `Comprovante PIX do ${currentSelectedPlan.name} (${formatCurrency(planPrice)}) pago em ${getTodayDateString()}`;
     submitSubscriptionPaymentProof(shop.id, note);
     setSubmitted(true);
     confetti({
@@ -217,6 +267,8 @@ export const BarberSubscriptionPayModal: React.FC<BarberSubscriptionPayModalProp
   const qrImageSrc = mpQrCodeBase64
     ? (mpQrCodeBase64.startsWith('data:') ? mpQrCodeBase64 : `data:image/png;base64,${mpQrCodeBase64}`)
     : generatedDataUrl;
+
+  const isCurrentShopFreeTrial = shop.subscriptionPlanId === 'trial' || shop.subscriptionPlanId === ('free_trial' as any);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-xs">
@@ -238,10 +290,10 @@ export const BarberSubscriptionPayModal: React.FC<BarberSubscriptionPayModalProp
               <CheckCircle2 className="w-10 h-10" />
             </div>
             <h3 className="text-2xl font-black text-slate-900 dark:text-white">
-              Assinatura Ativada com Sucesso!
+              {currentSelectedPlan.name} Ativado com Sucesso!
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 max-w-sm mx-auto">
-              Pagamento PIX confirmado via Mercado Pago. Sua barbearia está 100% ativa para receber clientes!
+              Pagamento PIX de {formatCurrency(planPrice)} confirmado via Mercado Pago. Sua barbearia está com acesso liberado por {planDays} dias!
             </p>
           </div>
         ) : submitted ? (
@@ -250,29 +302,93 @@ export const BarberSubscriptionPayModal: React.FC<BarberSubscriptionPayModalProp
               <CheckCircle2 className="w-10 h-10" />
             </div>
             <h3 className="text-2xl font-black text-slate-900 dark:text-white">
-              Pagamento Enviado para Aprovação!
+              Pagamento do {currentSelectedPlan.name} Enviado!
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 max-w-sm mx-auto">
-              O Administrador Geral da plataforma foi notificado e validará seu plano em instantes.
+              O comprovante foi registrado. O Administrador Geral validará a renovação de {formatCurrency(planPrice)} em instantes.
             </p>
           </div>
         ) : (
           <div className="space-y-4">
             <div className="text-center">
-              <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-orange-100 text-orange-800 dark:bg-orange-950/60 dark:text-orange-300 border border-orange-300 dark:border-orange-800 mb-2">
+              <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-800 mb-2">
                 <Building2 className="w-3.5 h-3.5" />
-                Taxa Mensal da Plataforma
+                Renovação & Planos da Plataforma
               </span>
               <h3 className="text-xl sm:text-2xl font-black">
-                Renovação / Ativação de Plano
+                {isCurrentShopFreeTrial ? 'Escolha seu Plano de Continuidade' : 'Renovação / Troca de Plano'}
               </h3>
-              <div className="text-3xl font-black text-orange-600 dark:text-orange-400 mt-1">
-                {formatCurrency(monthlyFee)}
-                <span className="text-xs font-normal text-slate-400"> / mês</span>
-              </div>
               <p className="text-xs text-slate-500 mt-1">
                 Barbearia: <strong>{shop.name}</strong>
               </p>
+            </div>
+
+            {/* Plan Selector Buttons / Cards */}
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                Selecione o Plano Desejado:
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {paidPlans.map((plan) => {
+                  const isSelected = selectedPlanId === plan.id;
+                  return (
+                    <button
+                      key={plan.id}
+                      type="button"
+                      onClick={() => setSelectedPlanId(plan.id)}
+                      className={`relative p-3 rounded-2xl border text-left transition flex flex-col justify-between ${
+                        isSelected
+                          ? 'border-amber-500 bg-amber-500/10 dark:bg-amber-500/15 ring-2 ring-amber-500'
+                          : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 hover:border-slate-300 dark:hover:border-slate-700'
+                      }`}
+                    >
+                      {plan.badge && (
+                        <span className="absolute -top-2 right-2 px-1.5 py-0.5 rounded-full text-[9px] font-extrabold bg-amber-500 text-slate-950 shadow-xs">
+                          {plan.badge}
+                        </span>
+                      )}
+                      <div>
+                        <p className="font-bold text-xs text-slate-900 dark:text-white flex items-center justify-between">
+                          <span>{plan.name}</span>
+                          {isSelected && <CheckCircle2 className="w-3.5 h-3.5 text-amber-500 shrink-0" />}
+                        </p>
+                        <p className="text-base font-black text-amber-600 dark:text-amber-400 mt-0.5">
+                          {formatCurrency(plan.price)}
+                        </p>
+                      </div>
+                      <div className="mt-1 pt-1 border-t border-slate-200/60 dark:border-slate-700/60 text-[10px] text-slate-500 dark:text-slate-400">
+                        {plan.periodMonths === 1 ? (
+                          <span>R$ {plan.price.toFixed(2)}/mês</span>
+                        ) : (
+                          <span>Equiv. <strong>R$ {plan.monthlyEquivalent.toFixed(2)}/mês</strong></span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Selected Plan Details & Summary */}
+            <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-2xl flex items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
+                <div>
+                  <span className="font-bold text-slate-900 dark:text-white">
+                    {currentSelectedPlan.name} selecionado ({currentSelectedPlan.periodMonths} {currentSelectedPlan.periodMonths === 1 ? 'mês' : 'meses'} de acesso)
+                  </span>
+                  {currentSelectedPlan.discountPercent ? (
+                    <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold block">
+                      Economia de {currentSelectedPlan.discountPercent}% em relação ao plano mensal
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+              <div className="text-right shrink-0">
+                <span className="text-lg font-black text-amber-600 dark:text-amber-400">
+                  {formatCurrency(planPrice)}
+                </span>
+              </div>
             </div>
 
             {/* Status pill */}
@@ -293,23 +409,23 @@ export const BarberSubscriptionPayModal: React.FC<BarberSubscriptionPayModalProp
             {/* QR Code Container */}
             <div className="flex flex-col items-center justify-center p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700/80">
               {isGeneratingPix ? (
-                <div className="w-52 h-52 flex flex-col items-center justify-center gap-3 text-slate-400">
-                  <RefreshCw className="w-8 h-8 animate-spin text-orange-500" />
+                <div className="w-48 h-48 flex flex-col items-center justify-center gap-3 text-slate-400">
+                  <RefreshCw className="w-8 h-8 animate-spin text-amber-500" />
                   <span className="text-xs">Gerando PIX Mercado Pago...</span>
                 </div>
               ) : qrImageSrc ? (
                 <img
                   src={qrImageSrc}
                   alt="QR Code PIX Assinatura"
-                  className="w-52 h-52 bg-white p-3 rounded-xl shadow-xs object-contain border border-slate-100"
+                  className="w-48 h-48 bg-white p-3 rounded-xl shadow-xs object-contain border border-slate-100"
                 />
               ) : (
-                <div className="w-52 h-52 bg-white p-3 rounded-xl shadow-xs flex items-center justify-center text-xs text-slate-400">
+                <div className="w-48 h-48 bg-white p-3 rounded-xl shadow-xs flex items-center justify-center text-xs text-slate-400">
                   Carregando QR Code...
                 </div>
               )}
-              <span className="text-[11px] text-slate-500 mt-2">
-                Pague via PIX no seu banco para ativar o plano instantaneamente
+              <span className="text-[11px] text-slate-500 mt-2 text-center">
+                Pague <strong>{formatCurrency(planPrice)}</strong> via PIX no aplicativo do seu banco para ativação imediata
               </span>
             </div>
 
@@ -323,7 +439,7 @@ export const BarberSubscriptionPayModal: React.FC<BarberSubscriptionPayModalProp
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Chave PIX da Plataforma:</span>
-                <span className="font-mono font-bold text-orange-600 dark:text-orange-400">
+                <span className="font-mono font-bold text-amber-600 dark:text-amber-400">
                   {platformSettings.platformPixKey}
                 </span>
               </div>
@@ -353,8 +469,8 @@ export const BarberSubscriptionPayModal: React.FC<BarberSubscriptionPayModalProp
                 </>
               ) : (
                 <>
-                  <Copy className="w-4 h-4 text-orange-400" />
-                  Copiar Código PIX (Copia e Cola)
+                  <Copy className="w-4 h-4 text-amber-400" />
+                  Copiar Código PIX ({formatCurrency(planPrice)})
                 </>
               )}
             </button>
@@ -370,13 +486,13 @@ export const BarberSubscriptionPayModal: React.FC<BarberSubscriptionPayModalProp
                   placeholder="Ex: PIX enviado pelo Banco Inter - Chave final 8877"
                   value={proofNote}
                   onChange={(e) => setProofNote(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs focus:outline-hidden focus:ring-2 focus:ring-orange-500"
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs focus:outline-hidden focus:ring-2 focus:ring-amber-500"
                 />
               </div>
 
               <button
                 type="submit"
-                className="w-full py-2.5 bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full py-2.5 bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-2 cursor-pointer"
               >
                 <Send className="w-4 h-4" />
                 Informar Pagamento Manual ao Administrador
@@ -388,3 +504,4 @@ export const BarberSubscriptionPayModal: React.FC<BarberSubscriptionPayModalProp
     </div>
   );
 };
+

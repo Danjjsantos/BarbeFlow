@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Barbershop, PixKeyType, PaymentMethodType } from '../../types';
+import { Barbershop, PixKeyType, PaymentMethodType, SubscriptionPlanPeriod } from '../../types';
 import { formatCurrency, formatPhone, getDayOfWeekName } from '../../utils/formatters';
 import { testMercadoPagoCredentials } from '../../utils/mercadopago';
 import { QrCodeModal } from '../common/QrCodeModal';
@@ -35,6 +35,7 @@ import {
   BellRing,
   Banknote,
   Sparkles,
+  ChevronRight,
 } from 'lucide-react';
 
 interface BarberSettingsViewProps {
@@ -42,7 +43,15 @@ interface BarberSettingsViewProps {
 }
 
 export const BarberSettingsView: React.FC<BarberSettingsViewProps> = ({ barbershop }) => {
-  const { updateBarbershop, platformSettings, currentUser, setActiveBarbershopId, setCurrentView, getBarbershopPublicUrl } = useApp();
+  const {
+    updateBarbershop,
+    platformSettings,
+    currentUser,
+    subscriptionPlans,
+    setActiveBarbershopId,
+    setCurrentView,
+    getBarbershopPublicUrl,
+  } = useApp();
 
   // Basic Info Form State
   const [name, setName] = useState(barbershop.name);
@@ -95,12 +104,33 @@ export const BarberSettingsView: React.FC<BarberSettingsViewProps> = ({ barbersh
   // Modals
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
+  const [selectedPlanForPayModal, setSelectedPlanForPayModal] = useState<SubscriptionPlanPeriod | undefined>(undefined);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
   const isPlanEligibleForAutoPix =
     barbershop.subscriptionPlanId === 'semiannual' ||
     barbershop.subscriptionPlanId === 'annual';
+
+  const isFreeTrial =
+    barbershop.subscriptionPlanId === 'trial' ||
+    barbershop.subscriptionPlanId === ('free_trial' as any);
+
+  const paidPlans = subscriptionPlans.filter((p) => p.id !== 'trial' && p.active);
+  const monthlyPlan = subscriptionPlans.find((p) => p.id === 'monthly') || {
+    id: 'monthly' as const,
+    name: 'Plano Mensal',
+    price: platformSettings.monthlyFee || 49.9,
+    periodMonths: 1,
+  };
+  const currentPlan =
+    subscriptionPlans.find((p) => p.id === barbershop.subscriptionPlanId) ||
+    (isFreeTrial ? subscriptionPlans.find((p) => p.id === 'trial') : monthlyPlan);
+
+  const openPayModalWithPlan = (planId?: SubscriptionPlanPeriod) => {
+    setSelectedPlanForPayModal(planId);
+    setIsPayModalOpen(true);
+  };
 
   useEffect(() => {
     setName(barbershop.name);
@@ -239,7 +269,7 @@ export const BarberSettingsView: React.FC<BarberSettingsViewProps> = ({ barbersh
       )}
       {/* Subscription Status Callout Banner */}
       <div
-        className={`p-6 rounded-3xl border shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4 ${
+        className={`p-6 rounded-3xl border shadow-xs flex flex-col gap-5 ${
           isSubscriptionActive
             ? 'bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800'
             : isSubscriptionPending
@@ -247,53 +277,162 @@ export const BarberSettingsView: React.FC<BarberSettingsViewProps> = ({ barbersh
             : 'bg-rose-50/70 dark:bg-rose-950/30 border-rose-200 dark:border-rose-800'
         }`}
       >
-        <div className="flex items-start gap-3.5">
-          <div
-            className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
-              isSubscriptionActive
-                ? 'bg-emerald-600 text-white'
-                : isSubscriptionPending
-                ? 'bg-amber-500 text-slate-950'
-                : 'bg-rose-600 text-white'
-            }`}
-          >
-            {isSubscriptionActive ? (
-              <ShieldCheck className="w-6 h-6" />
-            ) : (
-              <AlertCircle className="w-6 h-6" />
-            )}
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h3 className="font-extrabold text-base text-slate-900 dark:text-white">
-                Assinatura da Plataforma:{' '}
-                {isSubscriptionActive
-                  ? 'Ativa'
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-start gap-3.5">
+            <div
+              className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
+                isSubscriptionActive
+                  ? isFreeTrial
+                    ? 'bg-amber-500 text-slate-950'
+                    : 'bg-emerald-600 text-white'
                   : isSubscriptionPending
-                  ? 'Aguardando Aprovação'
-                  : 'Vencida'}
-              </h3>
-              <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-white/80 dark:bg-slate-800/80 shadow-2xs">
-                {formatCurrency(barbershop.subscriptionMonthlyFee || platformSettings.monthlyFee)} / mês
-              </span>
+                  ? 'bg-amber-500 text-slate-950'
+                  : 'bg-rose-600 text-white'
+              }`}
+            >
+              {isSubscriptionActive ? (
+                isFreeTrial ? (
+                  <Sparkles className="w-6 h-6" />
+                ) : (
+                  <ShieldCheck className="w-6 h-6" />
+                )
+              ) : (
+                <AlertCircle className="w-6 h-6" />
+              )}
             </div>
-            <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
-              {isSubscriptionActive
-                ? `Plano ativo até ${barbershop.subscriptionValidUntil}. Sua agenda está visível publicamente para todos os clientes.`
-                : isSubscriptionPending
-                ? 'Seu comprovante foi enviado e está sendo validado pelo Administrador Geral da plataforma.'
-                : 'Sua assinatura mensal está pendente de pagamento para liberação da agenda pública.'}
-            </p>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="font-extrabold text-base text-slate-900 dark:text-white">
+                  {isFreeTrial
+                    ? 'Plano Gratuito de 30 Dias (Período de Teste)'
+                    : `Assinatura da Plataforma: ${
+                        isSubscriptionActive
+                          ? 'Ativa'
+                          : isSubscriptionPending
+                          ? 'Aguardando Aprovação'
+                          : 'Vencida'
+                      }`}
+                </h3>
+                {isFreeTrial ? (
+                  <span className="text-xs font-extrabold px-2.5 py-0.5 rounded-full bg-amber-500 text-slate-950 shadow-2xs flex items-center gap-1">
+                    <Sparkles className="w-3 h-3" /> Teste Grátis Ativo
+                  </span>
+                ) : (
+                  <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-white/80 dark:bg-slate-800/80 shadow-2xs">
+                    {currentPlan?.name || 'Plano Mensal'} ({formatCurrency(barbershop.subscriptionMonthlyFee || platformSettings.monthlyFee)} / mês)
+                  </span>
+                )}
+              </div>
+
+              {isFreeTrial ? (
+                <div className="mt-1.5 space-y-1">
+                  <p className="text-xs text-slate-700 dark:text-slate-200">
+                    Você está aproveitando os <strong>30 dias de acesso gratuito</strong> (válido até{' '}
+                    <strong className="text-amber-600 dark:text-amber-400">{barbershop.subscriptionValidUntil}</strong>).
+                    Sua agenda pública está online e recebendo agendamentos.
+                  </p>
+                  <p className="text-xs text-slate-600 dark:text-slate-300">
+                    Valor de renovação pós-teste para o <strong>Plano Mensal: {formatCurrency(monthlyPlan.price)} / mês</strong> (sem fidelidade), ou economize escolhendo um dos outros planos abaixo:
+                  </p>
+                </div>
+              ) : (
+                <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
+                  {isSubscriptionActive
+                    ? `Plano ativo até ${barbershop.subscriptionValidUntil}. Sua agenda está visível publicamente para todos os clientes.`
+                    : isSubscriptionPending
+                    ? 'Seu comprovante foi enviado e está sendo validado pelo Administrador Geral da plataforma.'
+                    : 'Sua assinatura está pendente de pagamento para liberação da agenda pública.'}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => openPayModalWithPlan(isFreeTrial ? 'monthly' : undefined)}
+              className="w-full sm:w-auto px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white dark:bg-amber-600 dark:hover:bg-amber-500 font-bold text-xs rounded-xl shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <CreditCard className="w-4 h-4" />
+              {isFreeTrial
+                ? 'Renovar / Escolher Outro Plano'
+                : isSubscriptionActive
+                ? 'Ver / Trocar de Plano (PIX)'
+                : 'Pagar Assinatura via PIX'}
+            </button>
           </div>
         </div>
 
-        <button
-          onClick={() => setIsPayModalOpen(true)}
-          className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white dark:bg-amber-600 dark:hover:bg-amber-500 font-bold text-xs rounded-xl shadow-xs transition shrink-0 flex items-center justify-center gap-1.5"
-        >
-          <CreditCard className="w-4 h-4" />
-          {isSubscriptionActive ? 'Ver / Renovar Taxa PIX' : 'Pagar Mensalidade via PIX'}
-        </button>
+        {/* Plan Switcher / Selection Option Cards */}
+        <div className="pt-3 border-t border-slate-200/80 dark:border-slate-800/80">
+          <div className="flex items-center justify-between gap-2 mb-2.5">
+            <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+              <Calendar className="w-3.5 h-3.5 text-amber-500" />
+              {isFreeTrial ? 'Opções de Planos para Renovação:' : 'Planos Disponíveis para Migração / Renovação:'}
+            </span>
+            <span className="text-[11px] text-slate-500 dark:text-slate-400">
+              Pagamento via PIX instantâneo
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+            {paidPlans.map((plan) => {
+              const isCurrent = !isFreeTrial && barbershop.subscriptionPlanId === plan.id;
+              return (
+                <div
+                  key={plan.id}
+                  className={`p-3 rounded-2xl border transition flex flex-col justify-between ${
+                    isCurrent
+                      ? 'bg-emerald-500/10 border-emerald-400 dark:border-emerald-600'
+                      : plan.id === 'annual'
+                      ? 'bg-white/80 dark:bg-slate-900/80 border-amber-300 dark:border-amber-700'
+                      : 'bg-white/80 dark:bg-slate-900/80 border-slate-200 dark:border-slate-800'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-1 mb-1">
+                    <span className="font-bold text-xs text-slate-900 dark:text-white">
+                      {plan.name}
+                    </span>
+                    {plan.badge && (
+                      <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded-full bg-amber-500 text-slate-950">
+                        {plan.badge}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="my-1">
+                    <div className="text-base font-black text-slate-900 dark:text-white">
+                      {formatCurrency(plan.price)}
+                      <span className="text-[10px] font-normal text-slate-500">
+                        {' '}/ {plan.periodMonths === 1 ? 'mês' : `${plan.periodMonths} meses`}
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-slate-500 dark:text-slate-400">
+                      {plan.periodMonths === 1 ? (
+                        <span>Cobrado mensalmente</span>
+                      ) : (
+                        <span>Equivale a <strong>{formatCurrency(plan.monthlyEquivalent)}/mês</strong></span>
+                      )}
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => openPayModalWithPlan(plan.id)}
+                    className={`w-full mt-2 py-1.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer ${
+                      isCurrent
+                        ? 'bg-emerald-600 text-white hover:bg-emerald-500'
+                        : 'bg-amber-600 hover:bg-amber-500 text-white'
+                    }`}
+                  >
+                    <span>{isCurrent ? 'Renovar Este Plano' : `Escolher ${plan.name.replace('Plano ', '')}`}</span>
+                    <ChevronRight className="w-3 h-3" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
       {/* Barbershop Public Booking Link & QR Card */}
@@ -1080,8 +1219,12 @@ export const BarberSettingsView: React.FC<BarberSettingsViewProps> = ({ barbersh
       {/* Barber Monthly Subscription PIX Pay Modal */}
       <BarberSubscriptionPayModal
         isOpen={isPayModalOpen}
-        onClose={() => setIsPayModalOpen(false)}
+        onClose={() => {
+          setIsPayModalOpen(false);
+          setSelectedPlanForPayModal(undefined);
+        }}
         barbershopId={barbershop.id}
+        initialPlanId={selectedPlanForPayModal}
       />
 
       {/* Change Password Modal */}
