@@ -198,29 +198,48 @@ export const resolveRouteFromUrl = (
     return { view: 'client_appointments', shopId: null, sub: null };
   }
 
+  // Helper to match a shop against loaded shops
+  const findShop = (identifier: string): Barbershop | undefined => {
+    if (!identifier) return undefined;
+    const clean = decodeURIComponent(identifier).trim().toLowerCase();
+    const cleanNoAccent = clean.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+    // Check exact slug or ID match
+    const bySlugOrId = shops.find(
+      (s) => (s.slug && s.slug.toLowerCase() === clean) || (s.id && s.id.toLowerCase() === clean)
+    );
+    if (bySlugOrId) return bySlugOrId;
+
+    // Check normalized slug without accents
+    const byNormalizedSlug = shops.find((s) => {
+      const sSlugNoAccent = (s.slug || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      return sSlugNoAccent === cleanNoAccent;
+    });
+    if (byNormalizedSlug) return byNormalizedSlug;
+
+    // Check by shop name normalized
+    const byName = shops.find((s) => {
+      const sNameNorm = (s.name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '-');
+      return sNameNorm === cleanNoAccent;
+    });
+    return byName;
+  };
+
   // 5. Direct Barbershop Customer Link (?view=nomedabarbearia)
   if (rawView) {
     const decodedSlug = decodeURIComponent(rawView).trim().toLowerCase();
-    const matchedShop = shops.find(
-      (s) => (s.slug && s.slug.toLowerCase() === decodedSlug) || (s.id && s.id.toLowerCase() === decodedSlug)
-    );
+    const matchedShop = findShop(rawView);
     if (matchedShop) {
       return {
         view: subParam === 'meus-agendamentos' ? 'client_appointments' : 'client_booking',
         shopId: matchedShop.id,
         sub: subParam,
       };
-    }
-    // Check normalized slug without accents
-    const decodedSlugNoAccent = decodedSlug.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    const matchedNormalized = shops.find((s) => {
-      const sSlugNoAccent = (s.slug || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-      return sSlugNoAccent === decodedSlugNoAccent;
-    });
-    if (matchedNormalized) {
+    } else {
+      // Even if shops list isn't hydrated yet, this is a barbershop slug link!
       return {
         view: subParam === 'meus-agendamentos' ? 'client_appointments' : 'client_booking',
-        shopId: matchedNormalized.id,
+        shopId: decodedSlug,
         sub: subParam,
       };
     }
@@ -228,16 +247,13 @@ export const resolveRouteFromUrl = (
 
   // 6. Secondary ?shop= or ?barbearia= parameter
   if (shopParam) {
-    const matchedShop = shops.find(
-      (s) => (s.slug && s.slug.toLowerCase() === shopParam.toLowerCase()) || (s.id && s.id.toLowerCase() === shopParam.toLowerCase())
-    );
-    if (matchedShop) {
-      return {
-        view: subParam === 'meus-agendamentos' ? 'client_appointments' : 'client_booking',
-        shopId: matchedShop.id,
-        sub: subParam,
-      };
-    }
+    const decodedShop = decodeURIComponent(shopParam).trim().toLowerCase();
+    const matchedShop = findShop(shopParam);
+    return {
+      view: subParam === 'meus-agendamentos' ? 'client_appointments' : 'client_booking',
+      shopId: matchedShop ? matchedShop.id : decodedShop,
+      sub: subParam,
+    };
   }
 
   // 7. Hash fallback (e.g. #navalha-de-ouro)
@@ -248,9 +264,7 @@ export const resolveRouteFromUrl = (
       'calculadora', 'simulador', 'depoimentos', 'faq',
     ];
     if (!landingSectionHashes.includes(rawHash)) {
-      const matchedShop = shops.find(
-        (s) => (s.slug && s.slug.toLowerCase() === rawHash) || (s.id && s.id.toLowerCase() === rawHash)
-      );
+      const matchedShop = findShop(rawHash);
       if (matchedShop) {
         return { view: 'client_booking', shopId: matchedShop.id, sub: null };
       }
@@ -321,12 +335,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (saved !== null) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       } catch {
-        // Fall back to empty
+        // Fall back to INITIAL_BARBERSHOPS
       }
     }
-    return [];
+    return INITIAL_BARBERSHOPS;
   });
 
   const [services, setServices] = useState<Service[]>(() => {
@@ -334,12 +348,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (saved !== null) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       } catch {
-        // Fall back to empty
+        // Fall back to INITIAL_SERVICES
       }
     }
-    return [];
+    return INITIAL_SERVICES;
   });
 
   const [appointments, setAppointments] = useState<Appointment[]>(() => {
@@ -347,12 +361,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (saved !== null) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       } catch {
-        // Fall back to empty
+        // Fall back to INITIAL_APPOINTMENTS
       }
     }
-    return [];
+    return INITIAL_APPOINTMENTS;
   });
 
   const [platformSettings, setPlatformSettings] = useState<PlatformSettings>(() => {
@@ -413,30 +427,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [activeBarbershopId, setActiveBarbershopId] = useState<string>(() => {
     if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      const shopParam = params.get('shop') || params.get('barbearia');
-      if (shopParam) return shopParam;
-
-      const hash = window.location.hash.replace('#', '').trim().toLowerCase();
-      const landingSectionHashes = [
-        'planos', 'cadastro', 'apresentacao', 'sobre', 'precos',
-        'home', 'landing', 'video-demo', 'diferenciais', 'galeria',
-        'calculadora', 'simulador', 'depoimentos', 'faq',
-      ];
-      if (hash && !landingSectionHashes.includes(hash)) {
-        const savedShopsRaw = localStorage.getItem(STORAGE_KEYS.BARBERSHOPS);
-        if (savedShopsRaw) {
-          try {
-            const parsedShops: Barbershop[] = JSON.parse(savedShopsRaw);
-            const found = parsedShops.find((s) => s.slug.toLowerCase() === hash || s.id.toLowerCase() === hash);
-            if (found) return found.id;
-          } catch {}
-        }
-        const foundInit = INITIAL_BARBERSHOPS.find((s) => s.slug.toLowerCase() === hash || s.id.toLowerCase() === hash);
-        if (foundInit) return foundInit.id;
+      let candidateShops: Barbershop[] = INITIAL_BARBERSHOPS;
+      const savedShopsRaw = localStorage.getItem(STORAGE_KEYS.BARBERSHOPS);
+      if (savedShopsRaw) {
+        try {
+          const parsed = JSON.parse(savedShopsRaw);
+          if (Array.isArray(parsed) && parsed.length > 0) candidateShops = parsed;
+        } catch {}
       }
 
-      // Check client active tab session
+      // Check URL route FIRST - opening or clicking a barbershop link must take highest precedence
+      const route = resolveRouteFromUrl(candidateShops);
+      if (route.shopId) {
+        const cleanTarget = route.shopId.toLowerCase();
+        const matched = candidateShops.find(
+          (s) => s.id === route.shopId || s.id.toLowerCase() === cleanTarget || (s.slug && s.slug.toLowerCase() === cleanTarget)
+        );
+        return matched?.id || route.shopId;
+      }
+
+      // Secondary: Check client active tab session
       try {
         const sessionShop = sessionStorage.getItem(STORAGE_KEYS.CLIENT_SESSION_SHOP_ID);
         if (sessionShop) return sessionShop;
@@ -444,6 +454,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       const saved = localStorage.getItem(STORAGE_KEYS.ACTIVE_SHOP_ID);
       if (saved) return saved;
+
+      if (candidateShops.length > 0) return candidateShops[0].id;
     }
     return '';
   });
@@ -524,6 +536,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const mergedShops = mergeById(serverData.barbershops || [], localShops);
           setBarbershops(mergedShops);
           localStorage.setItem(STORAGE_KEYS.BARBERSHOPS, JSON.stringify(mergedShops));
+
+          // Resolve active barbershop from current URL if present
+          if (typeof window !== 'undefined') {
+            const currentRoute = resolveRouteFromUrl(mergedShops);
+            if (currentRoute.shopId) {
+              const cleanTarget = currentRoute.shopId.toLowerCase();
+              const matched = mergedShops.find(
+                (s) => s.id === currentRoute.shopId || s.id.toLowerCase() === cleanTarget || (s.slug && s.slug.toLowerCase() === cleanTarget)
+              );
+              if (matched) {
+                setActiveBarbershopId(matched.id);
+                try {
+                  sessionStorage.setItem(STORAGE_KEYS.CLIENT_SESSION_SHOP_ID, matched.id);
+                } catch {}
+              }
+            }
+          }
 
           const mergedServices = mergeById(serverData.services || [], localServices);
           setServices(mergedServices);
@@ -608,6 +637,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           setBarbershops((curr) => {
             const merged = mergeById(remoteShops || [], curr);
             localStorage.setItem(STORAGE_KEYS.BARBERSHOPS, JSON.stringify(merged));
+
+            // If current URL has a requested barbershop slug, ensure activeBarbershopId is synced
+            if (typeof window !== 'undefined') {
+              const currentRoute = resolveRouteFromUrl(merged);
+              if (currentRoute.shopId) {
+                const cleanTarget = currentRoute.shopId.toLowerCase();
+                const matched = merged.find(
+                  (s) => s.id === currentRoute.shopId || s.id.toLowerCase() === cleanTarget || (s.slug && s.slug.toLowerCase() === cleanTarget)
+                );
+                if (matched) {
+                  setActiveBarbershopId(matched.id);
+                  try {
+                    sessionStorage.setItem(STORAGE_KEYS.CLIENT_SESSION_SHOP_ID, matched.id);
+                  } catch {}
+                }
+              }
+            }
+
             return merged;
           });
 
@@ -826,9 +873,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const isLoggedIn = localStorage.getItem(STORAGE_KEYS.AUTH_LOGGED_IN) === 'true';
 
       if (route.shopId) {
-        setActiveBarbershopId(route.shopId);
+        const cleanTarget = route.shopId.toLowerCase();
+        const matched = barbershops.find(
+          (s) => s.id === route.shopId || s.id.toLowerCase() === cleanTarget || (s.slug && s.slug.toLowerCase() === cleanTarget)
+        );
+        const targetId = matched?.id || route.shopId;
+        setActiveBarbershopId(targetId);
         try {
-          sessionStorage.setItem(STORAGE_KEYS.CLIENT_SESSION_SHOP_ID, route.shopId);
+          sessionStorage.setItem(STORAGE_KEYS.CLIENT_SESSION_SHOP_ID, targetId);
+          localStorage.setItem(STORAGE_KEYS.ACTIVE_SHOP_ID, targetId);
         } catch {}
       }
 
@@ -874,7 +927,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const currentShopId = currentUser.barbershopId || activeBarbershopId;
   const newAppointmentsCount = appointments.filter((apt) => {
-    if (apt.barbershopId !== currentShopId) return false;
+    const matchedShop = barbershops.find(
+      (s) => s.id === currentShopId || (s.slug && s.slug.toLowerCase() === currentShopId.toLowerCase())
+    );
+    const targetShopId = matchedShop?.id || currentShopId;
+    if (apt.barbershopId !== targetShopId) return false;
     if (!apt.createdAt) return false;
     return new Date(apt.createdAt).getTime() > new Date(lastSeenAppointmentTime).getTime();
   }).length;
@@ -1173,10 +1230,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    let targetQuery = '';
-    const currentShop = barbershops.find((s) => s.id === activeBarbershopId) || barbershops[0];
-    const shopSlug = currentShop?.slug || 'navalha-de-ouro';
+    const currentShop = getBarbershopById(activeBarbershopId) || barbershops.find((s) => s.id === activeBarbershopId) || barbershops[0];
+    const shopSlug = currentShop?.slug || activeBarbershopId || 'navalha-de-ouro';
 
+    let targetQuery = '';
     if (currentView === 'landing_page') {
       targetQuery = '?view=apresentacao';
     } else if (currentView === 'super_admin_dashboard') {
@@ -1198,16 +1255,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       : '';
 
     let isAlreadySynced = false;
-    if (currentView === 'landing_page' && (normCurrView === 'apresentacao' || normCurrView === 'landing_page' || normCurrView === 'landing')) {
+    if (currentView === 'landing_page' && (normCurrView === 'apresentacao' || normCurrView === 'landing_page' || normCurrView === 'landing' || (!currView && !currentFullSearch))) {
       isAlreadySynced = true;
     } else if (currentView === 'super_admin_dashboard' && (normCurrView === 'admin' || normCurrView === 'super_admin_dashboard')) {
       isAlreadySynced = true;
     } else if (currentView === 'barber_dashboard' && (normCurrView === 'barber_' || normCurrView === 'barber')) {
       isAlreadySynced = true;
-    } else if (currentView === 'client_booking' && (currView?.toLowerCase() === shopSlug.toLowerCase())) {
-      isAlreadySynced = true;
+    } else if (currentView === 'client_booking') {
+      if (currView) {
+        const cleanCurr = decodeURIComponent(currView).trim().toLowerCase();
+        const cleanShopSlug = (shopSlug || '').toLowerCase();
+        const cleanShopId = (currentShop?.id || '').toLowerCase();
+        const cleanActiveId = (activeBarbershopId || '').toLowerCase();
+        if (cleanCurr === cleanShopSlug || cleanCurr === cleanShopId || cleanCurr === cleanActiveId) {
+          isAlreadySynced = true;
+        }
+      }
     } else if (currentView === 'client_appointments' && (currentParams.get('sub') === 'meus-agendamentos')) {
-      isAlreadySynced = true;
+      if (currView) {
+        const cleanCurr = decodeURIComponent(currView).trim().toLowerCase();
+        const cleanShopSlug = (shopSlug || '').toLowerCase();
+        const cleanShopId = (currentShop?.id || '').toLowerCase();
+        const cleanActiveId = (activeBarbershopId || '').toLowerCase();
+        if (cleanCurr === cleanShopSlug || cleanCurr === cleanShopId || cleanCurr === cleanActiveId) {
+          isAlreadySynced = true;
+        }
+      }
     }
 
     if (!isAlreadySynced && targetQuery) {
@@ -1225,10 +1298,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const origin = window.location.origin;
     let targetSlug = 'navalha-de-ouro';
     if (slugOrId) {
-      const found = barbershops.find((s) => s.id === slugOrId || s.slug === slugOrId);
+      const clean = slugOrId.trim().toLowerCase();
+      const found = getBarbershopById(slugOrId) || barbershops.find(
+        (s) => s.id === slugOrId || s.id.toLowerCase() === clean || (s.slug && s.slug.toLowerCase() === clean)
+      );
       targetSlug = found?.slug || slugOrId;
     } else {
-      const activeShop = barbershops.find((s) => s.id === activeBarbershopId) || barbershops[0];
+      const activeShop = getBarbershopById(activeBarbershopId) || barbershops.find(
+        (s) => s.id === activeBarbershopId || (s.slug && s.slug.toLowerCase() === activeBarbershopId.toLowerCase())
+      ) || barbershops[0];
       targetSlug = activeShop?.slug || 'navalha-de-ouro';
     }
     return `${origin}/?view=${encodeURIComponent(targetSlug)}`;

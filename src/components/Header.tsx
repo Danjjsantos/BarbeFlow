@@ -34,12 +34,12 @@ export const Header: React.FC<HeaderProps> = () => {
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
 
   const activeShop = getBarbershopById(activeBarbershopId) || barbershops[0];
-  const userShop = currentUser.barbershopId
-    ? getBarbershopById(currentUser.barbershopId)
+  const userShop = (currentUser.role === 'barber' && currentUser.barbershopId)
+    ? (getBarbershopById(currentUser.barbershopId) || activeShop)
     : activeShop;
 
   // Generate public booking URL preview with ?view=nomedabarbearia
-  const publicBookingUrl = getBarbershopPublicUrl(userShop?.slug || 'navalha-de-ouro');
+  const publicBookingUrl = getBarbershopPublicUrl(userShop?.slug || userShop?.id);
 
   const isBarber = currentUser.role === 'barber';
 

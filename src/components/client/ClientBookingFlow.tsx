@@ -83,6 +83,19 @@ export const ClientBookingFlow: React.FC = () => {
   const [selectedTime, setSelectedTime] = useState<string>('');
   const [notes, setNotes] = useState('');
 
+  // Reset selected service and slot when barbershop changes
+  useEffect(() => {
+    if (services.length > 0) {
+      if (!selectedService || selectedService.barbershopId !== currentShop?.id) {
+        setSelectedService(services[0]);
+        setSelectedTime('');
+      }
+    } else {
+      setSelectedService(null);
+      setSelectedTime('');
+    }
+  }, [currentShop?.id, services]);
+
   // Payment Selection State
   const isShopEligibleForAutoPix =
     currentShop?.subscriptionPlanId === 'semiannual' ||
