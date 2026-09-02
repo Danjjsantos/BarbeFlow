@@ -54,6 +54,7 @@ interface AppContextType {
   supabaseStatus: { connected: boolean; message: string };
   checkSupabaseConnection: () => Promise<void>;
   syncAllToSupabase: () => Promise<{ success: boolean; message: string }>;
+  refreshDataFromDatabase: () => Promise<void>;
 
   // Registration Modal State
   isRegisterModalOpen: boolean;
@@ -206,7 +207,11 @@ export const resolveRouteFromUrl = (
 
     // Check exact slug or ID match
     const bySlugOrId = shops.find(
-      (s) => (s.slug && s.slug.toLowerCase() === clean) || (s.id && s.id.toLowerCase() === clean)
+      (s) =>
+        (s.id && s.id.toLowerCase() === clean) ||
+        (s.slug && s.slug.toLowerCase() === clean) ||
+        (s.id && s.id === identifier) ||
+        (s.slug && s.slug === identifier)
     );
     if (bySlugOrId) return bySlugOrId;
 
@@ -217,12 +222,24 @@ export const resolveRouteFromUrl = (
     });
     if (byNormalizedSlug) return byNormalizedSlug;
 
-    // Check by shop name normalized
+    // Check by shop name normalized (e.g. "barbearia-vintage" matching "Barbearia Vintage")
     const byName = shops.find((s) => {
-      const sNameNorm = (s.name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '-');
-      return sNameNorm === cleanNoAccent;
+      const sNameNorm = (s.name || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '');
+      return sNameNorm === cleanNoAccent || sNameNorm === clean;
     });
-    return byName;
+    if (byName) return byName;
+
+    // Check by owner ID
+    const byOwner = shops.find((s) => s.ownerId && (s.ownerId === identifier || s.ownerId.toLowerCase() === clean));
+    if (byOwner) return byOwner;
+
+    return undefined;
   };
 
   // 5. Direct Barbershop Customer Link (?view=nomedabarbearia)
@@ -496,7 +513,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
-  // Helper function to safely merge lists by unique ID (preserves local records and updates with remote data)
+  // Helper function to safely merge lists by unique ID
   function mergeById<T extends { id: string }>(remoteList: T[] = [], localList: T[] = []): T[] {
     const map = new Map<string, T>();
     (localList || []).forEach((item) => {
@@ -511,283 +528,370 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return Array.from(map.values());
   }
 
-  // Initial Database Hydration (Server disk DB + Supabase) & Realtime Subscription
-  useEffect(() => {
-    let isMounted = true;
+  // Core synchronization function: loads fresh authoritative data from Supabase (or Server DB fallback)
+  const refreshDataFromDatabase = async () => {
+    try {
+      if (isSupabaseConfigured()) {
+        const [
+          remoteShops,
+          remoteServices,
+          remoteAppointments,
+          remoteUsers,
+          remotePlans,
+          remoteSettings,
+          remoteTrials,
+          remoteLanding,
+        ] = await Promise.all([
+          supabaseService.getBarbershops(),
+          supabaseService.getServices(),
+          supabaseService.getAppointments(),
+          supabaseService.getUsers(),
+          supabaseService.getSubscriptionPlans(),
+          supabaseService.getPlatformSettings(),
+          supabaseService.getTrialRecords(),
+          supabaseService.getLandingPageContent(),
+        ]);
 
-    const hydrateData = async () => {
-      try {
-        // Read current local storage values before network fetch
-        const localShopsRaw = localStorage.getItem(STORAGE_KEYS.BARBERSHOPS);
-        const localServicesRaw = localStorage.getItem(STORAGE_KEYS.SERVICES);
-        const localAppointmentsRaw = localStorage.getItem(STORAGE_KEYS.APPOINTMENTS);
-        const localUsersRaw = localStorage.getItem(STORAGE_KEYS.USERS);
-        const localTrialsRaw = localStorage.getItem(STORAGE_KEYS.TRIAL_RECORDS);
+        let hasRemoteData = false;
 
-        const localShops: Barbershop[] = localShopsRaw ? JSON.parse(localShopsRaw) : [];
-        const localServices: Service[] = localServicesRaw ? JSON.parse(localServicesRaw) : [];
-        const localAppointments: Appointment[] = localAppointmentsRaw ? JSON.parse(localAppointmentsRaw) : [];
-        const localUsers: User[] = localUsersRaw ? JSON.parse(localUsersRaw) : [];
-        const localTrials: TrialUserRecord[] = localTrialsRaw ? JSON.parse(localTrialsRaw) : [];
+        if (Array.isArray(remoteShops) && remoteShops.length > 0) {
+          hasRemoteData = true;
+          setBarbershops(remoteShops);
+          localStorage.setItem(STORAGE_KEYS.BARBERSHOPS, JSON.stringify(remoteShops));
 
-        // 1. Fetch server persistent database first (persisted on disk)
-        const serverData = await fetchServerDbData();
-        if (serverData && isMounted) {
-          const mergedShops = mergeById(serverData.barbershops || [], localShops);
-          setBarbershops(mergedShops);
-          localStorage.setItem(STORAGE_KEYS.BARBERSHOPS, JSON.stringify(mergedShops));
-
-          // Resolve active barbershop from current URL if present
+          // Resolve active barbershop
           if (typeof window !== 'undefined') {
-            const currentRoute = resolveRouteFromUrl(mergedShops);
+            const currentRoute = resolveRouteFromUrl(remoteShops);
             if (currentRoute.shopId) {
               const cleanTarget = currentRoute.shopId.toLowerCase();
-              const matched = mergedShops.find(
-                (s) => s.id === currentRoute.shopId || s.id.toLowerCase() === cleanTarget || (s.slug && s.slug.toLowerCase() === cleanTarget)
+              const cleanNoAccent = cleanTarget.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+              const matched = remoteShops.find(
+                (s) =>
+                  s.id === currentRoute.shopId ||
+                  s.id.toLowerCase() === cleanTarget ||
+                  (s.slug && s.slug.toLowerCase() === cleanTarget) ||
+                  (s.slug && s.slug.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') === cleanNoAccent) ||
+                  (s.name && s.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '-') === cleanNoAccent)
               );
               if (matched) {
                 setActiveBarbershopId(matched.id);
                 try {
                   sessionStorage.setItem(STORAGE_KEYS.CLIENT_SESSION_SHOP_ID, matched.id);
+                  localStorage.setItem(STORAGE_KEYS.ACTIVE_SHOP_ID, matched.id);
                 } catch {}
               }
+            } else if (remoteShops.length > 0) {
+              setActiveBarbershopId((currId) => {
+                if (!currId || !remoteShops.some((s) => s.id === currId)) {
+                  return remoteShops[0].id;
+                }
+                return currId;
+              });
             }
-          }
-
-          const mergedServices = mergeById(serverData.services || [], localServices);
-          setServices(mergedServices);
-          localStorage.setItem(STORAGE_KEYS.SERVICES, JSON.stringify(mergedServices));
-
-          const mergedAppointments = mergeById(serverData.appointments || [], localAppointments);
-          setAppointments(mergedAppointments);
-          localStorage.setItem(STORAGE_KEYS.APPOINTMENTS, JSON.stringify(mergedAppointments));
-
-          const mergedUsers = mergeById(serverData.users || [], localUsers);
-          setUsers(mergedUsers);
-          localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(mergedUsers));
-          setCurrentUser((curr) => {
-            const fresh = mergedUsers.find((u: User) => u.id === curr.id);
-            return fresh || curr;
-          });
-
-          if (Array.isArray(serverData.plans) && serverData.plans.length > 0) {
-            setSubscriptionPlans(serverData.plans);
-            localStorage.setItem(STORAGE_KEYS.PLANS, JSON.stringify(serverData.plans));
-          }
-          if (serverData.settings) {
-            setPlatformSettings((prev) => {
-              const merged = { ...prev, ...serverData.settings };
-              localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(merged));
-              return merged;
-            });
-          }
-          if (serverData.landing && typeof serverData.landing === 'object') {
-            setLandingPageContent((prev) => {
-              const merged = { ...INITIAL_LANDING_CONTENT, ...prev, ...serverData.landing };
-              try {
-                localStorage.setItem(STORAGE_KEYS.LANDING, JSON.stringify(merged));
-              } catch {}
-              return merged;
-            });
-          }
-          const mergedTrials = mergeById(serverData.trialRecords || [], localTrials);
-          setTrialRecords(mergedTrials);
-          localStorage.setItem(STORAGE_KEYS.TRIAL_RECORDS, JSON.stringify(mergedTrials));
-
-          // If local has entries not in server disk DB, immediately sync them
-          if (
-            (localShops.length > 0 && (!serverData.barbershops || serverData.barbershops.length < mergedShops.length)) ||
-            (localUsers.length > 0 && (!serverData.users || serverData.users.length < mergedUsers.length)) ||
-            (localServices.length > 0 && (!serverData.services || serverData.services.length < mergedServices.length))
-          ) {
-            syncAllToServerDb({
-              barbershops: mergedShops,
-              services: mergedServices,
-              appointments: mergedAppointments,
-              users: mergedUsers,
-              trialRecords: mergedTrials,
-            });
           }
         }
 
-        // 2. If Supabase is configured, also hydrate and sync from Supabase
-        if (isSupabaseConfigured()) {
-          const [
-            remoteShops,
-            remoteServices,
-            remoteAppointments,
-            remoteUsers,
-            remotePlans,
-            remoteSettings,
-            remoteTrials,
-            remoteLanding,
-          ] = await Promise.all([
-            supabaseService.getBarbershops(),
-            supabaseService.getServices(),
-            supabaseService.getAppointments(),
-            supabaseService.getUsers(),
-            supabaseService.getSubscriptionPlans(),
-            supabaseService.getPlatformSettings(),
-            supabaseService.getTrialRecords(),
-            supabaseService.getLandingPageContent(),
-          ]);
+        if (Array.isArray(remoteServices)) {
+          hasRemoteData = true;
+          setServices(remoteServices);
+          localStorage.setItem(STORAGE_KEYS.SERVICES, JSON.stringify(remoteServices));
+        }
 
-          if (!isMounted) return;
+        if (Array.isArray(remoteAppointments)) {
+          hasRemoteData = true;
+          setAppointments(remoteAppointments);
+          localStorage.setItem(STORAGE_KEYS.APPOINTMENTS, JSON.stringify(remoteAppointments));
+        }
 
-          setBarbershops((curr) => {
-            const merged = mergeById(remoteShops || [], curr);
-            localStorage.setItem(STORAGE_KEYS.BARBERSHOPS, JSON.stringify(merged));
+        if (Array.isArray(remoteUsers)) {
+          hasRemoteData = true;
+          setUsers(remoteUsers);
+          localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(remoteUsers));
+          setCurrentUser((currU) => {
+            const fresh = remoteUsers.find((u: User) => u.id === currU.id);
+            return fresh || currU;
+          });
+        }
 
-            // If current URL has a requested barbershop slug, ensure activeBarbershopId is synced
-            if (typeof window !== 'undefined') {
-              const currentRoute = resolveRouteFromUrl(merged);
-              if (currentRoute.shopId) {
-                const cleanTarget = currentRoute.shopId.toLowerCase();
-                const matched = merged.find(
-                  (s) => s.id === currentRoute.shopId || s.id.toLowerCase() === cleanTarget || (s.slug && s.slug.toLowerCase() === cleanTarget)
-                );
-                if (matched) {
-                  setActiveBarbershopId(matched.id);
-                  try {
-                    sessionStorage.setItem(STORAGE_KEYS.CLIENT_SESSION_SHOP_ID, matched.id);
-                  } catch {}
-                }
-              }
-            }
+        if (Array.isArray(remotePlans) && remotePlans.length > 0) {
+          hasRemoteData = true;
+          setSubscriptionPlans(remotePlans);
+          localStorage.setItem(STORAGE_KEYS.PLANS, JSON.stringify(remotePlans));
+        }
 
+        if (remoteSettings && typeof remoteSettings === 'object' && Object.keys(remoteSettings).length > 0) {
+          hasRemoteData = true;
+          setPlatformSettings(remoteSettings);
+          localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(remoteSettings));
+        }
+
+        if (Array.isArray(remoteTrials)) {
+          hasRemoteData = true;
+          setTrialRecords(remoteTrials);
+          localStorage.setItem(STORAGE_KEYS.TRIAL_RECORDS, JSON.stringify(remoteTrials));
+        }
+
+        if (remoteLanding && typeof remoteLanding === 'object' && Object.keys(remoteLanding).length > 0) {
+          hasRemoteData = true;
+          setLandingPageContent((prev) => {
+            const merged = { ...INITIAL_LANDING_CONTENT, ...prev, ...remoteLanding };
+            try {
+              localStorage.setItem(STORAGE_KEYS.LANDING, JSON.stringify(merged));
+            } catch {}
             return merged;
           });
+        }
 
-          setServices((curr) => {
-            const merged = mergeById(remoteServices || [], curr);
-            localStorage.setItem(STORAGE_KEYS.SERVICES, JSON.stringify(merged));
-            return merged;
-          });
-
-          setAppointments((curr) => {
-            const merged = mergeById(remoteAppointments || [], curr);
-            localStorage.setItem(STORAGE_KEYS.APPOINTMENTS, JSON.stringify(merged));
-            return merged;
-          });
-
-          setUsers((curr) => {
-            const merged = mergeById(remoteUsers || [], curr);
-            localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(merged));
-            setCurrentUser((currU) => {
-              const fresh = merged.find((u: User) => u.id === currU.id);
-              return fresh || currU;
-            });
-            return merged;
-          });
-
-          if (remotePlans && remotePlans.length > 0) {
-            setSubscriptionPlans(remotePlans);
-            localStorage.setItem(STORAGE_KEYS.PLANS, JSON.stringify(remotePlans));
-          }
-          if (remoteSettings) {
-            setPlatformSettings((prev) => {
-              const merged = { ...prev, ...remoteSettings };
-              localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(merged));
-              return merged;
-            });
-          }
-          if (remoteTrials && Array.isArray(remoteTrials) && remoteTrials.length > 0) {
-            setTrialRecords((curr) => {
-              const merged = mergeById(remoteTrials || [], curr);
-              localStorage.setItem(STORAGE_KEYS.TRIAL_RECORDS, JSON.stringify(merged));
-              return merged;
-            });
-          }
-          if (remoteLanding) {
-            setLandingPageContent((prev) => {
-              const merged = { ...INITIAL_LANDING_CONTENT, ...prev, ...remoteLanding };
-              try {
-                localStorage.setItem(STORAGE_KEYS.LANDING, JSON.stringify(merged));
-              } catch {}
-              return merged;
-            });
-          }
-
+        if (hasRemoteData) {
           setIsSupabaseActive(true);
           setSupabaseStatus({
             connected: true,
-            message: 'Conectado em tempo real com o banco de dados Supabase.',
+            message: 'Sincronização bidirecional ativa com o Supabase.',
           });
+
+          // Sync cache with server disk DB
+          fetch('/api/db/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              barbershops: remoteShops || undefined,
+              services: remoteServices || undefined,
+              appointments: remoteAppointments || undefined,
+              users: remoteUsers || undefined,
+              plans: remotePlans || undefined,
+              settings: remoteSettings || undefined,
+              trialRecords: remoteTrials || undefined,
+              landing: remoteLanding || undefined,
+            }),
+          }).catch(() => {});
+          return;
         }
-      } catch (err: any) {
-        console.warn('Erro na hidratação de dados:', err);
       }
-    };
 
-    hydrateData();
+      // Fallback: Local Server disk DB
+      const serverData = await fetchServerDbData();
+      if (serverData) {
+        if (Array.isArray(serverData.barbershops) && serverData.barbershops.length > 0) {
+          setBarbershops(serverData.barbershops);
+          localStorage.setItem(STORAGE_KEYS.BARBERSHOPS, JSON.stringify(serverData.barbershops));
 
-    // Subscribe to realtime database changes if Supabase is configured
+          // Resolve active barbershop
+          if (typeof window !== 'undefined') {
+            const currentRoute = resolveRouteFromUrl(serverData.barbershops);
+            if (currentRoute.shopId) {
+              const cleanTarget = currentRoute.shopId.toLowerCase();
+              const cleanNoAccent = cleanTarget.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+              const matched = serverData.barbershops.find(
+                (s: Barbershop) =>
+                  s.id === currentRoute.shopId ||
+                  s.id.toLowerCase() === cleanTarget ||
+                  (s.slug && s.slug.toLowerCase() === cleanTarget) ||
+                  (s.slug && s.slug.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') === cleanNoAccent) ||
+                  (s.name && s.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '-') === cleanNoAccent)
+              );
+              if (matched) {
+                setActiveBarbershopId(matched.id);
+                try {
+                  sessionStorage.setItem(STORAGE_KEYS.CLIENT_SESSION_SHOP_ID, matched.id);
+                  localStorage.setItem(STORAGE_KEYS.ACTIVE_SHOP_ID, matched.id);
+                } catch {}
+              }
+            } else if (serverData.barbershops.length > 0) {
+              setActiveBarbershopId((currId) => {
+                if (!currId || !serverData.barbershops.some((s: Barbershop) => s.id === currId)) {
+                  return serverData.barbershops[0].id;
+                }
+                return currId;
+              });
+            }
+          }
+        }
+        if (Array.isArray(serverData.services) && serverData.services.length > 0) {
+          setServices(serverData.services);
+          localStorage.setItem(STORAGE_KEYS.SERVICES, JSON.stringify(serverData.services));
+        }
+        if (Array.isArray(serverData.appointments)) {
+          setAppointments(serverData.appointments);
+          localStorage.setItem(STORAGE_KEYS.APPOINTMENTS, JSON.stringify(serverData.appointments));
+        }
+        if (Array.isArray(serverData.users) && serverData.users.length > 0) {
+          setUsers(serverData.users);
+          localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(serverData.users));
+        }
+        if (Array.isArray(serverData.plans) && serverData.plans.length > 0) {
+          setSubscriptionPlans(serverData.plans);
+          localStorage.setItem(STORAGE_KEYS.PLANS, JSON.stringify(serverData.plans));
+        }
+        if (serverData.settings) {
+          setPlatformSettings((prev) => ({ ...prev, ...serverData.settings }));
+        }
+        if (serverData.landing) {
+          setLandingPageContent((prev) => ({ ...INITIAL_LANDING_CONTENT, ...prev, ...serverData.landing }));
+        }
+        if (Array.isArray(serverData.trialRecords)) {
+          setTrialRecords(serverData.trialRecords);
+        }
+      }
+    } catch (err) {
+      console.warn('Erro ao atualizar dados do banco:', err);
+    }
+  };
+
+  // Initial Database Hydration (Server disk DB + Supabase) & Realtime Subscription & Background Polling
+  useEffect(() => {
+    let isMounted = true;
+
+    // 1. Run initial data load
+    refreshDataFromDatabase();
+
+    // 2. Realtime listener for Supabase
+    let unsubscribeRealtime = () => {};
     if (isSupabaseConfigured()) {
-      const unsubscribe = supabaseService.subscribeToChanges(
+      unsubscribeRealtime = supabaseService.subscribeToChanges(
         async () => {
+          // Appointments changed
           const freshAppointments = await supabaseService.getAppointments();
           if (freshAppointments && isMounted) {
-            setAppointments((curr) => {
-              const merged = mergeById(freshAppointments, curr);
-              localStorage.setItem(STORAGE_KEYS.APPOINTMENTS, JSON.stringify(merged));
-              return merged;
-            });
+            setAppointments(freshAppointments);
+            localStorage.setItem(STORAGE_KEYS.APPOINTMENTS, JSON.stringify(freshAppointments));
+            fetch('/api/db/sync', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ appointments: freshAppointments }),
+            }).catch(() => {});
           }
         },
         async () => {
+          // Barbershops changed
           const freshShops = await supabaseService.getBarbershops();
           if (freshShops && isMounted) {
-            setBarbershops((curr) => {
-              const merged = mergeById(freshShops, curr);
-              localStorage.setItem(STORAGE_KEYS.BARBERSHOPS, JSON.stringify(merged));
-              return merged;
+            setBarbershops(freshShops);
+            localStorage.setItem(STORAGE_KEYS.BARBERSHOPS, JSON.stringify(freshShops));
+            setActiveBarbershopId((currId) => {
+              if (freshShops.length === 0) return '';
+              if (!currId || !freshShops.some((s) => s.id === currId)) {
+                return freshShops[0].id;
+              }
+              return currId;
             });
+            fetch('/api/db/sync', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ barbershops: freshShops }),
+            }).catch(() => {});
           }
         },
         async () => {
+          // Services changed
           const freshServices = await supabaseService.getServices();
           if (freshServices && isMounted) {
-            setServices((curr) => {
-              const merged = mergeById(freshServices, curr);
-              localStorage.setItem(STORAGE_KEYS.SERVICES, JSON.stringify(merged));
-              return merged;
-            });
+            setServices(freshServices);
+            localStorage.setItem(STORAGE_KEYS.SERVICES, JSON.stringify(freshServices));
+            fetch('/api/db/sync', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ services: freshServices }),
+            }).catch(() => {});
           }
         },
         async () => {
+          // Platform Settings changed
           const freshSettings = await supabaseService.getPlatformSettings();
           if (freshSettings && isMounted) {
-            setPlatformSettings((prev) => {
-              const merged = { ...prev, ...freshSettings };
-              localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(merged));
-              return merged;
-            });
+            setPlatformSettings(freshSettings);
+            localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(freshSettings));
+            fetch('/api/db/sync', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ settings: freshSettings }),
+            }).catch(() => {});
           }
         },
         async () => {
+          // Landing Page changed
           const freshLanding = await supabaseService.getLandingPageContent();
           if (freshLanding && isMounted) {
             setLandingPageContent((prev) => {
-              const merged = { ...prev, ...freshLanding };
+              const merged = { ...INITIAL_LANDING_CONTENT, ...prev, ...freshLanding };
               localStorage.setItem(STORAGE_KEYS.LANDING, JSON.stringify(merged));
               return merged;
             });
+            fetch('/api/db/sync', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ landing: freshLanding }),
+            }).catch(() => {});
           }
         },
         async () => {
+          // Subscription Plans changed
           const freshPlans = await supabaseService.getSubscriptionPlans();
           if (freshPlans && isMounted && freshPlans.length > 0) {
             setSubscriptionPlans(freshPlans);
             localStorage.setItem(STORAGE_KEYS.PLANS, JSON.stringify(freshPlans));
+            fetch('/api/db/sync', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ plans: freshPlans }),
+            }).catch(() => {});
+          }
+        },
+        async () => {
+          // Users changed
+          const freshUsers = await supabaseService.getUsers();
+          if (freshUsers && isMounted) {
+            setUsers(freshUsers);
+            localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(freshUsers));
+            setCurrentUser((currU) => {
+              const fresh = freshUsers.find((u: User) => u.id === currU.id);
+              return fresh || currU;
+            });
+            fetch('/api/db/sync', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ users: freshUsers }),
+            }).catch(() => {});
+          }
+        },
+        async () => {
+          // Trial records changed
+          const freshTrials = await supabaseService.getTrialRecords();
+          if (freshTrials && isMounted) {
+            setTrialRecords(freshTrials);
+            localStorage.setItem(STORAGE_KEYS.TRIAL_RECORDS, JSON.stringify(freshTrials));
+            fetch('/api/db/sync', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ trialRecords: freshTrials }),
+            }).catch(() => {});
           }
         }
       );
-
-      return () => {
-        isMounted = false;
-        unsubscribe();
-      };
     }
+
+    // 3. Periodic bidirectional sync fallback (every 8 seconds)
+    const syncInterval = setInterval(() => {
+      if (isMounted) {
+        refreshDataFromDatabase();
+      }
+    }, 8000);
+
+    // 4. Focus / visibility change sync
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === 'visible' && isMounted) {
+        refreshDataFromDatabase();
+      }
+    };
+    window.addEventListener('focus', handleVisibilityOrFocus);
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+
+    return () => {
+      isMounted = false;
+      unsubscribeRealtime();
+      clearInterval(syncInterval);
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+    };
   }, []);
 
   const [currentView, setCurrentView] = useState<'client_booking' | 'client_appointments' | 'barber_dashboard' | 'super_admin_dashboard' | 'landing_page'>(() => {
@@ -866,7 +970,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
   const [isBarberDrawerOpen, setIsBarberDrawerOpen] = useState<boolean>(false);
 
-  // Handle URL navigation and popstate/hashchange events
+  // Handle URL navigation, popstate/hashchange events, and link click delegation
   useEffect(() => {
     const handleUrlNavigation = () => {
       const route = resolveRouteFromUrl(barbershops);
@@ -874,8 +978,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       if (route.shopId) {
         const cleanTarget = route.shopId.toLowerCase();
+        const cleanNoAccent = cleanTarget.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
         const matched = barbershops.find(
-          (s) => s.id === route.shopId || s.id.toLowerCase() === cleanTarget || (s.slug && s.slug.toLowerCase() === cleanTarget)
+          (s) =>
+            s.id === route.shopId ||
+            s.id.toLowerCase() === cleanTarget ||
+            (s.slug && s.slug.toLowerCase() === cleanTarget) ||
+            (s.slug && s.slug.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') === cleanNoAccent) ||
+            (s.name && s.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '-') === cleanNoAccent)
         );
         const targetId = matched?.id || route.shopId;
         setActiveBarbershopId(targetId);
@@ -906,11 +1016,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     };
 
+    // Intercept clicks on links that point to ?view= to ensure smooth SPA routing
+    const handleLinkClick = (e: MouseEvent) => {
+      const target = (e.target as HTMLElement)?.closest('a');
+      if (!target) return;
+      const href = target.getAttribute('href');
+      if (!href) return;
+
+      if (href.startsWith('?') || href.startsWith('/?') || (href.startsWith(window.location.origin) && href.includes('?view='))) {
+        e.preventDefault();
+        try {
+          const url = new URL(href, window.location.origin);
+          window.history.pushState(null, '', url.pathname + url.search + url.hash);
+          handleUrlNavigation();
+        } catch {
+          window.location.href = href;
+        }
+      }
+    };
+
     window.addEventListener('popstate', handleUrlNavigation);
     window.addEventListener('hashchange', handleUrlNavigation);
+    document.addEventListener('click', handleLinkClick);
+
     return () => {
       window.removeEventListener('popstate', handleUrlNavigation);
       window.removeEventListener('hashchange', handleUrlNavigation);
+      document.removeEventListener('click', handleLinkClick);
     };
   }, [barbershops]);
 
@@ -1230,8 +1362,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const currentShop = getBarbershopById(activeBarbershopId) || barbershops.find((s) => s.id === activeBarbershopId) || barbershops[0];
-    const shopSlug = currentShop?.slug || activeBarbershopId || 'navalha-de-ouro';
+    const currentFullSearch = window.location.search;
+    const currentHash = window.location.hash;
+    const currentParams = new URLSearchParams(currentFullSearch);
+    const currView = currentParams.get('view');
+    const normCurrView = currView
+      ? decodeURIComponent(currView).trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      : '';
+
+    const currentShop = getBarbershopById(activeBarbershopId) || barbershops.find((s) => s.id === activeBarbershopId);
+
+    // If client requested a specific barbershop via URL, but shops are still resolving, don't overwrite URL!
+    if ((currentView === 'client_booking' || currentView === 'client_appointments') && !currentShop) {
+      return;
+    }
+
+    const shopSlug = currentShop?.slug || activeBarbershopId;
+    if (!shopSlug && (currentView === 'client_booking' || currentView === 'client_appointments')) {
+      return;
+    }
 
     let targetQuery = '';
     if (currentView === 'landing_page') {
@@ -1245,14 +1394,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } else if (currentView === 'client_appointments') {
       targetQuery = `?view=${encodeURIComponent(shopSlug)}&sub=meus-agendamentos`;
     }
-
-    const currentFullSearch = window.location.search;
-    const currentHash = window.location.hash;
-    const currentParams = new URLSearchParams(currentFullSearch);
-    const currView = currentParams.get('view');
-    const normCurrView = currView
-      ? decodeURIComponent(currView).trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-      : '';
 
     let isAlreadySynced = false;
     if (currentView === 'landing_page' && (normCurrView === 'apresentacao' || normCurrView === 'landing_page' || normCurrView === 'landing' || (!currView && !currentFullSearch))) {
@@ -1702,6 +1843,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       localStorage.setItem(STORAGE_KEYS.TRIAL_RECORDS, JSON.stringify(remaining));
       return remaining;
     });
+    supabaseService.deleteTrialRecord(id);
+    fetch('/api/db/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ trialRecords: trialRecords.filter((t) => t.id !== id) }),
+    }).catch(() => {});
   };
 
   const deleteUserAccount = (id: string) => {
@@ -1710,6 +1857,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(remaining));
       return remaining;
     });
+    supabaseService.deleteUser(id);
+    fetch('/api/db/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ users: users.filter((u) => u.id !== id) }),
+    }).catch(() => {});
   };
 
   const clearAllDemoData = () => {
@@ -2141,10 +2294,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const cleanNoAccent = clean.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     return barbershops.find((shop) => {
       if (shop.id === idOrSlug || shop.id.toLowerCase() === clean) return true;
-      if (shop.slug && shop.slug.toLowerCase() === clean) return true;
+      if (shop.slug && (shop.slug === idOrSlug || shop.slug.toLowerCase() === clean)) return true;
       if (shop.slug) {
         const slugNoAccent = shop.slug.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-        if (slugNoAccent === cleanNoAccent) return true;
+        if (slugNoAccent === cleanNoAccent || slugNoAccent === clean) return true;
+      }
+      if (shop.name) {
+        const nameNorm = shop.name
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/[^a-z0-9]/g, '-')
+          .replace(/-+/g, '-')
+          .replace(/^-|-$/g, '');
+        if (nameNorm === cleanNoAccent || nameNorm === clean) return true;
       }
       if (shop.ownerId && (shop.ownerId === idOrSlug || shop.ownerId.toLowerCase() === clean)) return true;
       return false;
@@ -2209,6 +2372,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         supabaseStatus,
         checkSupabaseConnection,
         syncAllToSupabase,
+        refreshDataFromDatabase,
         isRegisterModalOpen,
         setIsRegisterModalOpen,
         registerPlanId,

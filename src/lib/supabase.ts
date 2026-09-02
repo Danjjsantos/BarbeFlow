@@ -1398,6 +1398,18 @@ export const supabaseService = {
     }
   },
 
+  async deleteUser(id: string): Promise<boolean> {
+    saveToServerDb('users', { id }, 'delete');
+    const client = getSupabaseClient();
+    if (!client) return true;
+    try {
+      const { error } = await client.from('users').delete().eq('id', id);
+      return !error;
+    } catch (e) {
+      return false;
+    }
+  },
+
   // 5. Subscription Plans
   async getSubscriptionPlans(): Promise<SubscriptionPlan[] | null> {
     const client = getSupabaseClient();
@@ -1420,6 +1432,18 @@ export const supabaseService = {
     if (!client) return true;
     try {
       const { error } = await client.from('subscription_plans').upsert(mapPlanToDb(plan));
+      return !error;
+    } catch (e) {
+      return false;
+    }
+  },
+
+  async deleteSubscriptionPlan(id: string): Promise<boolean> {
+    saveToServerDb('plans', { id }, 'delete');
+    const client = getSupabaseClient();
+    if (!client) return true;
+    try {
+      const { error } = await client.from('subscription_plans').delete().eq('id', id);
       return !error;
     } catch (e) {
       return false;
@@ -1480,6 +1504,18 @@ export const supabaseService = {
     if (!client) return true;
     try {
       const { error } = await client.from('trial_records').upsert(mapTrialToDb(record));
+      return !error;
+    } catch (e) {
+      return false;
+    }
+  },
+
+  async deleteTrialRecord(id: string): Promise<boolean> {
+    saveToServerDb('trialRecords', { id }, 'delete');
+    const client = getSupabaseClient();
+    if (!client) return true;
+    try {
+      const { error } = await client.from('trial_records').delete().eq('id', id);
       return !error;
     } catch (e) {
       return false;
@@ -1728,7 +1764,9 @@ export const supabaseService = {
     onServicesChange: () => void,
     onPlatformSettingsChange?: () => void,
     onLandingContentChange?: () => void,
-    onPlansChange?: () => void
+    onPlansChange?: () => void,
+    onUsersChange?: () => void,
+    onTrialRecordsChange?: () => void
   ) {
     const client = getSupabaseClient();
     if (!client) return () => {};
@@ -1752,6 +1790,14 @@ export const supabaseService = {
           () => onServicesChange()
         );
 
+      if (onUsersChange) {
+        channel = channel.on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'users' },
+          () => onUsersChange()
+        );
+      }
+
       if (onPlatformSettingsChange) {
         channel = channel.on(
           'postgres_changes',
@@ -1773,6 +1819,14 @@ export const supabaseService = {
           'postgres_changes',
           { event: '*', schema: 'public', table: 'subscription_plans' },
           () => onPlansChange()
+        );
+      }
+
+      if (onTrialRecordsChange) {
+        channel = channel.on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'trial_records' },
+          () => onTrialRecordsChange()
         );
       }
 
