@@ -1,6 +1,7 @@
 import express from 'express';
 import path from 'path';
 import fs from 'fs';
+import crypto from 'crypto';
 import { createServer as createViteServer } from 'vite';
 import dotenv from 'dotenv';
 import { generatePixPayload, generateQrCodeDataUrl } from './src/utils/pix';
@@ -55,6 +56,7 @@ function initLocalDatabase() {
         settings: INITIAL_PLATFORM_SETTINGS,
         trialRecords: INITIAL_TRIAL_RECORDS || [],
         landing: INITIAL_LANDING_CONTENT,
+        webhookLogs: [],
         lastUpdated: new Date().toISOString(),
       };
       fs.writeFileSync(DB_FILE, JSON.stringify(initialDb, null, 2), 'utf-8');
@@ -79,6 +81,7 @@ function getLocalDatabase() {
         settings: parsed.settings ? { ...INITIAL_PLATFORM_SETTINGS, ...parsed.settings } : INITIAL_PLATFORM_SETTINGS,
         trialRecords: Array.isArray(parsed.trialRecords) ? parsed.trialRecords : [],
         landing: parsed.landing ? { ...INITIAL_LANDING_CONTENT, ...parsed.landing } : INITIAL_LANDING_CONTENT,
+        webhookLogs: Array.isArray(parsed.webhookLogs) ? parsed.webhookLogs : [],
         lastUpdated: parsed.lastUpdated || new Date().toISOString(),
       };
     }
@@ -94,6 +97,7 @@ function getLocalDatabase() {
     settings: INITIAL_PLATFORM_SETTINGS,
     trialRecords: [],
     landing: INITIAL_LANDING_CONTENT,
+    webhookLogs: [],
     lastUpdated: new Date().toISOString(),
   };
 }
@@ -105,6 +109,7 @@ function saveLocalDatabase(data: any) {
     }
     const updated = {
       ...data,
+      webhookLogs: Array.isArray(data.webhookLogs) ? data.webhookLogs.slice(0, 100) : [],
       lastUpdated: new Date().toISOString(),
     };
     fs.writeFileSync(DB_FILE, JSON.stringify(updated, null, 2), 'utf-8');
@@ -152,6 +157,7 @@ function mapRecordForSupabase(table: string, data: any): { targetTable: string; 
         pix_receiver_name: data.pixReceiverName || '',
         mercado_pago_access_token: data.mercadoPagoAccessToken || '',
         mercado_pago_public_key: data.mercadoPagoPublicKey || '',
+        mercado_pago_webhook_secret: data.mercadoPagoWebhookSecret || '',
         mercado_pago_enabled: Boolean(data.mercadoPagoEnabled),
         subscription_plan_id: data.subscriptionPlanId || 'trial',
         subscription_status: data.subscriptionStatus || 'active',
@@ -262,6 +268,7 @@ function mapRecordForSupabase(table: string, data: any): { targetTable: string; 
     const pInst = data.pixInstructions || data.pix_instructions || '';
     const mpToken = data.mercadoPagoAccessToken || data.mercado_pago_access_token || '';
     const mpPub = data.mercadoPagoPublicKey || data.mercado_pago_public_key || '';
+    const mpSec = data.mercadoPagoWebhookSecret || data.mercado_pago_webhook_secret || '';
     const mpEn = Boolean(data.mercadoPagoEnabled ?? data.mercado_pago_enabled);
 
     return {
@@ -280,6 +287,7 @@ function mapRecordForSupabase(table: string, data: any): { targetTable: string; 
         pix_instructions: pInst,
         mercado_pago_access_token: mpToken,
         mercado_pago_public_key: mpPub,
+        mercado_pago_webhook_secret: mpSec,
         mercado_pago_enabled: mpEn,
         updated_at: new Date().toISOString(),
       },
@@ -1393,42 +1401,500 @@ async function startServer() {
     }
   });
 
+  // ----------------------------------------------------
+  // Mercado Pago Webhook Service: Signature & Confirmation
+  // ----------------------------------------------------
+
+  function parseMercadoPagoSignatureHeader(xSignature?: string): { ts: number; v1: string } | null {
+    if (!xSignature) return null;
+    const parts = xSignature.split(',');
+    let ts = 0;
+    let v1 = '';
+    for (const part of parts) {
+      const [key, val] = part.split('=').map((s) => (s || '').trim());
+      if (key === 'ts') ts = parseInt(val, 10) || 0;
+      if (key === 'v1') v1 = val || '';
+    }
+    if (!ts || !v1) return null;
+    return { ts, v1 };
+  }
+
+  function verifyMercadoPagoWebhookSignature(params: {
+    secret?: string;
+    xSignature?: string;
+    xRequestId?: string;
+    dataId?: string;
+  }): { valid: boolean; reason: string; expectedHash?: string; computedHash?: string } {
+    const { secret, xSignature, xRequestId, dataId } = params;
+
+    if (!secret || !secret.trim()) {
+      return { valid: true, reason: 'secret_not_configured' };
+    }
+
+    if (!xSignature) {
+      return { valid: false, reason: 'missing_x_signature_header' };
+    }
+
+    const parsed = parseMercadoPagoSignatureHeader(xSignature);
+    if (!parsed) {
+      return { valid: false, reason: 'invalid_x_signature_format' };
+    }
+
+    // Manifest template according to Mercado Pago official docs: "id:[data_id];request-id:[x-request-id];ts:[ts];"
+    const manifest = `id:${dataId || ''};request-id:${xRequestId || ''};ts:${parsed.ts};`;
+
+    try {
+      const hmac = crypto.createHmac('sha256', secret.trim());
+      hmac.update(manifest);
+      const computedHash = hmac.digest('hex');
+
+      const expectedBuf = Buffer.from(parsed.v1, 'hex');
+      const computedBuf = Buffer.from(computedHash, 'hex');
+
+      if (expectedBuf.length !== computedBuf.length) {
+        return {
+          valid: false,
+          reason: 'hash_length_mismatch',
+          expectedHash: parsed.v1,
+          computedHash,
+        };
+      }
+
+      const isValid = crypto.timingSafeEqual(expectedBuf, computedBuf);
+      return {
+        valid: isValid,
+        reason: isValid ? 'signature_verified' : 'hash_mismatch',
+        expectedHash: parsed.v1,
+        computedHash,
+      };
+    } catch (err: any) {
+      return { valid: false, reason: `crypto_error: ${err?.message || 'unknown'}` };
+    }
+  }
+
+  function generateMercadoPagoSignature(params: {
+    secret: string;
+    dataId: string;
+    requestId?: string;
+    timestamp?: number;
+  }): { xSignature: string; xRequestId: string; timestamp: number; hash: string } {
+    const timestamp = params.timestamp || Math.floor(Date.now() / 1000);
+    const requestId = params.requestId || `req_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const manifest = `id:${params.dataId};request-id:${requestId};ts:${timestamp};`;
+    const hash = crypto.createHmac('sha256', params.secret.trim()).update(manifest).digest('hex');
+    return {
+      xSignature: `ts=${timestamp},v1=${hash}`,
+      xRequestId: requestId,
+      timestamp,
+      hash,
+    };
+  }
+
+  function processMercadoPagoPaymentConfirmation(params: {
+    paymentId: string;
+    paymentData: any;
+    source: 'live' | 'simulation';
+    signatureValid: boolean;
+  }) {
+    const { paymentId, paymentData, source, signatureValid } = params;
+    const currentDb = getLocalDatabase();
+
+    const status = paymentData.status || 'pending';
+    const statusDetail = paymentData.status_detail || '';
+    const externalRef = String(paymentData.external_reference || '').trim();
+    const amount = Number(paymentData.transaction_amount) || 0;
+
+    let outcome = `Pagamento ${paymentId} recebido com status "${status}".`;
+    let matchedEntity: {
+      type: 'appointment' | 'barbershop_subscription' | 'unknown';
+      id: string;
+      description: string;
+    } = {
+      type: 'unknown',
+      id: externalRef || paymentId,
+      description: 'Nenhuma entidade associada encontrada.',
+    };
+
+    // 1. Check if matches an appointment
+    const matchedAppointment = currentDb.appointments.find((apt: any) => {
+      if (!apt) return false;
+      if (apt.id === externalRef) return true;
+      if (apt.pixTransactionCode && apt.pixTransactionCode === externalRef) return true;
+      if (apt.mercadoPagoPaymentId && apt.mercadoPagoPaymentId === String(paymentId)) return true;
+      if (externalRef && (externalRef.startsWith('appt_') || externalRef.startsWith('apt_'))) {
+        const clean = externalRef.replace(/^(appt_|apt_)/, '');
+        if (apt.id === clean || apt.id.includes(clean)) return true;
+      }
+      if (externalRef && apt.id && externalRef.includes(apt.id)) return true;
+      return false;
+    });
+
+    if (matchedAppointment) {
+      matchedEntity = {
+        type: 'appointment',
+        id: matchedAppointment.id,
+        description: `${matchedAppointment.serviceName} - Cliente: ${matchedAppointment.clientName}`,
+      };
+
+      if (status === 'approved') {
+        matchedAppointment.status = 'confirmed';
+        matchedAppointment.pixPaidAt = paymentData.date_approved || new Date().toISOString();
+        matchedAppointment.mercadoPagoPaymentId = String(paymentId);
+        outcome = `Agendamento #${matchedAppointment.id} (${matchedAppointment.serviceName} - ${matchedAppointment.clientName}) CONFIRMADO via PIX no banco de dados.`;
+
+        // Sync to Supabase
+        syncToSupabaseAsync('appointments', matchedAppointment, 'upsert').catch((err) => {
+          console.warn('Erro ao sincronizar agendamento confirmado no Supabase:', err);
+        });
+      } else {
+        outcome = `Agendamento #${matchedAppointment.id} recebeu atualização de status: ${status} (${statusDetail || 'em processamento'}).`;
+      }
+    } else {
+      // 2. Check if matches a Barbershop Subscription
+      const matchedShop = currentDb.barbershops.find((shop: any) => {
+        if (!shop) return false;
+        if (shop.id === externalRef) return true;
+        if (externalRef && (externalRef.startsWith('sub_') || externalRef.startsWith('sub_reg_'))) {
+          const parts = externalRef.split('_');
+          if (parts.includes(shop.id)) return true;
+          if (externalRef.includes(shop.id)) return true;
+        }
+        return false;
+      });
+
+      if (matchedShop) {
+        matchedEntity = {
+          type: 'barbershop_subscription',
+          id: matchedShop.id,
+          description: `Barbearia: ${matchedShop.name}`,
+        };
+
+        if (status === 'approved') {
+          const now = new Date();
+          const validUntil = new Date(now);
+          // Standard +30 days (or calculate based on period if provided)
+          validUntil.setDate(validUntil.getDate() + 30);
+          const validUntilStr = validUntil.toISOString().split('T')[0];
+
+          matchedShop.subscriptionStatus = 'active';
+          matchedShop.subscriptionLastPaymentDate = paymentData.date_approved || now.toISOString();
+          matchedShop.subscriptionValidUntil = validUntilStr;
+          outcome = `Assinatura da barbearia "${matchedShop.name}" ATIVADA via PIX até ${validUntilStr} no banco de dados.`;
+
+          // Sync to Supabase
+          syncToSupabaseAsync('barbershops', matchedShop, 'upsert').catch((err) => {
+            console.warn('Erro ao sincronizar assinatura de barbearia no Supabase:', err);
+          });
+        } else {
+          outcome = `Assinatura da barbearia "${matchedShop.name}" recebeu atualização de status: ${status}.`;
+        }
+      }
+    }
+
+    // 3. Update in-memory paymentsStore
+    const stored: any = paymentsStore.get(String(paymentId)) || {
+      id: String(paymentId),
+      amount,
+      description: paymentData.description || 'Pagamento PIX',
+      status,
+      statusDetail,
+      dateCreated: paymentData.date_created || new Date().toISOString(),
+      externalReference: externalRef,
+      isRealMercadoPago: source === 'live',
+    };
+    stored.status = status;
+    stored.statusDetail = statusDetail;
+    if (status === 'approved') {
+      stored.dateApproved = paymentData.date_approved || new Date().toISOString();
+    }
+    paymentsStore.set(String(paymentId), stored);
+
+    // 4. Create and store Webhook Event Log in DB
+    const logEntry = {
+      id: `wh_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      topic: paymentData.topic || 'payment',
+      action: paymentData.action || 'payment.updated',
+      paymentId: String(paymentId),
+      status,
+      statusDetail,
+      amount,
+      externalReference: externalRef,
+      signatureValid,
+      receivedAt: new Date().toISOString(),
+      source,
+      outcome,
+      matchedEntity,
+    };
+
+    currentDb.webhookLogs = [logEntry, ...(currentDb.webhookLogs || [])].slice(0, 100);
+
+    // 5. Persist local database
+    saveLocalDatabase(currentDb);
+
+    return {
+      success: true,
+      status,
+      outcome,
+      log: logEntry,
+      matchedEntity,
+    };
+  }
+
   /**
    * POST /api/mercadopago/webhook
-   * Mercado Pago IPN / Webhooks handler
+   * Official Mercado Pago Webhook / IPN Receiver
    */
   app.post('/api/mercadopago/webhook', async (req, res) => {
     try {
-      const topic = req.query.topic || req.body?.type;
-      const id = req.query.id || req.body?.data?.id;
+      const topic = req.query.topic || req.body?.type || req.body?.action || 'payment';
+      const paymentId = req.query['data.id'] || req.query.id || req.body?.data?.id || req.body?.id;
 
-      if (topic === 'payment' && id) {
-        const token = process.env.MERCADO_PAGO_ACCESS_TOKEN;
-        if (token) {
-          const mpRes = await fetch(`https://api.mercadopago.com/v1/payments/${id}`, {
+      if (!paymentId) {
+        // Mercado Pago health check or non-payment notification
+        return res.status(200).send('OK');
+      }
+
+      const xSignature = req.headers['x-signature'] as string | undefined;
+      const xRequestId = req.headers['x-request-id'] as string | undefined;
+
+      const currentDb = getLocalDatabase();
+
+      // Resolve Webhook Secret (Shop-specific or Platform Settings or ENV)
+      const shopIdQuery = req.query.shopId as string | undefined;
+      let targetSecret = '';
+      if (shopIdQuery) {
+        const foundShop = currentDb.barbershops.find((b: any) => b.id === shopIdQuery);
+        if (foundShop?.mercadoPagoWebhookSecret) {
+          targetSecret = foundShop.mercadoPagoWebhookSecret;
+        }
+      }
+      if (!targetSecret) {
+        targetSecret = currentDb.settings?.mercadoPagoWebhookSecret || process.env.MERCADO_PAGO_WEBHOOK_SECRET || '';
+      }
+
+      // Verify HMAC-SHA256 signature
+      const sigVerification = verifyMercadoPagoWebhookSignature({
+        secret: targetSecret,
+        xSignature,
+        xRequestId,
+        dataId: String(paymentId),
+      });
+
+      // Resolve Access Token for payment query
+      let token = sanitizeToken(currentDb.settings?.mercadoPagoAccessToken) || sanitizeToken(process.env.MERCADO_PAGO_ACCESS_TOKEN);
+      if (shopIdQuery) {
+        const shop = currentDb.barbershops.find((b: any) => b.id === shopIdQuery);
+        if (shop?.mercadoPagoAccessToken) {
+          token = sanitizeToken(shop.mercadoPagoAccessToken);
+        }
+      }
+
+      let paymentData: any = null;
+
+      if (token) {
+        try {
+          const mpRes = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
             headers: {
               Authorization: `Bearer ${token}`,
-              'Accept': 'application/json',
+              Accept: 'application/json',
               'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) BarberHub/1.0',
             },
           });
           const { ok, data } = await safeJsonFromFetch(mpRes);
-          if (ok && data) {
-            const stored = paymentsStore.get(String(id));
-            if (stored) {
-              stored.status = data.status;
-              if (data.status === 'approved') {
-                stored.dateApproved = data.date_approved;
-              }
-            }
+          if (ok && data && data.id) {
+            paymentData = data;
           }
+        } catch (fetchErr: any) {
+          console.warn('Erro ao consultar pagamento no Mercado Pago:', fetchErr?.message);
         }
       }
 
-      res.status(200).send('OK');
-    } catch (err) {
-      console.error('Webhook error:', err);
-      res.status(200).send('OK');
+      // If token query failed or not provided, check if we have stored payment data locally
+      if (!paymentData) {
+        const stored = paymentsStore.get(String(paymentId));
+        if (stored) {
+          paymentData = {
+            id: stored.id,
+            status: stored.status || 'approved',
+            status_detail: stored.statusDetail || 'accredited',
+            transaction_amount: stored.amount,
+            description: stored.description,
+            external_reference: stored.externalReference,
+            date_approved: stored.dateApproved || new Date().toISOString(),
+          };
+        }
+      }
+
+      if (paymentData) {
+        processMercadoPagoPaymentConfirmation({
+          paymentId: String(paymentId),
+          paymentData,
+          source: 'live',
+          signatureValid: sigVerification.valid,
+        });
+      }
+
+      return res.status(200).send('OK');
+    } catch (err: any) {
+      console.error('Mercado Pago Webhook error:', err);
+      return res.status(200).send('OK');
+    }
+  });
+
+  /**
+   * POST /api/mercadopago/webhook/simulate
+   * Simulates an authentic Mercado Pago Webhook notification for testing,
+   * generates and verifies HMAC signatures, and updates the database records.
+   */
+  app.post('/api/mercadopago/webhook/simulate', async (req, res) => {
+    try {
+      const {
+        appointmentId,
+        barbershopId,
+        planId,
+        amount = 35.0,
+        status = 'approved',
+        customSecret,
+      } = req.body || {};
+
+      const currentDb = getLocalDatabase();
+      const simPaymentId = `sim_mp_${Date.now()}`;
+
+      let externalRef = '';
+      if (appointmentId) {
+        externalRef = `appt_${appointmentId}`;
+      } else if (barbershopId) {
+        externalRef = `sub_${barbershopId}_${planId || 'monthly'}_${Date.now()}`;
+      } else {
+        // Fallback to first available appointment or barbershop for realistic simulation
+        if (currentDb.appointments.length > 0) {
+          externalRef = `appt_${currentDb.appointments[0].id}`;
+        } else if (currentDb.barbershops.length > 0) {
+          externalRef = `sub_${currentDb.barbershops[0].id}_monthly_${Date.now()}`;
+        } else {
+          externalRef = `ref_${Date.now()}`;
+        }
+      }
+
+      const activeSecret = customSecret || currentDb.settings?.mercadoPagoWebhookSecret || 'sim_webhook_secret_key_123';
+
+      // Generate realistic Mercado Pago signature
+      const sigData = generateMercadoPagoSignature({
+        secret: activeSecret,
+        dataId: simPaymentId,
+      });
+
+      // Verify the generated signature
+      const sigVerification = verifyMercadoPagoWebhookSignature({
+        secret: activeSecret,
+        xSignature: sigData.xSignature,
+        xRequestId: sigData.xRequestId,
+        dataId: simPaymentId,
+      });
+
+      const simulatedPaymentData = {
+        id: simPaymentId,
+        status: status || 'approved',
+        status_detail: status === 'approved' ? 'accredited' : 'pending_waiting_transfer',
+        transaction_amount: Number(amount) || 35.0,
+        description: 'Simulação Webhook PIX BarberHub',
+        external_reference: externalRef,
+        date_created: new Date().toISOString(),
+        date_approved: status === 'approved' ? new Date().toISOString() : undefined,
+      };
+
+      const confirmationResult = processMercadoPagoPaymentConfirmation({
+        paymentId: simPaymentId,
+        paymentData: simulatedPaymentData,
+        source: 'simulation',
+        signatureValid: sigVerification.valid,
+      });
+
+      return res.json({
+        success: true,
+        message: 'Simulação de Webhook PIX processada com sucesso no banco de dados!',
+        signatureCheck: {
+          signatureProvided: true,
+          secretConfigured: Boolean(activeSecret),
+          valid: sigVerification.valid,
+          reason: sigVerification.reason,
+          computedHash: sigVerification.computedHash,
+          expectedHash: sigVerification.expectedHash,
+        },
+        matchedEntity: confirmationResult.matchedEntity,
+        outcome: confirmationResult.outcome,
+        log: confirmationResult.log,
+      });
+    } catch (err: any) {
+      return res.status(500).json({
+        success: false,
+        error: 'Erro ao processar simulação de webhook: ' + (err?.message || 'Erro interno'),
+      });
+    }
+  });
+
+  /**
+   * GET /api/mercadopago/webhook/logs
+   * Returns recent webhook events stored in the database
+   */
+  app.get('/api/mercadopago/webhook/logs', (req, res) => {
+    try {
+      const currentDb = getLocalDatabase();
+      return res.json({
+        success: true,
+        logs: currentDb.webhookLogs || [],
+      });
+    } catch (err: any) {
+      return res.status(500).json({
+        success: false,
+        error: 'Erro ao ler logs de webhook: ' + (err?.message || 'Erro interno'),
+      });
+    }
+  });
+
+  /**
+   * GET /api/mercadopago/webhook/info
+   * Returns Webhook endpoint URL, secret status and setup instructions
+   */
+  app.get('/api/mercadopago/webhook/info', (req, res) => {
+    try {
+      const host = req.headers['x-forwarded-host'] || req.headers.host || 'localhost:3000';
+      const proto = req.headers['x-forwarded-proto'] || (req.secure ? 'https' : 'http');
+      const webhookUrl = `${proto}://${host}/api/mercadopago/webhook`;
+      const currentDb = getLocalDatabase();
+
+      const hasPlatformSecret = Boolean(
+        (currentDb.settings?.mercadoPagoWebhookSecret && currentDb.settings.mercadoPagoWebhookSecret.trim()) ||
+        process.env.MERCADO_PAGO_WEBHOOK_SECRET
+      );
+
+      const activeBarbersWithSecret = (currentDb.barbershops || []).filter(
+        (b: any) => b.mercadoPagoWebhookSecret && b.mercadoPagoWebhookSecret.trim()
+      ).length;
+
+      return res.json({
+        success: true,
+        webhookUrl,
+        hasPlatformSecret,
+        activeBarbersWithSecret,
+        instructions: {
+          title: 'Configuração do Webhook no Mercado Pago',
+          steps: [
+            'Acesse mercadopago.com.br/developers e entre no seu painel.',
+            'Selecione sua aplicação em "Suas integrações".',
+            'Vá em "Notificações Webhooks" no menu lateral.',
+            `Adicione a URL: ${webhookUrl}`,
+            'Selecione os eventos de Pagamentos ("Pagamentos" ou "payment").',
+            'Copie a "Chave secreta" (Secret Key) gerada e cole no campo de Chave Secreta do BarberHub.',
+          ],
+          events: ['payment (Pagamentos)'],
+        },
+      });
+    } catch (err: any) {
+      return res.status(500).json({
+        success: false,
+        error: 'Erro ao carregar informações de webhook: ' + (err?.message || 'Erro interno'),
+      });
     }
   });
 

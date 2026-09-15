@@ -36,6 +36,8 @@ import {
   Banknote,
   Sparkles,
   ChevronRight,
+  Radio,
+  Copy,
 } from 'lucide-react';
 
 interface BarberSettingsViewProps {
@@ -82,7 +84,12 @@ export const BarberSettingsView: React.FC<BarberSettingsViewProps> = ({ barbersh
   const [mercadoPagoAccessToken, setMercadoPagoAccessToken] = useState(
     barbershop.mercadoPagoAccessToken || ''
   );
+  const [mercadoPagoWebhookSecret, setMercadoPagoWebhookSecret] = useState(
+    barbershop.mercadoPagoWebhookSecret || ''
+  );
   const [showMpToken, setShowMpToken] = useState(false);
+  const [showMpSecret, setShowMpSecret] = useState(false);
+  const [copiedShopWebhook, setCopiedShopWebhook] = useState(false);
   const [isTestingMp, setIsTestingMp] = useState(false);
   const [mpTestResult, setMpTestResult] = useState<{
     success?: boolean;
@@ -241,6 +248,7 @@ export const BarberSettingsView: React.FC<BarberSettingsViewProps> = ({ barbersh
       pixKeyType,
       pixReceiverName,
       mercadoPagoAccessToken: mercadoPagoAccessToken.trim(),
+      mercadoPagoWebhookSecret: mercadoPagoWebhookSecret.trim(),
       slotIntervalMinutes,
       bookingWindowDays,
       confirmationMode,
@@ -1014,6 +1022,59 @@ export const BarberSettingsView: React.FC<BarberSettingsViewProps> = ({ barbersh
                 <p className="text-[10px] text-slate-400 mt-1">
                   Gere em: <strong>mercadopago.com.br/developers</strong> &gt; Suas integrações &gt; Credenciais
                 </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Chave Secreta do Webhook (Secret HMAC):
+                </label>
+                <div className="relative">
+                  <input
+                    type={showMpSecret ? 'text' : 'password'}
+                    placeholder="Chave secreta gerada nas notificações Webhook"
+                    value={mercadoPagoWebhookSecret}
+                    onChange={(e) => setMercadoPagoWebhookSecret(e.target.value)}
+                    className="w-full px-3 py-2.5 pr-16 bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 rounded-xl text-xs font-mono font-bold text-slate-900 dark:text-white placeholder:text-slate-400"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowMpSecret(!showMpSecret)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 text-slate-500 hover:text-slate-800 text-[10px] font-bold"
+                  >
+                    {showMpSecret ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Garante que o pagamento recebido foi realmente enviado pelo Mercado Pago de forma criptográfica e segura.
+                </p>
+              </div>
+
+              {/* Webhook Endpoint for this Barbershop */}
+              <div className="p-3 bg-white/70 dark:bg-slate-900/60 rounded-xl border border-sky-200 dark:border-sky-800/80 space-y-1.5">
+                <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                  <Radio className="w-3.5 h-3.5 text-sky-600 animate-pulse" />
+                  Sua URL de Webhook Exclusiva (Mercado Pago Developers):
+                </span>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={`${window.location.origin}/api/mercadopago/webhook?shopId=${barbershop.id}`}
+                    className="w-full px-2.5 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg text-[11px] font-mono select-all border border-slate-200 dark:border-slate-700"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(`${window.location.origin}/api/mercadopago/webhook?shopId=${barbershop.id}`);
+                      setCopiedShopWebhook(true);
+                      setTimeout(() => setCopiedShopWebhook(false), 2000);
+                    }}
+                    className="px-2.5 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-white rounded-lg text-xs font-bold transition flex items-center gap-1 shrink-0"
+                  >
+                    {copiedShopWebhook ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedShopWebhook ? 'Copiado!' : 'Copiar'}</span>
+                  </button>
+                </div>
               </div>
 
               <div className="flex items-center justify-between gap-2 pt-1">
