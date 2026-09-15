@@ -1937,14 +1937,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       const res = await fetch('/api/db');
       if (res.ok) {
-        const json = await res.json();
-        if (json.settings) {
-          setPlatformSettings((prev) => {
-            const merged = { ...prev, ...json.settings };
-            localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(merged));
-            return merged;
-          });
-          return json.settings;
+        const text = await res.text();
+        try {
+          const json = JSON.parse(text);
+          if (json && json.settings) {
+            setPlatformSettings((prev) => {
+              const merged = { ...prev, ...json.settings };
+              localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(merged));
+              return merged;
+            });
+            return json.settings;
+          }
+        } catch {
+          // Ignored if response is non-JSON
         }
       }
     } catch (err) {

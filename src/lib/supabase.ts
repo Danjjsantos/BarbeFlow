@@ -1070,9 +1070,14 @@ export async function fetchServerDbData() {
   try {
     const res = await fetch('/api/db/data');
     if (res.ok) {
-      const json = await res.json();
-      if (json.success && json.data) {
-        return json.data;
+      const text = await res.text();
+      try {
+        const json = JSON.parse(text);
+        if (json && json.success && json.data) {
+          return json.data;
+        }
+      } catch {
+        // Response was not JSON
       }
     }
   } catch (e) {
@@ -1114,17 +1119,22 @@ export const supabaseService = {
     try {
       const serverRes = await fetch(`/api/supabase/status?url=${encodeURIComponent(cleanUrl)}&key=${encodeURIComponent(key)}`);
       if (serverRes.ok) {
-        const json = await serverRes.json();
-        if (json.connected) {
-          return {
-            connected: true,
-            message: json.message || 'Conectado com sucesso ao Supabase!',
-          };
-        } else if (json.message) {
-          return {
-            connected: false,
-            message: json.message,
-          };
+        const text = await serverRes.text();
+        try {
+          const json = JSON.parse(text);
+          if (json && json.connected) {
+            return {
+              connected: true,
+              message: json.message || 'Conectado com sucesso ao Supabase!',
+            };
+          } else if (json && json.message) {
+            return {
+              connected: false,
+              message: json.message,
+            };
+          }
+        } catch {
+          // Response was not JSON (e.g. HTML error page)
         }
       }
     } catch {
@@ -1588,7 +1598,11 @@ export const supabaseService = {
           customKey: key,
         }),
       });
-      const json = await res.json().catch(() => null);
+      let json: any = null;
+      try {
+        const raw = await res.text();
+        json = JSON.parse(raw);
+      } catch {}
       if (res.ok && json?.success) {
         return {
           success: true,
@@ -1673,7 +1687,11 @@ export const supabaseService = {
         body: JSON.stringify(payload),
       });
 
-      const json = await serverRes.json().catch(() => null);
+      let json: any = null;
+      try {
+        const raw = await serverRes.text();
+        json = JSON.parse(raw);
+      } catch {}
       if (serverRes.ok && json?.success) {
         return {
           success: true,

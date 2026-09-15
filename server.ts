@@ -426,6 +426,27 @@ function sanitizeToken(token?: string): string {
   return cleaned;
 }
 
+// Safe parser that NEVER throws "Unexpected token... is not valid JSON"
+async function safeJsonFromFetch<T = any>(
+  fetchRes: Response
+): Promise<{ ok: boolean; status: number; data: T | null; text: string }> {
+  const status = fetchRes.status;
+  const ok = fetchRes.ok;
+  let text = '';
+  try {
+    text = await fetchRes.text();
+  } catch {
+    return { ok: false, status, data: null, text: '' };
+  }
+
+  try {
+    const data = JSON.parse(text);
+    return { ok, status, data, text };
+  } catch {
+    return { ok: false, status, data: null, text };
+  }
+}
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
@@ -993,15 +1014,17 @@ async function startServer() {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) BarberHub/1.0',
               Authorization: `Bearer ${token}`,
               'X-Idempotency-Key': idempotencyKey,
             },
             body: JSON.stringify(mpRequestBody),
           });
 
-          const mpData = await mpResponse.json();
+          const { ok: mpOk, data: mpData, text: rawMpText } = await safeJsonFromFetch(mpResponse);
 
-          if (mpResponse.ok && mpData.id) {
+          if (mpOk && mpData && mpData.id) {
             const qrCode = mpData.point_of_interaction?.transaction_data?.qr_code || '';
             let qrCodeBase64 = mpData.point_of_interaction?.transaction_data?.qr_code_base64 || '';
             const ticketUrl = mpData.point_of_interaction?.transaction_data?.ticket_url || '';
@@ -1045,7 +1068,7 @@ async function startServer() {
               },
             });
           } else {
-            console.warn('Mercado Pago API returned error status:', mpResponse.status, mpData);
+            console.warn('Mercado Pago API returned error or non-JSON:', mpResponse.status, mpData || rawMpText.slice(0, 150));
           }
         } catch (apiErr: any) {
           console.error('Error contacting Mercado Pago API:', apiErr);
@@ -1121,11 +1144,14 @@ async function startServer() {
           const mpRes = await fetch(`https://api.mercadopago.com/v1/payments/${id}`, {
             headers: {
               Authorization: `Bearer ${token}`,
+              'Accept': 'application/json',
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) BarberHub/1.0',
             },
           });
 
-          if (mpRes.ok) {
-            const mpData = await mpRes.json();
+          const { ok: mpOk, data: mpData } = await safeJsonFromFetch(mpRes);
+
+          if (mpOk && mpData && mpData.id) {
             const currentStatus = mpData.status;
 
             if (stored) {
@@ -1189,6 +1215,13 @@ async function startServer() {
     }
   });
 
+  app.get('/api/mercadopago/status', (req, res) => {
+    return res.status(400).json({
+      success: false,
+      error: 'ID do pagamento não informado.',
+    });
+  });
+
   /**
    * POST /api/mercadopago/simulate-approval
    * Instantly approves a payment for demonstration / testing
@@ -1231,7 +1264,7 @@ async function startServer() {
 
   /**
    * POST /api/mercadopago/test-token
-   * Validates a Mercado Pago Access Token using /users/me and fallback /v1/payment_methods
+   * Validates a Mercado Pago Access Token using /v1/payment_methods and /users/me
    */
   app.post('/api/mercadopago/test-token', async (req, res) => {
     try {
@@ -1245,39 +1278,54 @@ async function startServer() {
         });
       }
 
-      // Check 1: Try /v1/payment_methods first (Standard for Application Tokens & Payments)
-      const pmRes = await fetch('https://api.mercadopago.com/v1/payment_methods', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      // Check 1: Try /v1/payment_methods (Standard for Application Tokens & Payments)
+      let pmOk = false;
+      let pmData: any = null;
+      let pmText = '';
+      let pmStatus = 0;
 
-      if (pmRes.ok) {
-        const pmData = await pmRes.json();
-        const hasPix = Array.isArray(pmData) && pmData.some((pm: any) => pm.id === 'pix');
+      try {
+        const pmRes = await fetch('https://api.mercadopago.com/v1/payment_methods', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Accept': 'application/json',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) BarberHub/1.0',
+          },
+        });
+        const parsed = await safeJsonFromFetch(pmRes);
+        pmOk = parsed.ok;
+        pmData = parsed.data;
+        pmText = parsed.text;
+        pmStatus = parsed.status;
+      } catch (pmErr: any) {
+        console.warn('Network error checking payment_methods:', pmErr.message);
+      }
 
-        // Optional: Also try to get user details from /users/me
+      if (pmOk && Array.isArray(pmData) && pmData.length > 0) {
+        const hasPix = pmData.some((pm: any) => pm.id === 'pix');
         let nickname = 'Credencial Mercado Pago Válida';
         let email: string | undefined = undefined;
+
+        // Optional: Also try to get user details from /users/me
         try {
           const userRes = await fetch('https://api.mercadopago.com/users/me', {
             headers: {
               Authorization: `Bearer ${token}`,
+              'Accept': 'application/json',
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) BarberHub/1.0',
             },
           });
-          if (userRes.ok) {
-            const userData = await userRes.json();
-            nickname = userData.nickname || userData.first_name || nickname;
-            email = userData.email;
+          const parsedUser = await safeJsonFromFetch(userRes);
+          if (parsedUser.ok && parsedUser.data) {
+            nickname = parsedUser.data.nickname || parsedUser.data.first_name || nickname;
+            email = parsedUser.data.email;
           }
-        } catch {
-          // If users/me is restricted by policy, payment_methods is sufficient!
-        }
+        } catch {}
 
         return res.json({
           success: true,
-          nickname: nickname,
-          email: email,
+          nickname,
+          email,
           hasPix,
           message: hasPix
             ? 'Access Token válido e autorizado para cobranças PIX!'
@@ -1286,37 +1334,61 @@ async function startServer() {
       }
 
       // Check 2: Try /users/me as fallback
-      const mpRes = await fetch('https://api.mercadopago.com/users/me', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      let mpOk = false;
+      let userData: any = null;
+      let mpText = '';
+      let mpStatus = 0;
 
-      if (mpRes.ok) {
-        const userData = await mpRes.json();
+      try {
+        const mpRes = await fetch('https://api.mercadopago.com/users/me', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Accept': 'application/json',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) BarberHub/1.0',
+          },
+        });
+        const parsed = await safeJsonFromFetch(mpRes);
+        mpOk = parsed.ok;
+        userData = parsed.data;
+        mpText = parsed.text;
+        mpStatus = parsed.status;
+      } catch (mpErr: any) {
+        console.warn('Network error checking users/me:', mpErr.message);
+      }
+
+      if (mpOk && userData && (userData.id || userData.nickname || userData.email)) {
         return res.json({
           success: true,
           nickname: userData.nickname || userData.first_name || 'Conta Mercado Pago',
           email: userData.email,
           siteId: userData.site_id,
-        });
-      } else {
-        const errorData = await pmRes.json().catch(() => ({}));
-        let errorMsg = errorData.message || errorData.error || '';
-        
-        if (errorMsg.includes('UNAUTHORIZED') || pmRes.status === 401) {
-          errorMsg = 'Access Token inválido ou não autorizado. Verifique se copiou o "Access Token" (e não a Public Key) no painel do Mercado Pago.';
-        }
-
-        return res.json({
-          success: false,
-          error: errorMsg || 'Access Token inválido ou não autorizado no Mercado Pago.',
+          hasPix: true,
+          message: 'Access Token válido e conectado à conta Mercado Pago!',
         });
       }
-    } catch (err: any) {
-      return res.status(500).json({
+
+      // If both checks failed, provide friendly, non-crashing error message
+      let errorMsg = 'Access Token inválido ou não autorizado.';
+      const combined = (pmText + ' ' + mpText).toLowerCase();
+
+      if (pmStatus === 401 || mpStatus === 401 || combined.includes('unauthorized') || combined.includes('invalid_token')) {
+        errorMsg = 'Access Token inválido ou não autorizado. Verifique se copiou o "Access Token" (e não a Public Key) no painel do Mercado Pago.';
+      } else if (combined.includes('the page') || combined.includes('<html') || pmStatus === 403 || mpStatus === 403) {
+        errorMsg = 'Token não autorizado ou política de segurança do Mercado Pago. Confirme se as credenciais de Produção ou Teste estão ativas no painel de desenvolvedores.';
+      } else if (pmData && typeof pmData === 'object' && pmData.message) {
+        errorMsg = `Mercado Pago: ${pmData.message}`;
+      } else if (userData && typeof userData === 'object' && userData.message) {
+        errorMsg = `Mercado Pago: ${userData.message}`;
+      }
+
+      return res.json({
         success: false,
-        error: 'Erro de conexão com o Mercado Pago: ' + err.message,
+        error: errorMsg,
+      });
+    } catch (err: any) {
+      return res.json({
+        success: false,
+        error: 'Erro de comunicação ao testar token do Mercado Pago: ' + (err?.message || 'Falha de conexão'),
       });
     }
   });
@@ -1336,10 +1408,12 @@ async function startServer() {
           const mpRes = await fetch(`https://api.mercadopago.com/v1/payments/${id}`, {
             headers: {
               Authorization: `Bearer ${token}`,
+              'Accept': 'application/json',
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) BarberHub/1.0',
             },
           });
-          if (mpRes.ok) {
-            const data = await mpRes.json();
+          const { ok, data } = await safeJsonFromFetch(mpRes);
+          if (ok && data) {
             const stored = paymentsStore.get(String(id));
             if (stored) {
               stored.status = data.status;
@@ -1356,6 +1430,14 @@ async function startServer() {
       console.error('Webhook error:', err);
       res.status(200).send('OK');
     }
+  });
+
+  // Ensure unmatched /api/* routes always return JSON 404 and never Vite HTML index.html
+  app.all('/api/*', (req, res) => {
+    res.status(404).json({
+      success: false,
+      error: `Endpoint da API não encontrado: ${req.method} ${req.path}`,
+    });
   });
 
   // Vite integration: middleware for development & static files in production
