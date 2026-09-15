@@ -3,7 +3,6 @@ import { useApp } from '../../context/AppContext';
 import { PixKeyType } from '../../types';
 import { ChangePasswordModal } from '../common/ChangePasswordModal';
 import { testMercadoPagoCredentials } from '../../utils/mercadopago';
-import { simulateMercadoPagoWebhook } from '../../services/mercadopagoWebhookService';
 import {
   X,
   Save,
@@ -16,9 +15,6 @@ import {
   RefreshCw,
   Eye,
   EyeOff,
-  Copy,
-  Check,
-  Radio,
 } from 'lucide-react';
 
 interface PlatformSettingsModalProps {
@@ -50,27 +46,14 @@ export const PlatformSettingsModal: React.FC<PlatformSettingsModalProps> = ({
   const [mercadoPagoAccessToken, setMercadoPagoAccessToken] = useState(
     platformSettings.mercadoPagoAccessToken || ''
   );
-  const [mercadoPagoWebhookSecret, setMercadoPagoWebhookSecret] = useState(
-    platformSettings.mercadoPagoWebhookSecret || ''
-  );
   const [mercadoPagoEnabled, setMercadoPagoEnabled] = useState(
     platformSettings.mercadoPagoEnabled !== false
   );
   const [showToken, setShowToken] = useState(false);
-  const [showSecret, setShowSecret] = useState(false);
-  const [copiedWebhook, setCopiedWebhook] = useState(false);
   const [isTestingMp, setIsTestingMp] = useState(false);
   const [mpTestResult, setMpTestResult] = useState<{
     success?: boolean;
     message?: string;
-  } | null>(null);
-
-  // Webhook simulation state
-  const [isSimulatingWebhook, setIsSimulatingWebhook] = useState(false);
-  const [webhookSimResult, setWebhookSimResult] = useState<{
-    success?: boolean;
-    message?: string;
-    details?: string;
   } | null>(null);
 
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
@@ -85,54 +68,11 @@ export const PlatformSettingsModal: React.FC<PlatformSettingsModalProps> = ({
       setSupportEmail(platformSettings.supportEmail);
       setPixInstructions(platformSettings.pixInstructions);
       setMercadoPagoAccessToken(platformSettings.mercadoPagoAccessToken || '');
-      setMercadoPagoWebhookSecret(platformSettings.mercadoPagoWebhookSecret || '');
       setMercadoPagoEnabled(platformSettings.mercadoPagoEnabled !== false);
-      setMpTestResult(null);
-      setWebhookSimResult(null);
     }
   }, [isOpen, platformSettings]);
 
   if (!isOpen) return null;
-
-  const webhookUrl = `${window.location.origin}/api/mercadopago/webhook`;
-
-  const handleCopyWebhookUrl = () => {
-    navigator.clipboard.writeText(webhookUrl);
-    setCopiedWebhook(true);
-    setTimeout(() => setCopiedWebhook(false), 2000);
-  };
-
-  const handleSimulateWebhook = async () => {
-    setIsSimulatingWebhook(true);
-    setWebhookSimResult(null);
-    try {
-      const res = await simulateMercadoPagoWebhook({
-        amount: 49.9,
-        status: 'approved',
-        customSecret: mercadoPagoWebhookSecret.trim() || undefined,
-      });
-
-      if (res.success) {
-        setWebhookSimResult({
-          success: true,
-          message: res.message || 'Webhook simulado e processado com sucesso!',
-          details: res.outcome || `Assinatura verificada: ${res.signatureCheck?.valid ? 'Válida (HMAC-SHA256)' : 'Inexistente/Pendente'}`,
-        });
-      } else {
-        setWebhookSimResult({
-          success: false,
-          message: res.message || 'Falha na validação do Webhook.',
-        });
-      }
-    } catch (err: any) {
-      setWebhookSimResult({
-        success: false,
-        message: 'Erro ao executar teste de webhook: ' + (err?.message || 'Falha de conexão'),
-      });
-    } finally {
-      setIsSimulatingWebhook(false);
-    }
-  };
 
   const handleTestMercadoPago = async () => {
     if (!mercadoPagoAccessToken.trim()) {
@@ -179,7 +119,6 @@ export const PlatformSettingsModal: React.FC<PlatformSettingsModalProps> = ({
       supportEmail,
       pixInstructions,
       mercadoPagoAccessToken: mercadoPagoAccessToken.trim(),
-      mercadoPagoWebhookSecret: mercadoPagoWebhookSecret.trim(),
       mercadoPagoEnabled,
     });
     onClose();
@@ -304,56 +243,7 @@ export const PlatformSettingsModal: React.FC<PlatformSettingsModalProps> = ({
               </div>
             </div>
 
-            <div>
-              <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Chave Secreta do Webhook (Secret HMAC):
-              </label>
-              <div className="relative">
-                <input
-                  type={showSecret ? 'text' : 'password'}
-                  placeholder="Ex: c83f1249b6b9074b88a876fa..."
-                  value={mercadoPagoWebhookSecret}
-                  onChange={(e) => setMercadoPagoWebhookSecret(e.target.value)}
-                  className="w-full px-3 py-2 pr-16 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowSecret(!showSecret)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 text-slate-400 hover:text-slate-600 text-[10px]"
-                >
-                  {showSecret ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                </button>
-              </div>
-              <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
-                Utilizada para validar a assinatura criptográfica dos Webhooks do Mercado Pago e evitar fraudes.
-              </p>
-            </div>
-
-            {/* Webhook URL Box */}
-            <div className="p-3 bg-white/70 dark:bg-slate-900/60 rounded-xl border border-sky-200 dark:border-sky-800/80 space-y-1.5">
-              <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                <Radio className="w-3.5 h-3.5 text-sky-600 animate-pulse" />
-                URL de Notificação Webhook (Cole no Mercado Pago Developers):
-              </span>
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  readOnly
-                  value={webhookUrl}
-                  className="w-full px-2.5 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg text-[11px] font-mono select-all border border-slate-200 dark:border-slate-700"
-                />
-                <button
-                  type="button"
-                  onClick={handleCopyWebhookUrl}
-                  className="px-2.5 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-white rounded-lg text-xs font-bold transition flex items-center gap-1 shrink-0"
-                >
-                  {copiedWebhook ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{copiedWebhook ? 'Copiado!' : 'Copiar'}</span>
-                </button>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between gap-2 pt-1 flex-wrap">
+            <div className="flex items-center justify-between gap-2 pt-1">
               <button
                 type="button"
                 onClick={handleTestMercadoPago}
@@ -363,31 +253,12 @@ export const PlatformSettingsModal: React.FC<PlatformSettingsModalProps> = ({
                 {isTestingMp ? (
                   <>
                     <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    <span>Testando Token...</span>
+                    <span>Testando...</span>
                   </>
                 ) : (
                   <>
                     <Zap className="w-3.5 h-3.5" />
-                    <span>Testar Token</span>
-                  </>
-                )}
-              </button>
-
-              <button
-                type="button"
-                onClick={handleSimulateWebhook}
-                disabled={isSimulatingWebhook}
-                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
-              >
-                {isSimulatingWebhook ? (
-                  <>
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    <span>Simulando Webhook...</span>
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span>Simular Webhook PIX</span>
+                    <span>Testar Conexão</span>
                   </>
                 )}
               </button>
@@ -407,28 +278,6 @@ export const PlatformSettingsModal: React.FC<PlatformSettingsModalProps> = ({
                   <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600" />
                 )}
                 <span>{mpTestResult.message}</span>
-              </div>
-            )}
-
-            {webhookSimResult && (
-              <div
-                className={`p-2.5 rounded-xl text-xs font-medium space-y-1 ${
-                  webhookSimResult.success
-                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-300'
-                    : 'bg-rose-100 text-rose-800 dark:bg-rose-950/70 dark:text-rose-300 border border-rose-300'
-                }`}
-              >
-                <div className="flex items-center gap-1.5 font-bold">
-                  {webhookSimResult.success ? (
-                    <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
-                  ) : (
-                    <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600" />
-                  )}
-                  <span>{webhookSimResult.message}</span>
-                </div>
-                {webhookSimResult.details && (
-                  <p className="text-[11px] opacity-90 pl-5">{webhookSimResult.details}</p>
-                )}
               </div>
             )}
           </div>

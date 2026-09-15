@@ -1,17 +1,7 @@
 {
   "barbershops": [],
   "services": [],
-  "appointments": [
-    {
-      "id": "apt_test_123",
-      "clientName": "Carlos Silva",
-      "serviceName": "Corte Degradê & Barba",
-      "price": 50,
-      "status": "confirmed",
-      "pixPaidAt": "2026-09-15T23:42:43.007Z",
-      "mercadoPagoPaymentId": "sim_mp_1789515763007"
-    }
-  ],
+  "appointments": [],
   "users": [
     {
       "id": "user_superadmin_dan",
@@ -292,83 +282,5 @@
     "ctaSubtitle": "Cadastre-se agora mesmo, escolha o melhor plano para você e comece a receber agendamentos online hoje.",
     "ctaButtonText": "Quero Credenciar Minha Barbearia"
   },
-  "webhookLogs": [
-    {
-      "id": "wh_1789515763009_i37lw",
-      "topic": "payment",
-      "action": "payment.updated",
-      "paymentId": "sim_mp_1789515763007",
-      "status": "approved",
-      "statusDetail": "accredited",
-      "amount": 49.9,
-      "externalReference": "appt_apt_test_123",
-      "signatureValid": true,
-      "receivedAt": "2026-09-15T23:42:43.009Z",
-      "source": "simulation",
-      "outcome": "Agendamento #apt_test_123 (Corte Degradê & Barba - Carlos Silva) CONFIRMADO via PIX no banco de dados.",
-      "matchedEntity": {
-        "type": "appointment",
-        "id": "apt_test_123",
-        "description": "Corte Degradê & Barba - Cliente: Carlos Silva"
-      }
-    },
-    {
-      "id": "wh_1789515537197_ssybm",
-      "topic": "payment",
-      "action": "payment.updated",
-      "paymentId": "sim_mp_1789515537196",
-      "status": "approved",
-      "statusDetail": "accredited",
-      "amount": 50,
-      "externalReference": "appt_apt_test_123",
-      "signatureValid": true,
-      "receivedAt": "2026-09-15T23:38:57.197Z",
-      "source": "simulation",
-      "outcome": "Agendamento #apt_test_123 (Corte Degradê & Barba - Carlos Silva) CONFIRMADO via PIX no banco de dados.",
-      "matchedEntity": {
-        "type": "appointment",
-        "id": "apt_test_123",
-        "description": "Corte Degradê & Barba - Cliente: Carlos Silva"
-      }
-    },
-    {
-      "id": "wh_1789515531154_85m37",
-      "topic": "payment",
-      "action": "payment.updated",
-      "paymentId": "sim_mp_1789515531153",
-      "status": "approved",
-      "statusDetail": "accredited",
-      "amount": 50,
-      "externalReference": "appt_apt_test_123",
-      "signatureValid": true,
-      "receivedAt": "2026-09-15T23:38:51.154Z",
-      "source": "simulation",
-      "outcome": "Pagamento sim_mp_1789515531153 recebido com status \"approved\".",
-      "matchedEntity": {
-        "type": "unknown",
-        "id": "appt_apt_test_123",
-        "description": "Nenhuma entidade associada encontrada."
-      }
-    },
-    {
-      "id": "wh_1789515522885_0xcff",
-      "topic": "payment",
-      "action": "payment.updated",
-      "paymentId": "sim_mp_1789515522884",
-      "status": "approved",
-      "statusDetail": "accredited",
-      "amount": 45,
-      "externalReference": "ref_1789515522884",
-      "signatureValid": true,
-      "receivedAt": "2026-09-15T23:38:42.885Z",
-      "source": "simulation",
-      "outcome": "Pagamento sim_mp_1789515522884 recebido com status \"approved\".",
-      "matchedEntity": {
-        "type": "unknown",
-        "id": "ref_1789515522884",
-        "description": "Nenhuma entidade associada encontrada."
-      }
-    }
-  ],
-  "lastUpdated": "2026-09-15T23:42:43.009Z"
+  "lastUpdated": "2026-08-26T21:42:49.421Z"
 }

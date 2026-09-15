@@ -137,7 +137,6 @@ export interface Barbershop {
   pixReceiverName: string;
   mercadoPagoAccessToken?: string;
   mercadoPagoPublicKey?: string;
-  mercadoPagoWebhookSecret?: string;
   mercadoPagoEnabled?: boolean;
   subscriptionPlanId?: SubscriptionPlanPeriod;
   subscriptionStatus: SubscriptionStatus;
@@ -204,28 +203,7 @@ export interface PlatformSettings {
   pixInstructions: string;
   mercadoPagoAccessToken?: string;
   mercadoPagoPublicKey?: string;
-  mercadoPagoWebhookSecret?: string;
   mercadoPagoEnabled?: boolean;
-}
-
-export interface MercadoPagoWebhookLog {
-  id: string;
-  topic: string;
-  action?: string;
-  paymentId: string;
-  status: string;
-  statusDetail?: string;
-  amount?: number;
-  externalReference?: string;
-  signatureValid: boolean;
-  receivedAt: string;
-  source: 'live' | 'simulation';
-  outcome: string;
-  matchedEntity?: {
-    type: 'appointment' | 'barbershop_subscription' | 'unknown';
-    id: string;
-    description: string;
-  };
 }
 
 export interface MercadoPagoPixResponse {
