@@ -8,6 +8,7 @@ import { LandingPage } from './components/landing/LandingPage';
 import { BarberRegisterModal } from './components/barber/BarberRegisterModal';
 import { AuthLoginModal } from './components/common/AuthLoginModal';
 import { NotificationToastContainer } from './components/common/NotificationToast';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { useNotificationWatcher } from './hooks/useNotificationWatcher';
 import { Scissors, Shield, Heart, Sparkles, CheckCircle2, User, Eye, Tag } from 'lucide-react';
 
@@ -96,8 +97,10 @@ const AppContent: React.FC = () => {
 
 export default function App() {
   return (
-    <AppProvider>
-      <AppContent />
-    </AppProvider>
+    <ErrorBoundary>
+      <AppProvider>
+        <AppContent />
+      </AppProvider>
+    </ErrorBoundary>
   );
 }

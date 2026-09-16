@@ -1482,29 +1482,37 @@ async function startServer() {
    */
   app.post('/api/mercadopago/test-token', async (req, res) => {
     try {
-      const { accessToken } = req.body;
-      const token = sanitizeToken(accessToken) || sanitizeToken(process.env.MERCADO_PAGO_ACCESS_TOKEN);
+      const { accessToken } = req.body || {};
+      const token = accessToken !== undefined 
+        ? sanitizeToken(accessToken) 
+        : sanitizeToken(process.env.MERCADO_PAGO_ACCESS_TOKEN);
 
       if (!token) {
-        return res.status(400).json({
+        return res.status(200).json({
           success: false,
           error: 'Nenhum Access Token fornecido. Insira seu token de Produção ou Teste (APP_USR-... ou TEST-...).',
         });
       }
 
       // Check 1: Try /v1/payment_methods first (Standard for Application Tokens & Payments)
-      const pmRes = await fetch('https://api.mercadopago.com/v1/payment_methods', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      const pmRaw = await pmRes.text();
+      let pmRes: Response;
       let pmData: any = null;
       try {
-        pmData = JSON.parse(pmRaw);
-      } catch {
-        pmData = null;
+        pmRes = await fetch('https://api.mercadopago.com/v1/payment_methods', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          signal: AbortSignal.timeout(8000),
+        });
+
+        const pmRaw = await pmRes.text();
+        try {
+          pmData = JSON.parse(pmRaw);
+        } catch {
+          pmData = null;
+        }
+      } catch (e: any) {
+        pmRes = new Response(null, { status: 504 });
       }
 
       if (pmRes.ok && pmData) {
@@ -1518,6 +1526,7 @@ async function startServer() {
             headers: {
               Authorization: `Bearer ${token}`,
             },
+            signal: AbortSignal.timeout(6000),
           });
           if (userRes.ok) {
             const userRaw = await userRes.text();
@@ -1533,8 +1542,8 @@ async function startServer() {
 
         return res.json({
           success: true,
-          nickname: nickname,
-          email: email,
+          nickname: typeof nickname === 'string' ? nickname : 'Conta Mercado Pago',
+          email: typeof email === 'string' ? email : undefined,
           hasPix,
           message: hasPix
             ? 'Access Token válido e autorizado para cobranças PIX!'
@@ -1543,43 +1552,69 @@ async function startServer() {
       }
 
       // Check 2: Try /users/me as fallback
-      const mpRes = await fetch('https://api.mercadopago.com/users/me', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      const mpRaw = await mpRes.text();
+      let mpRes: Response;
       let userData: any = null;
       try {
-        userData = JSON.parse(mpRaw);
-      } catch {
-        userData = null;
+        mpRes = await fetch('https://api.mercadopago.com/users/me', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          signal: AbortSignal.timeout(8000),
+        });
+
+        const mpRaw = await mpRes.text();
+        try {
+          userData = JSON.parse(mpRaw);
+        } catch {
+          userData = null;
+        }
+      } catch (e: any) {
+        mpRes = new Response(null, { status: 504 });
       }
 
       if (mpRes.ok && userData) {
+        const nickname = userData.nickname || userData.first_name || 'Conta Mercado Pago';
         return res.json({
           success: true,
-          nickname: userData.nickname || userData.first_name || 'Conta Mercado Pago',
-          email: userData.email,
-          siteId: userData.site_id,
+          nickname: typeof nickname === 'string' ? nickname : 'Conta Mercado Pago',
+          email: typeof userData.email === 'string' ? userData.email : undefined,
+          siteId: typeof userData.site_id === 'string' ? userData.site_id : undefined,
+          message: 'Access Token conectado com sucesso ao Mercado Pago.',
         });
       } else {
-        let errorMsg = (pmData && (pmData.message || pmData.error)) || (userData && (userData.message || userData.error)) || '';
-        
-        if (errorMsg.includes('UNAUTHORIZED') || pmRes.status === 401 || mpRes.status === 401) {
+        let rawError = '';
+        if (typeof pmData?.message === 'string') rawError = pmData.message;
+        else if (typeof pmData?.error === 'string') rawError = pmData.error;
+        else if (typeof userData?.message === 'string') rawError = userData.message;
+        else if (typeof userData?.error === 'string') rawError = userData.error;
+        else if (pmData?.cause && Array.isArray(pmData.cause) && pmData.cause[0]?.description) rawError = String(pmData.cause[0].description);
+        else if (userData?.cause && Array.isArray(userData.cause) && userData.cause[0]?.description) rawError = String(userData.cause[0].description);
+        else if (pmData) rawError = typeof pmData === 'string' ? pmData : JSON.stringify(pmData);
+        else if (userData) rawError = typeof userData === 'string' ? userData : JSON.stringify(userData);
+
+        let errorMsg = rawError;
+        const upper = (rawError || '').toUpperCase();
+        if (
+          upper.includes('UNAUTHORIZED') ||
+          upper.includes('INVALID_TOKEN') ||
+          upper.includes('POLICY') ||
+          pmRes.status === 401 ||
+          pmRes.status === 400 ||
+          mpRes.status === 401 ||
+          mpRes.status === 403
+        ) {
           errorMsg = 'Access Token inválido ou não autorizado. Verifique se copiou o "Access Token" (e não a Public Key) no painel do Mercado Pago.';
         }
 
-        return res.json({
+        return res.status(200).json({
           success: false,
           error: errorMsg || 'Access Token inválido ou não autorizado no Mercado Pago.',
         });
       }
     } catch (err: any) {
-      return res.status(500).json({
+      return res.status(200).json({
         success: false,
-        error: 'Erro de conexão com o Mercado Pago: ' + err.message,
+        error: 'Erro de conexão com o Mercado Pago: ' + (err?.message || 'Falha de comunicação.'),
       });
     }
   });

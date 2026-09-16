@@ -75,7 +75,8 @@ export const PlatformSettingsModal: React.FC<PlatformSettingsModalProps> = ({
   if (!isOpen) return null;
 
   const handleTestMercadoPago = async () => {
-    if (!mercadoPagoAccessToken.trim()) {
+    const tokenToTest = (mercadoPagoAccessToken || '').trim();
+    if (!tokenToTest) {
       setMpTestResult({
         success: false,
         message: 'Digite o Access Token do Mercado Pago antes de testar.',
@@ -85,22 +86,24 @@ export const PlatformSettingsModal: React.FC<PlatformSettingsModalProps> = ({
     setIsTestingMp(true);
     setMpTestResult(null);
     try {
-      const res = await testMercadoPagoCredentials(mercadoPagoAccessToken);
-      if (res.success) {
+      const res = await testMercadoPagoCredentials(tokenToTest);
+      if (res && res.success) {
+        const accName = res.nickname || res.email || 'Mercado Pago';
         setMpTestResult({
           success: true,
-          message: res.message || `Conectado com sucesso à conta: ${res.nickname || res.email || 'Mercado Pago'}`,
+          message: typeof res.message === 'string' ? res.message : `Conectado com sucesso à conta: ${accName}`,
         });
       } else {
+        const errMsg = res && res.error ? (typeof res.error === 'string' ? res.error : JSON.stringify(res.error)) : 'Token inválido ou sem permissão.';
         setMpTestResult({
           success: false,
-          message: res.error || 'Token inválido ou sem permissão.',
+          message: errMsg,
         });
       }
     } catch (err: any) {
       setMpTestResult({
         success: false,
-        message: 'Erro de comunicação ao testar token.',
+        message: typeof err?.message === 'string' ? err.message : 'Erro de comunicação ao testar token.',
       });
     } finally {
       setIsTestingMp(false);
@@ -118,7 +121,7 @@ export const PlatformSettingsModal: React.FC<PlatformSettingsModalProps> = ({
       supportPhone,
       supportEmail,
       pixInstructions,
-      mercadoPagoAccessToken: mercadoPagoAccessToken.trim(),
+      mercadoPagoAccessToken: (mercadoPagoAccessToken || '').trim(),
       mercadoPagoEnabled,
     });
     onClose();
@@ -277,7 +280,7 @@ export const PlatformSettingsModal: React.FC<PlatformSettingsModalProps> = ({
                 ) : (
                   <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600" />
                 )}
-                <span>{mpTestResult.message}</span>
+                <span>{typeof mpTestResult.message === 'string' ? mpTestResult.message : JSON.stringify(mpTestResult.message)}</span>
               </div>
             )}
           </div>
@@ -349,8 +352,8 @@ export const PlatformSettingsModal: React.FC<PlatformSettingsModalProps> = ({
         <ChangePasswordModal
           isOpen={isPasswordModalOpen}
           onClose={() => setIsPasswordModalOpen(false)}
-          userId={currentUser.id}
-          userName={currentUser.name}
+          userId={currentUser?.id || ''}
+          userName={currentUser?.name || ''}
         />
       </div>
     </div>

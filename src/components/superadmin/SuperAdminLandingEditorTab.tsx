@@ -2245,7 +2245,7 @@ export const SuperAdminLandingEditorTab: React.FC = () => {
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-500 mt-1">
-                    {supabaseStatus || 'Pronto para sincronizar dados em tempo real.'}
+                    {supabaseStatus?.message || 'Pronto para sincronizar dados em tempo real.'}
                   </p>
                 </div>
 

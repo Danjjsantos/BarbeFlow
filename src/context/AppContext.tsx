@@ -33,6 +33,7 @@ interface AppContextType {
   barbershops: Barbershop[];
   services: Service[];
   appointments: Appointment[];
+  setAppointments: React.Dispatch<React.SetStateAction<Appointment[]>>;
   platformSettings: PlatformSettings;
   subscriptionPlans: SubscriptionPlan[];
   landingPageContent: LandingPageContent;
@@ -2354,6 +2355,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         barbershops,
         services,
         appointments,
+        setAppointments,
         platformSettings,
         subscriptionPlans,
         landingPageContent,

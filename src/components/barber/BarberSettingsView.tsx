@@ -178,7 +178,8 @@ export const BarberSettingsView: React.FC<BarberSettingsViewProps> = ({ barbersh
   const publicLink = getBarbershopPublicUrl(barbershop.slug);
 
   const handleTestMercadoPago = async () => {
-    if (!mercadoPagoAccessToken.trim()) {
+    const tokenToTest = (mercadoPagoAccessToken || '').trim();
+    if (!tokenToTest) {
       setMpTestResult({
         success: false,
         message: 'Digite seu Access Token do Mercado Pago antes de testar.',
@@ -188,22 +189,24 @@ export const BarberSettingsView: React.FC<BarberSettingsViewProps> = ({ barbersh
     setIsTestingMp(true);
     setMpTestResult(null);
     try {
-      const res = await testMercadoPagoCredentials(mercadoPagoAccessToken);
-      if (res.success) {
+      const res = await testMercadoPagoCredentials(tokenToTest);
+      if (res && res.success) {
+        const accName = res.nickname || res.email || 'Mercado Pago';
         setMpTestResult({
           success: true,
-          message: res.message || `Conectado com sucesso à conta: ${res.nickname || res.email || 'Mercado Pago'}`,
+          message: typeof res.message === 'string' ? res.message : `Conectado com sucesso à conta: ${accName}`,
         });
       } else {
+        const errMsg = res && res.error ? (typeof res.error === 'string' ? res.error : JSON.stringify(res.error)) : 'Token inválido ou não autorizado.';
         setMpTestResult({
           success: false,
-          message: res.error || 'Token inválido ou não autorizado.',
+          message: errMsg,
         });
       }
     } catch (err: any) {
       setMpTestResult({
         success: false,
-        message: 'Erro ao validar token do Mercado Pago.',
+        message: typeof err?.message === 'string' ? err.message : 'Erro ao validar token do Mercado Pago.',
       });
     } finally {
       setIsTestingMp(false);
@@ -1050,7 +1053,7 @@ export const BarberSettingsView: React.FC<BarberSettingsViewProps> = ({ barbersh
                   ) : (
                     <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600" />
                   )}
-                  <span>{mpTestResult.message}</span>
+                  <span>{typeof mpTestResult.message === 'string' ? mpTestResult.message : JSON.stringify(mpTestResult.message)}</span>
                 </div>
               )}
             </div>

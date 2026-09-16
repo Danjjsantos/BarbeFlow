@@ -30,8 +30,11 @@ export interface SubscriptionPlan {
   originalPrice?: number;
   monthlyEquivalent: number;
   discountPercent?: number;
+  discountPercentage?: number;
+  billingCycle?: string;
   description: string;
   badge?: string;
+  badgeText?: string;
   isPopular?: boolean;
   features: string[];
   active: boolean;
@@ -40,6 +43,7 @@ export interface SubscriptionPlan {
 export interface LandingFeature {
   id: string;
   icon: string;
+  iconName?: string;
   title: string;
   description: string;
 }
@@ -131,6 +135,7 @@ export interface Barbershop {
   city: string;
   instagram?: string;
   bio: string;
+  email?: string;
   themeColor: string; // Hex color code e.g. "#d97706" (amber-600) or "#0ea5e9"
   pixKey: string;
   pixKeyType: PixKeyType;
@@ -149,7 +154,7 @@ export interface Barbershop {
   slotIntervalMinutes: number; // 30 or 45 or 60 min
   bookingWindowDays?: number; // e.g. 8, 15, 30 (1 month), 60 (2 months)
   confirmationMode?: 'pix' | 'whatsapp'; // 'pix' = auto/prepaid via PIX; 'whatsapp' = direct booking & WhatsApp notification
-  acceptedPaymentMethods?: Array<'pix_manual' | 'pix_automatic' | 'cash' | 'card'>;
+  acceptedPaymentMethods?: PaymentMethodType[];
 }
 
 export interface Service {

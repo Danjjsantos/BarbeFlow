@@ -319,7 +319,8 @@ export async function testMercadoPagoCredentials(
   siteId?: string;
   error?: string;
 }> {
-  if (!accessToken || !accessToken.trim()) {
+  const cleanToken = (accessToken || '').trim();
+  if (!cleanToken) {
     return {
       success: false,
       error: 'Nenhum Access Token fornecido.',
@@ -332,11 +333,36 @@ export async function testMercadoPagoCredentials(
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ accessToken }),
+      body: JSON.stringify({ accessToken: cleanToken }),
     });
 
-    if (result.ok && result.data) {
-      return result.data;
+    if (result.ok && result.data && typeof result.data === 'object') {
+      const d = result.data;
+      const extractStr = (val: any): string | undefined => {
+        if (val === null || val === undefined) return undefined;
+        if (typeof val === 'string') return val;
+        if (typeof val === 'number' || typeof val === 'boolean') return String(val);
+        if (typeof val === 'object') {
+          if (typeof val.message === 'string') return val.message;
+          if (typeof val.error === 'string') return val.error;
+          try {
+            return JSON.stringify(val);
+          } catch {
+            return String(val);
+          }
+        }
+        return String(val);
+      };
+
+      return {
+        success: Boolean(d.success),
+        nickname: extractStr(d.nickname),
+        email: extractStr(d.email),
+        message: extractStr(d.message),
+        hasPix: Boolean(d.hasPix),
+        siteId: extractStr(d.siteId),
+        error: extractStr(d.error),
+      };
     }
 
     if (result.isHtml) {
@@ -346,14 +372,16 @@ export async function testMercadoPagoCredentials(
       };
     }
 
+    const rawError = result.data?.error || result.error || 'Não foi possível validar o token no Mercado Pago.';
+    const finalError = typeof rawError === 'string' ? rawError : (typeof rawError?.message === 'string' ? rawError.message : JSON.stringify(rawError));
     return {
       success: false,
-      error: result.error || result.data?.error || 'Não foi possível validar o token no Mercado Pago.',
+      error: finalError,
     };
   } catch (err: any) {
     return {
       success: false,
-      error: err?.message || 'Falha ao conectar para testar credenciais.',
+      error: typeof err?.message === 'string' ? err.message : 'Falha ao conectar para testar credenciais.',
     };
   }
 }

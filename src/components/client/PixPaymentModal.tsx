@@ -37,6 +37,7 @@ interface PixPaymentModalProps {
   barberAccessToken?: string;
   clientEmail?: string;
   clientName?: string;
+  appointmentId?: string;
   mode?: 'pix_manual' | 'pix_automatic' | 'pix';
   onConfirmSuccess: (paymentId?: string, proofUrl?: string, transactionCode?: string) => void;
   isConfirmed?: boolean;

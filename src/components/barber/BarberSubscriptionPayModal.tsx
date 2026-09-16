@@ -86,6 +86,7 @@ export const BarberSubscriptionPayModal: React.FC<BarberSubscriptionPayModalProp
     price: 49.9,
     periodMonths: 1,
     description: 'Acesso completo por 30 dias.',
+    discountPercent: 0,
   };
 
   const planPrice = currentSelectedPlan.price;
