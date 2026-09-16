@@ -426,6 +426,80 @@ function sanitizeToken(token?: string): string {
   return cleaned;
 }
 
+// Synchronize Mercado Pago payment approvals with local server DB and Supabase
+async function syncPaymentApprovalToDatabase(paymentId: string, externalReference?: string, paidAt?: string) {
+  try {
+    const currentDb = getLocalDatabase();
+    let dbChanged = false;
+    const paymentTimestamp = paidAt || new Date().toISOString();
+    const formattedPaidAt = `${paymentTimestamp.split('T')[0]} ${paymentTimestamp.split('T')[1]?.substring(0, 5) || ''}`.trim();
+
+    // 1. Sync matching Appointment
+    if (Array.isArray(currentDb.appointments)) {
+      for (const apt of currentDb.appointments) {
+        const matchesId = Boolean(apt.id && externalReference && (apt.id === externalReference || externalReference.includes(apt.id)));
+        const matchesTx = Boolean(apt.pixTransactionCode && externalReference && (apt.pixTransactionCode === externalReference || externalReference.includes(apt.pixTransactionCode)));
+        const matchesPaymentId = Boolean(apt.mercadoPagoPaymentId && (apt.mercadoPagoPaymentId === paymentId || apt.mercadoPagoPaymentId === String(paymentId)));
+
+        if (matchesId || matchesTx || matchesPaymentId) {
+          if (apt.status !== 'confirmed') {
+            apt.status = 'confirmed';
+            apt.pixPaidAt = formattedPaidAt;
+            apt.mercadoPagoPaymentId = String(paymentId);
+            dbChanged = true;
+            syncToSupabaseAsync('appointments', apt, 'upsert').catch(() => {});
+          } else if (!apt.mercadoPagoPaymentId) {
+            apt.mercadoPagoPaymentId = String(paymentId);
+            dbChanged = true;
+            syncToSupabaseAsync('appointments', apt, 'upsert').catch(() => {});
+          }
+        }
+      }
+    }
+
+    // 2. Sync matching Barbershop Subscription
+    if (externalReference && (externalReference.startsWith('sub_') || externalReference.startsWith('SUB_')) && Array.isArray(currentDb.barbershops)) {
+      const parts = externalReference.split('_');
+      let shopId = '';
+      let planPeriod = 'monthly';
+      if (parts[1] === 'reg') {
+        shopId = parts[2];
+        planPeriod = parts[3] || 'monthly';
+      } else {
+        shopId = parts[1];
+        planPeriod = parts[2] || 'monthly';
+      }
+
+      let daysValid = 30;
+      if (planPeriod === 'quarterly') daysValid = 90;
+      else if (planPeriod === 'semiannual') daysValid = 180;
+      else if (planPeriod === 'annual') daysValid = 365;
+
+      const shop = currentDb.barbershops.find((s: any) => s.id === shopId);
+      if (shop) {
+        const validDate = new Date();
+        validDate.setDate(validDate.getDate() + daysValid);
+        const validUntil = validDate.toISOString().split('T')[0];
+        const todayStr = new Date().toISOString().split('T')[0];
+
+        shop.subscriptionStatus = 'active';
+        shop.subscriptionPlanId = planPeriod;
+        shop.subscriptionValidUntil = validUntil;
+        shop.subscriptionLastPaymentDate = todayStr;
+        shop.subscriptionProofUrl = '';
+        dbChanged = true;
+        syncToSupabaseAsync('barbershops', shop, 'upsert').catch(() => {});
+      }
+    }
+
+    if (dbChanged) {
+      saveLocalDatabase(currentDb);
+    }
+  } catch (err) {
+    console.error('Error synchronizing payment approval to database:', err);
+  }
+}
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
@@ -479,10 +553,19 @@ async function startServer() {
           currentDb.appointments = currentDb.appointments.filter((item: any) => item.barbershopId !== shopId);
           currentDb.users = currentDb.users.filter((item: any) => item.barbershopId !== shopId);
         } else {
+          const normalizedShop = {
+            ...data,
+            pixKey: data.pixKey || data.pix_key || '',
+            pixKeyType: data.pixKeyType || data.pix_key_type || 'phone',
+            pixReceiverName: data.pixReceiverName || data.pix_receiver_name || '',
+            mercadoPagoAccessToken: data.mercadoPagoAccessToken || data.mercado_pago_access_token || '',
+            mercadoPagoPublicKey: data.mercadoPagoPublicKey || data.mercado_pago_public_key || '',
+            mercadoPagoEnabled: data.mercadoPagoEnabled !== undefined ? Boolean(data.mercadoPagoEnabled) : Boolean(data.mercado_pago_enabled),
+          };
           const idx = currentDb.barbershops.findIndex((item: any) => item.id === data.id);
-          if (idx >= 0) currentDb.barbershops[idx] = { ...currentDb.barbershops[idx], ...data };
-          else currentDb.barbershops.push(data);
-          dataToSync = currentDb.barbershops.find((item: any) => item.id === data.id) || data;
+          if (idx >= 0) currentDb.barbershops[idx] = { ...currentDb.barbershops[idx], ...normalizedShop };
+          else currentDb.barbershops.push(normalizedShop);
+          dataToSync = currentDb.barbershops.find((item: any) => item.id === data.id) || normalizedShop;
         }
       } else if (table === 'services') {
         const srvId = typeof data === 'string' ? data : data?.id;
@@ -499,10 +582,19 @@ async function startServer() {
         if (action === 'delete') {
           currentDb.appointments = currentDb.appointments.filter((item: any) => item.id !== aptId);
         } else {
+          const normalizedApt = {
+            ...data,
+            pixKeyUsed: data.pixKeyUsed || data.pix_key_used || '',
+            pixTransactionCode: data.pixTransactionCode || data.pix_transaction_code || '',
+            pixPaidAt: data.pixPaidAt || data.pix_paid_at || '',
+            pixProofUrl: data.pixProofUrl || data.pix_proof_url || '',
+            mercadoPagoPaymentId: data.mercadoPagoPaymentId || data.mercado_pago_payment_id || '',
+            paymentMethod: data.paymentMethod || data.payment_method || 'pix_manual',
+          };
           const idx = currentDb.appointments.findIndex((item: any) => item.id === data.id);
-          if (idx >= 0) currentDb.appointments[idx] = { ...currentDb.appointments[idx], ...data };
-          else currentDb.appointments.unshift(data);
-          dataToSync = currentDb.appointments.find((item: any) => item.id === data.id) || data;
+          if (idx >= 0) currentDb.appointments[idx] = { ...currentDb.appointments[idx], ...normalizedApt };
+          else currentDb.appointments.unshift(normalizedApt);
+          dataToSync = currentDb.appointments.find((item: any) => item.id === data.id) || normalizedApt;
         }
       } else if (table === 'users') {
         const userId = typeof data === 'string' ? data : data?.id;
@@ -525,10 +617,26 @@ async function startServer() {
           dataToSync = currentDb.plans.find((item: any) => item.id === data.id) || data;
         }
       } else if (table === 'settings' || table === 'platform_settings') {
-        currentDb.settings = { ...currentDb.settings, ...data };
+        const normalizedSettings = {
+          ...currentDb.settings,
+          ...data,
+          platformName: data.platformName || data.platform_name || currentDb.settings.platformName || 'BarberClock',
+          platformLogoUrl: data.platformLogoUrl || data.platform_logo_url || data.logoUrl || data.logo_url || currentDb.settings.platformLogoUrl || '',
+          platformPixKey: data.platformPixKey || data.platform_pix_key || currentDb.settings.platformPixKey || '',
+          platformPixKeyType: data.platformPixKeyType || data.platform_pix_key_type || currentDb.settings.platformPixKeyType || 'phone',
+          platformPixReceiverName: data.platformPixReceiverName || data.platform_pix_receiver_name || currentDb.settings.platformPixReceiverName || '',
+          monthlyFee: data.monthlyFee !== undefined ? Number(data.monthlyFee) : (data.monthly_fee !== undefined ? Number(data.monthly_fee) : currentDb.settings.monthlyFee),
+          supportPhone: data.supportPhone || data.support_phone || currentDb.settings.supportPhone || '',
+          supportEmail: data.supportEmail || data.support_email || currentDb.settings.supportEmail || '',
+          pixInstructions: data.pixInstructions || data.pix_instructions || currentDb.settings.pixInstructions || '',
+          mercadoPagoAccessToken: data.mercadoPagoAccessToken || data.mercado_pago_access_token || currentDb.settings.mercadoPagoAccessToken || '',
+          mercadoPagoPublicKey: data.mercadoPagoPublicKey || data.mercado_pago_public_key || currentDb.settings.mercadoPagoPublicKey || '',
+          mercadoPagoEnabled: data.mercadoPagoEnabled !== undefined ? Boolean(data.mercadoPagoEnabled) : (data.mercado_pago_enabled !== undefined ? Boolean(data.mercado_pago_enabled) : currentDb.settings.mercadoPagoEnabled),
+        };
+        currentDb.settings = normalizedSettings;
         let logoChanged = false;
-        if (data.platformLogoUrl || data.platform_logo_url) {
-          const logo = data.platformLogoUrl || data.platform_logo_url;
+        if (normalizedSettings.platformLogoUrl) {
+          const logo = normalizedSettings.platformLogoUrl;
           currentDb.landing = { ...currentDb.landing, brandLogoUrl: logo };
           logoChanged = true;
         }
@@ -620,12 +728,49 @@ async function startServer() {
       } = req.body || {};
 
       const currentDb = getLocalDatabase();
-      if (barbershops) currentDb.barbershops = barbershops;
+      if (barbershops && Array.isArray(barbershops)) {
+        currentDb.barbershops = barbershops.map((shop: any) => ({
+          ...shop,
+          pixKey: shop.pixKey || shop.pix_key || '',
+          pixKeyType: shop.pixKeyType || shop.pix_key_type || 'phone',
+          pixReceiverName: shop.pixReceiverName || shop.pix_receiver_name || '',
+          mercadoPagoAccessToken: shop.mercadoPagoAccessToken || shop.mercado_pago_access_token || '',
+          mercadoPagoPublicKey: shop.mercadoPagoPublicKey || shop.mercado_pago_public_key || '',
+          mercadoPagoEnabled: shop.mercadoPagoEnabled !== undefined ? Boolean(shop.mercadoPagoEnabled) : Boolean(shop.mercado_pago_enabled),
+        }));
+      }
       if (services) currentDb.services = services;
-      if (appointments) currentDb.appointments = appointments;
+      if (appointments && Array.isArray(appointments)) {
+        currentDb.appointments = appointments.map((apt: any) => ({
+          ...apt,
+          pixKeyUsed: apt.pixKeyUsed || apt.pix_key_used || '',
+          pixTransactionCode: apt.pixTransactionCode || apt.pix_transaction_code || '',
+          pixPaidAt: apt.pixPaidAt || apt.pix_paid_at || '',
+          pixProofUrl: apt.pixProofUrl || apt.pix_proof_url || '',
+          mercadoPagoPaymentId: apt.mercadoPagoPaymentId || apt.mercado_pago_payment_id || '',
+          paymentMethod: apt.paymentMethod || apt.payment_method || 'pix_manual',
+        }));
+      }
       if (users) currentDb.users = users;
       if (plans) currentDb.plans = plans;
-      if (settings) currentDb.settings = { ...currentDb.settings, ...settings };
+      if (settings) {
+        currentDb.settings = {
+          ...currentDb.settings,
+          ...settings,
+          platformName: settings.platformName || settings.platform_name || currentDb.settings.platformName || 'BarberClock',
+          platformLogoUrl: settings.platformLogoUrl || settings.platform_logo_url || settings.logoUrl || settings.logo_url || currentDb.settings.platformLogoUrl || '',
+          platformPixKey: settings.platformPixKey || settings.platform_pix_key || currentDb.settings.platformPixKey || '',
+          platformPixKeyType: settings.platformPixKeyType || settings.platform_pix_key_type || currentDb.settings.platformPixKeyType || 'phone',
+          platformPixReceiverName: settings.platformPixReceiverName || settings.platform_pix_receiver_name || currentDb.settings.platformPixReceiverName || '',
+          monthlyFee: settings.monthlyFee !== undefined ? Number(settings.monthlyFee) : (settings.monthly_fee !== undefined ? Number(settings.monthly_fee) : currentDb.settings.monthlyFee),
+          supportPhone: settings.supportPhone || settings.support_phone || currentDb.settings.supportPhone || '',
+          supportEmail: settings.supportEmail || settings.support_email || currentDb.settings.supportEmail || '',
+          pixInstructions: settings.pixInstructions || settings.pix_instructions || currentDb.settings.pixInstructions || '',
+          mercadoPagoAccessToken: settings.mercadoPagoAccessToken || settings.mercado_pago_access_token || currentDb.settings.mercadoPagoAccessToken || '',
+          mercadoPagoPublicKey: settings.mercadoPagoPublicKey || settings.mercado_pago_public_key || currentDb.settings.mercadoPagoPublicKey || '',
+          mercadoPagoEnabled: settings.mercadoPagoEnabled !== undefined ? Boolean(settings.mercadoPagoEnabled) : (settings.mercado_pago_enabled !== undefined ? Boolean(settings.mercado_pago_enabled) : currentDb.settings.mercadoPagoEnabled),
+        };
+      }
       if (trialRecords) currentDb.trialRecords = trialRecords;
       if (landing) currentDb.landing = { ...currentDb.landing, ...landing };
 
@@ -1038,6 +1183,24 @@ async function startServer() {
 
             paymentsStore.set(String(mpData.id), paymentObj);
 
+            // Synchronize created payment ID with appointment in database
+            try {
+              const currentDb = getLocalDatabase();
+              if (Array.isArray(currentDb.appointments)) {
+                const targetRef = externalReference || req.body?.appointmentId;
+                const apt = currentDb.appointments.find((a: any) =>
+                  targetRef && (a.id === targetRef || a.pixTransactionCode === targetRef || targetRef.includes(a.id) || targetRef.includes(a.pixTransactionCode))
+                );
+                if (apt) {
+                  apt.mercadoPagoPaymentId = String(mpData.id);
+                  saveLocalDatabase(currentDb);
+                  syncToSupabaseAsync('appointments', apt, 'upsert').catch(() => {});
+                }
+              }
+            } catch (syncErr) {
+              console.warn('Error linking payment ID to appointment:', syncErr);
+            }
+
             return res.json({
               success: true,
               paymentId: String(mpData.id),
@@ -1094,6 +1257,24 @@ async function startServer() {
       };
 
       paymentsStore.set(localId, paymentObj);
+
+      // Link payment ID to appointment in local DB & Supabase
+      try {
+        const currentDb = getLocalDatabase();
+        if (Array.isArray(currentDb.appointments)) {
+          const targetRef = externalReference || req.body?.appointmentId;
+          const apt = currentDb.appointments.find((a: any) =>
+            targetRef && (a.id === targetRef || a.pixTransactionCode === targetRef || targetRef.includes(a.id) || targetRef.includes(a.pixTransactionCode))
+          );
+          if (apt) {
+            apt.mercadoPagoPaymentId = localId;
+            saveLocalDatabase(currentDb);
+            syncToSupabaseAsync('appointments', apt, 'upsert').catch(() => {});
+          }
+        }
+      } catch (syncErr) {
+        console.warn('Error linking fallback payment ID to appointment:', syncErr);
+      }
 
       return res.json({
         success: true,
@@ -1187,6 +1368,14 @@ async function startServer() {
                 }
               }
 
+              if (currentStatus === 'approved') {
+                await syncPaymentApprovalToDatabase(
+                  String(mpData.id),
+                  stored?.externalReference || mpData.external_reference,
+                  mpData.date_approved || stored?.dateApproved
+                );
+              }
+
               return res.json({
                 success: true,
                 paymentId: String(mpData.id),
@@ -1209,6 +1398,9 @@ async function startServer() {
 
       // Check stored payment
       if (stored) {
+        if (stored.status === 'approved') {
+          await syncPaymentApprovalToDatabase(stored.id, stored.externalReference, stored.dateApproved);
+        }
         return res.json({
           success: true,
           paymentId: stored.id,
@@ -1271,6 +1463,8 @@ async function startServer() {
         stored.statusDetail = 'accredited';
         stored.dateApproved = new Date().toISOString();
       }
+
+      syncPaymentApprovalToDatabase(String(paymentId), stored.externalReference, stored.dateApproved).catch(() => {});
 
       return res.json({
         success: true,
@@ -1415,6 +1609,9 @@ async function startServer() {
               if (data.status === 'approved') {
                 stored.dateApproved = data.date_approved;
               }
+            }
+            if (data.status === 'approved') {
+              await syncPaymentApprovalToDatabase(String(id), data.external_reference || stored?.externalReference, data.date_approved);
             }
           }
         }

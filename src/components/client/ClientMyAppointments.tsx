@@ -428,8 +428,8 @@ export const ClientMyAppointments: React.FC = () => {
             clientName={selectedPixApt.clientName}
             isConfirmed={selectedPixApt.status === 'confirmed'}
             mode={allowsAutoPix && shop?.mercadoPagoAccessToken ? 'pix_automatic' : 'pix_manual'}
-            onConfirmSuccess={(proofUrl, transactionCode) => {
-              confirmAppointmentPix(selectedPixApt.id, proofUrl, transactionCode);
+            onConfirmSuccess={(paymentId, proofUrl, transactionCode) => {
+              confirmAppointmentPix(selectedPixApt.id, proofUrl, transactionCode, paymentId);
             }}
           />
         );

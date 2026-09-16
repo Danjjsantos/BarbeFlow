@@ -1133,7 +1133,7 @@ export const ClientBookingFlow: React.FC = () => {
           isConfirmed={createdAppointment.status === 'confirmed'}
           onConfirmSuccess={(paymentId, proofUrl, transactionCode) => {
             if (createdAppointment) {
-              confirmAppointmentPix(createdAppointment.id, proofUrl, transactionCode);
+              confirmAppointmentPix(createdAppointment.id, proofUrl, transactionCode, paymentId);
               try {
                 localStorage.setItem('barberclock_last_client_phone', createdAppointment.clientPhone);
               } catch {}

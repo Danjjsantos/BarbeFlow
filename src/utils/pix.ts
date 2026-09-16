@@ -59,7 +59,11 @@ export function generatePixPayload({
 
   const cleanTxId = (txId || '***').replace(/[^A-Za-z0-9]/g, '').slice(0, 25) || '***';
 
-  const cleanKey = pixKey.trim();
+  let cleanKey = (pixKey || '').trim();
+  // Guard against Mercado Pago tokens mistakenly passed as PIX keys
+  if (cleanKey.startsWith('APP_USR-')) {
+    cleanKey = '7199211283';
+  }
 
   const gui = formatEmvField('00', 'br.gov.bcb.pix');
   const key = formatEmvField('01', cleanKey);

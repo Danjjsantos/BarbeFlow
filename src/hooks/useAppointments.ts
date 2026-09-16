@@ -241,9 +241,9 @@ export function useAppointments(options: UseAppointmentsOptions = {}) {
 
   // Confirm PIX payment
   const confirmAppointmentPix = useCallback(
-    async (id: string): Promise<boolean> => {
+    async (id: string, proofUrl?: string, transactionCode?: string, paymentId?: string): Promise<boolean> => {
       try {
-        contextConfirmAppointmentPix(id);
+        contextConfirmAppointmentPix(id, proofUrl, transactionCode, paymentId);
         const target = globalAppointments.find((a) => a.id === id);
         if (target) {
           const now = new Date();
@@ -252,6 +252,9 @@ export function useAppointments(options: UseAppointmentsOptions = {}) {
             ...target,
             status: 'confirmed',
             pixPaidAt: formattedDate,
+            pixProofUrl: proofUrl || target.pixProofUrl,
+            pixTransactionCode: transactionCode || target.pixTransactionCode,
+            mercadoPagoPaymentId: paymentId || target.mercadoPagoPaymentId,
           };
           await supabaseService.upsertAppointment(updated);
         }

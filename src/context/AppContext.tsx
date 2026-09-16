@@ -80,7 +80,7 @@ interface AppContextType {
   deleteAppointment: (id: string) => void;
   
   // Barber Actions
-  confirmAppointmentPix: (id: string, proofUrl?: string, transactionCode?: string) => void;
+  confirmAppointmentPix: (id: string, proofUrl?: string, transactionCode?: string, paymentId?: string) => void;
   completeAppointment: (id: string) => void;
   updateAppointmentStatus: (id: string, status: AppointmentStatus) => void;
   addService: (service: Omit<Service, 'id'>) => void;
@@ -1621,7 +1621,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Confirm PIX
-  const confirmAppointmentPix = (id: string, proofUrl?: string, transactionCode?: string) => {
+  const confirmAppointmentPix = (id: string, proofUrl?: string, transactionCode?: string, paymentId?: string) => {
     const now = new Date();
     const formattedDate = `${now.toISOString().split('T')[0]} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
     setAppointments((prev) =>
@@ -1633,6 +1633,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           pixPaidAt: formattedDate,
           pixProofUrl: proofUrl || apt.pixProofUrl,
           pixTransactionCode: transactionCode || apt.pixTransactionCode,
+          mercadoPagoPaymentId: paymentId || apt.mercadoPagoPaymentId,
         };
         supabaseService.upsertAppointment(updated);
         return updated;

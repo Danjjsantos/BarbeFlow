@@ -110,8 +110,8 @@
   "settings": {
     "platformName": "BarberClock",
     "platformLogoUrl": "/barber_clock_logo.jpg",
-    "platformPixKey": "APP_USR-311448093198424-082021-edb78cc432950797e90e9af5f353202a-43310959",
-    "platformPixKeyType": "random",
+    "platformPixKey": "7199211283",
+    "platformPixKeyType": "phone",
     "platformPixReceiverName": "Daniel Santos",
     "monthlyFee": 49.5,
     "supportPhone": "7199211283",
