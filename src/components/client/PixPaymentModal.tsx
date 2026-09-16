@@ -48,6 +48,7 @@ export const PixPaymentModal: React.FC<PixPaymentModalProps> = ({
   title = 'Pagamento via PIX',
   amount,
   pixKey,
+  pixKeyType,
   receiverName,
   description,
   txId,
@@ -109,6 +110,9 @@ export const PixPaymentModal: React.FC<PixPaymentModalProps> = ({
             payerName: clientName || 'Cliente BarberHub',
             accessToken: barberAccessToken,
             externalReference: txId,
+            pixKey: pixKey,
+            pixReceiverName: receiverName,
+            pixKeyType: pixKeyType,
           });
 
           if (isMounted) {
@@ -131,7 +135,10 @@ export const PixPaymentModal: React.FC<PixPaymentModalProps> = ({
                 handleApproved(pId);
               }
             } else {
-              setApiError(res.error || 'Não foi possível gerar a transação no Mercado Pago');
+              const friendlyError = res.error && !res.error.includes('Unexpected') && !res.error.includes('JSON')
+                ? res.error
+                : 'Mercado Pago em contingência temporária. Utilize o QR Code PIX abaixo para pagar diretamente:';
+              setApiError(friendlyError);
               const fallback = generatePixPayload({
                 pixKey,
                 receiverName,
@@ -147,7 +154,7 @@ export const PixPaymentModal: React.FC<PixPaymentModalProps> = ({
         } catch (err: any) {
           console.error('Error generating MP Pix:', err);
           if (isMounted) {
-            setApiError(err.message || 'Falha na conexão com Mercado Pago');
+            setApiError('Mercado Pago em contingência. Utilize o QR Code PIX abaixo para pagar diretamente:');
             const fallback = generatePixPayload({
               pixKey,
               receiverName,

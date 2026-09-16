@@ -152,6 +152,8 @@ export const BarberRegisterModal: React.FC<BarberRegisterModalProps> = ({
           payerName: ownerName.trim() || 'Barbeiro Parceiro',
           accessToken: platformSettings.mercadoPagoAccessToken,
           externalReference: `sub_reg_${createdShop?.id}_${currentPlan.id}_${Date.now()}`,
+          pixKey: platformSettings.platformPixKey,
+          pixReceiverName: platformSettings.platformPixReceiverName,
         });
 
         if (isMounted) {
@@ -174,7 +176,10 @@ export const BarberRegisterModal: React.FC<BarberRegisterModalProps> = ({
               handleAutoApproved(pId);
             }
           } else {
-            setApiError(res.error || 'Não foi possível conectar ao Mercado Pago da plataforma.');
+            const friendlyErr = res.error && !res.error.includes('Unexpected') && !res.error.includes('JSON')
+              ? res.error
+              : 'Mercado Pago em contingência. Utilize o QR Code PIX oficial abaixo:';
+            setApiError(friendlyErr);
             const fallback = generatePixPayload({
               pixKey: platformSettings.platformPixKey,
               receiverName: platformSettings.platformPixReceiverName,
@@ -190,7 +195,7 @@ export const BarberRegisterModal: React.FC<BarberRegisterModalProps> = ({
       } catch (err: any) {
         console.error('Error generating Registration Pix:', err);
         if (isMounted) {
-          setApiError(err.message || 'Falha na conexão com Mercado Pago');
+          setApiError('Mercado Pago em contingência. Utilize o QR Code PIX abaixo:');
           const fallback = generatePixPayload({
             pixKey: platformSettings.platformPixKey,
             receiverName: platformSettings.platformPixReceiverName,

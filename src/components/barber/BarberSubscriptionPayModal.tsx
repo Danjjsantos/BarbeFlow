@@ -125,6 +125,8 @@ export const BarberSubscriptionPayModal: React.FC<BarberSubscriptionPayModalProp
           payerName: shop?.ownerName || shop?.name || 'Barbeiro Parceiro',
           accessToken: platformSettings.mercadoPagoAccessToken,
           externalReference: `sub_${shop?.id}_${selectedPlanId}_${Date.now()}`,
+          pixKey: platformSettings.platformPixKey,
+          pixReceiverName: platformSettings.platformPixReceiverName,
         });
 
         if (isMounted) {
@@ -147,7 +149,10 @@ export const BarberSubscriptionPayModal: React.FC<BarberSubscriptionPayModalProp
               handleAutoApproved();
             }
           } else {
-            setApiError(res.error || 'Não foi possível conectar ao Mercado Pago da plataforma');
+            const friendlyErr = res.error && !res.error.includes('Unexpected') && !res.error.includes('JSON')
+              ? res.error
+              : 'Mercado Pago em contingência. Utilize o QR Code PIX oficial abaixo:';
+            setApiError(friendlyErr);
             const fallback = generatePixPayload({
               pixKey: platformSettings.platformPixKey,
               receiverName: platformSettings.platformPixReceiverName,
@@ -163,7 +168,7 @@ export const BarberSubscriptionPayModal: React.FC<BarberSubscriptionPayModalProp
       } catch (err: any) {
         console.error('Error generating Subscription Pix:', err);
         if (isMounted) {
-          setApiError(err.message || 'Falha ao gerar QR Code');
+          setApiError('Mercado Pago em contingência. Utilize o QR Code PIX abaixo:');
           const fallback = generatePixPayload({
             pixKey: platformSettings.platformPixKey,
             receiverName: platformSettings.platformPixReceiverName,
