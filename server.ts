@@ -1171,15 +1171,15 @@ async function startServer() {
           const cleanName = (payerName || 'Cliente').trim().replace(/[^a-zA-Z0-9\sÀ-ÿ]/g, '');
           const nameParts = cleanName.split(/\s+/).filter(Boolean);
           const payerFirstName = nameParts[0] || 'Cliente';
-          const payerLastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : 'BarberHub';
+          const payerLastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : 'BarberClock';
 
           // Clean description (max 60 chars, ASCII friendly)
-          const cleanDescription = (description || 'Servico Barbearia')
+          const cleanDescription = (description || 'BarberClock Plan')
             .normalize('NFD')
             .replace(/[\u0300-\u036f]/g, '')
             .replace(/[^a-zA-Z0-9\s._-]/g, '')
             .substring(0, 60)
-            .trim() || 'Servico Barbearia';
+            .trim() || 'BarberClock Plan';
 
           // Optional CPF identification
           const rawCpf = (payerCpf || '').replace(/\D/g, '');
@@ -1251,7 +1251,7 @@ async function startServer() {
             const paymentObj: StoredPayment = {
               id: String(mpData.id),
               amount: numAmount,
-              description: description || 'Pagamento BarberHub',
+              description: description || 'BarberClock Plan',
               status: mpData.status || 'pending',
               statusDetail: mpData.status_detail,
               dateCreated: mpData.date_created || new Date().toISOString(),
@@ -1323,8 +1323,8 @@ async function startServer() {
 
       // Fallback: Generate 100% BACEN & Mercado Pago compliant standard EMV BR Code using barbershop's / platform's PIX key
       const localId = `pix_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-      const targetPixKey = (pixKey && String(pixKey).trim()) ? String(pixKey).trim() : 'financeiro@barberhub.com.br';
-      const targetReceiver = (pixReceiverName && String(pixReceiverName).trim()) ? String(pixReceiverName).trim() : 'BARBERHUB TECNOLOGIA LTDA';
+      const targetPixKey = (pixKey && String(pixKey).trim()) ? String(pixKey).trim() : 'financeiro@barberclock.com.br';
+      const targetReceiver = (pixReceiverName && String(pixReceiverName).trim()) ? String(pixReceiverName).trim() : 'BARBERCLOCK TECNOLOGIA LTDA';
       const cleanTx = (externalReference || localId).replace(/[^A-Za-z0-9]/g, '').slice(0, 25);
 
       const emvPayload = generatePixPayload({
@@ -1333,8 +1333,8 @@ async function startServer() {
         receiverName: targetReceiver,
         city: (city && String(city).trim()) ? String(city).trim() : 'SAO PAULO',
         amount: numAmount,
-        txId: cleanTx || `BH${localId.substring(localId.length - 8).toUpperCase()}`,
-        description: description || 'Serviço Barbearia BarberHub',
+        txId: cleanTx || `BC${localId.substring(localId.length - 8).toUpperCase()}`,
+        description: description || 'BarberClock Plan',
       });
 
       const qrCodeDataUrl = await generateQrCodeDataUrl(emvPayload, 320);
@@ -1343,7 +1343,7 @@ async function startServer() {
       const paymentObj: StoredPayment = {
         id: localId,
         amount: numAmount,
-        description: description || 'Serviço Barbearia BarberHub',
+        description: description || 'BarberClock Plan',
         status: 'pending',
         statusDetail: 'waiting_payment',
         dateCreated: new Date().toISOString(),
@@ -1397,11 +1397,11 @@ async function startServer() {
         const numAmount = Number(req.body?.amount) || 10;
         const localId = `pix_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
         const emvPayload = generatePixPayload({
-          pixKey: req.body?.pixKey || 'financeiro@barberhub.com.br',
-          receiverName: req.body?.pixReceiverName || 'BARBERHUB TECNOLOGIA',
+          pixKey: req.body?.pixKey || 'financeiro@barberclock.com.br',
+          receiverName: req.body?.pixReceiverName || 'BARBERCLOCK TECNOLOGIA',
           amount: numAmount,
-          txId: `BH${localId.substring(localId.length - 8).toUpperCase()}`,
-          description: req.body?.description || 'Pagamento BarberHub',
+          txId: `BC${localId.substring(localId.length - 8).toUpperCase()}`,
+          description: req.body?.description || 'BarberClock Plan',
         });
         const qrCodeDataUrl = await generateQrCodeDataUrl(emvPayload, 320);
         const cleanBase64 = qrCodeDataUrl.replace(/^data:image\/png;base64,/, '');

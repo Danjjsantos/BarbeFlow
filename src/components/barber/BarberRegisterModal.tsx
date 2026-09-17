@@ -143,11 +143,11 @@ export const BarberRegisterModal: React.FC<BarberRegisterModalProps> = ({
       setApiError(null);
       try {
         const phoneDigits = (ownerPhone || '').replace(/\D/g, '');
-        const payerEmail = ownerEmail.trim() || `barbeiro_${phoneDigits || Date.now()}@barberhub.com.br`;
+        const payerEmail = ownerEmail.trim() || `barbeiro_${phoneDigits || Date.now()}@barberclock.com.br`;
 
         const res = await createMercadoPagoPix({
           amount: currentPlan.price,
-          description: `Adesão ${currentPlan.name} - ${createdShop?.name || 'Barbearia'}`,
+          description: `BarberClock Plan (${currentPlan.name}) - ${createdShop?.name || 'Barbearia'}`,
           payerEmail: payerEmail,
           payerName: ownerName.trim() || 'Barbeiro Parceiro',
           accessToken: platformSettings.mercadoPagoAccessToken,
@@ -186,7 +186,7 @@ export const BarberRegisterModal: React.FC<BarberRegisterModalProps> = ({
               receiverName: platformSettings.platformPixReceiverName,
               amount: currentPlan.price,
               txId: `ADESAO${createdShop?.slug.substring(0, 8).toUpperCase()}`,
-              description: `Adesão ${currentPlan.name} - ${createdShop?.name}`,
+              description: `BarberClock Plan ${currentPlan.name}`,
             });
             setMpQrCodePayload(fallback);
             const url = await generateQrCodeDataUrl(fallback, 320);
@@ -203,7 +203,7 @@ export const BarberRegisterModal: React.FC<BarberRegisterModalProps> = ({
             receiverName: platformSettings.platformPixReceiverName,
             amount: currentPlan.price,
             txId: `ADESAO${createdShop?.slug.substring(0, 8).toUpperCase()}`,
-            description: `Adesão ${currentPlan.name} - ${createdShop?.name}`,
+            description: `BarberClock Plan ${currentPlan.name}`,
           });
           setMpQrCodePayload(fallback);
           const url = await generateQrCodeDataUrl(fallback, 320);
@@ -392,7 +392,7 @@ export const BarberRegisterModal: React.FC<BarberRegisterModalProps> = ({
         receiverName: platformSettings.platformPixReceiverName,
         amount: currentPlan.price,
         txId: `ADESAO${createdShop.slug.substring(0, 8).toUpperCase()}`,
-        description: `Adesão ${currentPlan.name} - ${createdShop.name}`,
+        description: `BarberClock Plan ${currentPlan.name}`,
       })
     : '';
 

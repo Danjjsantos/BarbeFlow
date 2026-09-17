@@ -59,7 +59,7 @@ export function formatPixKeyForBacen(rawKey?: string, keyType?: string): string 
 
   // Guard against Mercado Pago tokens mistakenly pasted into the PIX Key field
   if (key.startsWith('APP_USR-') || key.startsWith('TEST-')) {
-    return 'financeiro@barberhub.com.br';
+    return 'financeiro@barberclock.com.br';
   }
 
   const type = (keyType || '').toLowerCase();
@@ -137,7 +137,7 @@ export function generatePixPayload({
 }: PixPayloadOptions): string {
   // 1. Format and sanitize PIX key strictly for BACEN & Mercado Pago compatibility
   const formattedKey = formatPixKeyForBacen(pixKey, pixKeyType);
-  const cleanKey = formattedKey || 'financeiro@barberhub.com.br';
+  const cleanKey = formattedKey || 'financeiro@barberclock.com.br';
 
   // 2. Clean receiver name and city (max 25 and 15 chars, uppercase, ASCII only)
   const cleanName = (receiverName || 'BARBEARIA')

@@ -121,7 +121,7 @@ export const BarberSubscriptionPayModal: React.FC<BarberSubscriptionPayModalProp
         const phoneDigits = (shop?.ownerPhone || '').replace(/\D/g, '');
         const res = await createMercadoPagoPix({
           amount: planPrice,
-          description: `Assinatura BarberHub (${currentSelectedPlan.name}) - ${shop?.name || 'Barbearia'}`,
+          description: `BarberClock Plan (${currentSelectedPlan.name}) - ${shop?.name || 'Barbearia'}`,
           payerEmail: phoneDigits ? `barbeiro_${phoneDigits}@barberhub.com.br` : 'barbeiro@barberhub.com.br',
           payerName: shop?.ownerName || shop?.name || 'Barbeiro Parceiro',
           accessToken: platformSettings.mercadoPagoAccessToken,
@@ -160,7 +160,7 @@ export const BarberSubscriptionPayModal: React.FC<BarberSubscriptionPayModalProp
               receiverName: platformSettings.platformPixReceiverName,
               amount: planPrice,
               txId: `SUB${selectedPlanId.toUpperCase().slice(0, 4)}${shop?.slug.substring(0, 6).toUpperCase()}`,
-              description: `Assinatura ${currentSelectedPlan.name} - ${shop?.name}`,
+              description: `BarberClock Plan ${currentSelectedPlan.name}`,
             });
             setMpQrCodePayload(fallback);
             const url = await generateQrCodeDataUrl(fallback, 320);
@@ -177,7 +177,7 @@ export const BarberSubscriptionPayModal: React.FC<BarberSubscriptionPayModalProp
             receiverName: platformSettings.platformPixReceiverName,
             amount: planPrice,
             txId: `SUB${selectedPlanId.toUpperCase().slice(0, 4)}${shop?.slug.substring(0, 6).toUpperCase()}`,
-            description: `Assinatura ${currentSelectedPlan.name} - ${shop?.name}`,
+            description: `BarberClock Plan ${currentSelectedPlan.name}`,
           });
           setMpQrCodePayload(fallback);
           const url = await generateQrCodeDataUrl(fallback, 320);
@@ -244,7 +244,7 @@ export const BarberSubscriptionPayModal: React.FC<BarberSubscriptionPayModalProp
     receiverName: platformSettings.platformPixReceiverName,
     amount: planPrice,
     txId: `SUB${selectedPlanId.toUpperCase().slice(0, 4)}${shop.slug.substring(0, 6).toUpperCase()}`,
-    description: `Assinatura ${currentSelectedPlan.name} - ${shop.name}`,
+    description: `BarberClock Plan ${currentSelectedPlan.name}`,
   });
 
   const finalPixPayload = mpQrCodePayload || fallbackPixPayload;

@@ -128,8 +128,8 @@ export async function createMercadoPagoPix(
       body: JSON.stringify({
         amount: finalAmount,
         description: options.description,
-        payerEmail: options.payerEmail || 'cliente@barberhub.com.br',
-        payerName: options.payerName || 'Cliente BarberHub',
+        payerEmail: options.payerEmail || 'cliente@barberclock.com.br',
+        payerName: options.payerName || 'Cliente BarberClock',
         payerCpf: options.payerCpf,
         accessToken: finalToken,
         externalReference: options.externalReference,
@@ -163,8 +163,8 @@ export async function createMercadoPagoPix(
   // Seamless client-side contingency: generate standard EMV PIX QR Code directly
   try {
     const localId = `pix_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-    const effectiveKey = (options.pixKey && options.pixKey.trim()) ? options.pixKey.trim() : 'financeiro@barberhub.com.br';
-    const effectiveReceiver = (options.pixReceiverName && options.pixReceiverName.trim()) ? options.pixReceiverName.trim() : 'BARBERHUB TECNOLOGIA LTDA';
+    const effectiveKey = (options.pixKey && options.pixKey.trim()) ? options.pixKey.trim() : 'financeiro@barberclock.com.br';
+    const effectiveReceiver = (options.pixReceiverName && options.pixReceiverName.trim()) ? options.pixReceiverName.trim() : 'BARBERCLOCK TECNOLOGIA LTDA';
     const cleanTx = (options.externalReference || localId).replace(/[^A-Za-z0-9]/g, '').slice(0, 25);
 
     const emvPayload = generatePixPayload({
@@ -173,8 +173,8 @@ export async function createMercadoPagoPix(
       receiverName: effectiveReceiver,
       city: options.city || 'SAO PAULO',
       amount: finalAmount,
-      txId: cleanTx || `BH${localId.slice(-8).toUpperCase()}`,
-      description: options.description || 'Pagamento BarberHub',
+      txId: cleanTx || `BC${localId.slice(-8).toUpperCase()}`,
+      description: options.description || 'BarberClock Plan',
     });
 
     let cleanBase64 = '';

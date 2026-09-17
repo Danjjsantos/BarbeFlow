@@ -107,8 +107,8 @@ export const PixPaymentModal: React.FC<PixPaymentModalProps> = ({
           const res = await createMercadoPagoPix({
             amount,
             description: description || `Agendamento - ${receiverName}`,
-            payerEmail: clientEmail || 'cliente@barberhub.com.br',
-            payerName: clientName || 'Cliente BarberHub',
+            payerEmail: clientEmail || 'cliente@barberclock.com.br',
+            payerName: clientName || 'Cliente BarberClock',
             accessToken: barberAccessToken,
             externalReference: txId,
             pixKey: pixKey,
@@ -279,7 +279,7 @@ export const PixPaymentModal: React.FC<PixPaymentModalProps> = ({
     pixKeyType,
     receiverName,
     amount,
-    txId: txId || 'BARBERHUB' + Math.floor(Math.random() * 90000 + 10000),
+    txId: txId || 'BARBERCLOCK' + Math.floor(Math.random() * 90000 + 10000),
     description,
   });
 
