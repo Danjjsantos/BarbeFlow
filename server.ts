@@ -418,12 +418,23 @@ const paymentsStore = new Map<string, StoredPayment>();
 
 function sanitizeToken(token?: string): string {
   if (!token) return '';
-  let cleaned = token.trim();
+  let cleaned = String(token).replace(/[\u200B-\u200D\uFEFF]/g, '').trim();
   cleaned = cleaned.replace(/^["']|["']$/g, '').trim();
   if (cleaned.toLowerCase().startsWith('bearer ')) {
     cleaned = cleaned.substring(7).trim();
   }
+  cleaned = cleaned.replace(/^["']|["']$/g, '').trim();
+  // Remove whitespace, line breaks, carriage returns and tabs
+  cleaned = cleaned.replace(/\s+/g, '');
   return cleaned;
+}
+
+function isMercadoPagoPublicKey(token?: string): boolean {
+  if (!token) return false;
+  const clean = sanitizeToken(token);
+  // Match standard UUID format: APP_USR-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx or TEST-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+  const uuidRegex = /^(APP_USR|TEST)-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
+  return uuidRegex.test(clean);
 }
 
 // Synchronize Mercado Pago payment approvals with local server DB and Supabase
@@ -553,13 +564,18 @@ async function startServer() {
           currentDb.appointments = currentDb.appointments.filter((item: any) => item.barbershopId !== shopId);
           currentDb.users = currentDb.users.filter((item: any) => item.barbershopId !== shopId);
         } else {
+          const rawShopToken = data.mercadoPagoAccessToken !== undefined 
+            ? data.mercadoPagoAccessToken 
+            : data.mercado_pago_access_token;
+          const cleanShopToken = rawShopToken !== undefined ? sanitizeToken(rawShopToken) : undefined;
+
           const normalizedShop = {
             ...data,
             pixKey: data.pixKey || data.pix_key || '',
             pixKeyType: data.pixKeyType || data.pix_key_type || 'phone',
             pixReceiverName: data.pixReceiverName || data.pix_receiver_name || '',
-            mercadoPagoAccessToken: data.mercadoPagoAccessToken || data.mercado_pago_access_token || '',
-            mercadoPagoPublicKey: data.mercadoPagoPublicKey || data.mercado_pago_public_key || '',
+            mercadoPagoAccessToken: cleanShopToken !== undefined ? cleanShopToken : '',
+            mercadoPagoPublicKey: sanitizeToken(data.mercadoPagoPublicKey || data.mercado_pago_public_key || ''),
             mercadoPagoEnabled: data.mercadoPagoEnabled !== undefined ? Boolean(data.mercadoPagoEnabled) : Boolean(data.mercado_pago_enabled),
           };
           const idx = currentDb.barbershops.findIndex((item: any) => item.id === data.id);
@@ -617,6 +633,11 @@ async function startServer() {
           dataToSync = currentDb.plans.find((item: any) => item.id === data.id) || data;
         }
       } else if (table === 'settings' || table === 'platform_settings') {
+        const rawSettingsToken = data.mercadoPagoAccessToken !== undefined
+          ? data.mercadoPagoAccessToken
+          : data.mercado_pago_access_token;
+        const cleanSettingsToken = rawSettingsToken !== undefined ? sanitizeToken(rawSettingsToken) : undefined;
+
         const normalizedSettings = {
           ...currentDb.settings,
           ...data,
@@ -629,8 +650,8 @@ async function startServer() {
           supportPhone: data.supportPhone || data.support_phone || currentDb.settings.supportPhone || '',
           supportEmail: data.supportEmail || data.support_email || currentDb.settings.supportEmail || '',
           pixInstructions: data.pixInstructions || data.pix_instructions || currentDb.settings.pixInstructions || '',
-          mercadoPagoAccessToken: data.mercadoPagoAccessToken || data.mercado_pago_access_token || currentDb.settings.mercadoPagoAccessToken || '',
-          mercadoPagoPublicKey: data.mercadoPagoPublicKey || data.mercado_pago_public_key || currentDb.settings.mercadoPagoPublicKey || '',
+          mercadoPagoAccessToken: cleanSettingsToken !== undefined ? cleanSettingsToken : (currentDb.settings.mercadoPagoAccessToken || ''),
+          mercadoPagoPublicKey: sanitizeToken(data.mercadoPagoPublicKey || data.mercado_pago_public_key || ''),
           mercadoPagoEnabled: data.mercadoPagoEnabled !== undefined ? Boolean(data.mercadoPagoEnabled) : (data.mercado_pago_enabled !== undefined ? Boolean(data.mercado_pago_enabled) : currentDb.settings.mercadoPagoEnabled),
         };
         currentDb.settings = normalizedSettings;
@@ -729,15 +750,22 @@ async function startServer() {
 
       const currentDb = getLocalDatabase();
       if (barbershops && Array.isArray(barbershops)) {
-        currentDb.barbershops = barbershops.map((shop: any) => ({
-          ...shop,
-          pixKey: shop.pixKey || shop.pix_key || '',
-          pixKeyType: shop.pixKeyType || shop.pix_key_type || 'phone',
-          pixReceiverName: shop.pixReceiverName || shop.pix_receiver_name || '',
-          mercadoPagoAccessToken: shop.mercadoPagoAccessToken || shop.mercado_pago_access_token || '',
-          mercadoPagoPublicKey: shop.mercadoPagoPublicKey || shop.mercado_pago_public_key || '',
-          mercadoPagoEnabled: shop.mercadoPagoEnabled !== undefined ? Boolean(shop.mercadoPagoEnabled) : Boolean(shop.mercado_pago_enabled),
-        }));
+        currentDb.barbershops = barbershops.map((shop: any) => {
+          const rawShopToken = shop.mercadoPagoAccessToken !== undefined 
+            ? shop.mercadoPagoAccessToken 
+            : shop.mercado_pago_access_token;
+          const cleanShopToken = rawShopToken !== undefined ? sanitizeToken(rawShopToken) : '';
+
+          return {
+            ...shop,
+            pixKey: shop.pixKey || shop.pix_key || '',
+            pixKeyType: shop.pixKeyType || shop.pix_key_type || 'phone',
+            pixReceiverName: shop.pixReceiverName || shop.pix_receiver_name || '',
+            mercadoPagoAccessToken: cleanShopToken,
+            mercadoPagoPublicKey: sanitizeToken(shop.mercadoPagoPublicKey || shop.mercado_pago_public_key || ''),
+            mercadoPagoEnabled: shop.mercadoPagoEnabled !== undefined ? Boolean(shop.mercadoPagoEnabled) : Boolean(shop.mercado_pago_enabled),
+          };
+        });
       }
       if (services) currentDb.services = services;
       if (appointments && Array.isArray(appointments)) {
@@ -754,6 +782,11 @@ async function startServer() {
       if (users) currentDb.users = users;
       if (plans) currentDb.plans = plans;
       if (settings) {
+        const rawSettingsToken = settings.mercadoPagoAccessToken !== undefined 
+          ? settings.mercadoPagoAccessToken 
+          : settings.mercado_pago_access_token;
+        const cleanSettingsToken = rawSettingsToken !== undefined ? sanitizeToken(rawSettingsToken) : (currentDb.settings.mercadoPagoAccessToken || '');
+
         currentDb.settings = {
           ...currentDb.settings,
           ...settings,
@@ -766,8 +799,8 @@ async function startServer() {
           supportPhone: settings.supportPhone || settings.support_phone || currentDb.settings.supportPhone || '',
           supportEmail: settings.supportEmail || settings.support_email || currentDb.settings.supportEmail || '',
           pixInstructions: settings.pixInstructions || settings.pix_instructions || currentDb.settings.pixInstructions || '',
-          mercadoPagoAccessToken: settings.mercadoPagoAccessToken || settings.mercado_pago_access_token || currentDb.settings.mercadoPagoAccessToken || '',
-          mercadoPagoPublicKey: settings.mercadoPagoPublicKey || settings.mercado_pago_public_key || currentDb.settings.mercadoPagoPublicKey || '',
+          mercadoPagoAccessToken: cleanSettingsToken,
+          mercadoPagoPublicKey: sanitizeToken(settings.mercadoPagoPublicKey || settings.mercado_pago_public_key || ''),
           mercadoPagoEnabled: settings.mercadoPagoEnabled !== undefined ? Boolean(settings.mercadoPagoEnabled) : (settings.mercado_pago_enabled !== undefined ? Boolean(settings.mercado_pago_enabled) : currentDb.settings.mercadoPagoEnabled),
         };
       }
@@ -1101,16 +1134,18 @@ async function startServer() {
 
       // Priority: Custom token from Barber/Platform settings -> .env MERCADO_PAGO_ACCESS_TOKEN
       const token = sanitizeToken(customAccessToken) || sanitizeToken(process.env.MERCADO_PAGO_ACCESS_TOKEN);
+      let mpAttempted = false;
+      let mpErrorMessage: string | null = null;
 
-      if (token) {
+      if (token && !isMercadoPagoPublicKey(token)) {
+        mpAttempted = true;
         try {
-          const idempotencyKey = `mp_pix_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
           // Strict email validation for Mercado Pago API
           let cleanEmail = (payerEmail || '').trim().toLowerCase();
           cleanEmail = cleanEmail.replace(/[^a-z0-9@._-]/g, '');
           const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
           if (!cleanEmail || !emailRegex.test(cleanEmail)) {
-            cleanEmail = `cliente_${Date.now()}@barberhub.com.br`;
+            cleanEmail = `cliente_${Date.now()}@gmail.com`;
           }
 
           // Clean payer names (letters and basic chars only)
@@ -1120,40 +1155,60 @@ async function startServer() {
           const payerLastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : 'BarberHub';
 
           // Clean description (max 60 chars)
-          const cleanDescription = (description || 'Servico BarberHub')
+          const cleanDescription = (description || 'Servico Barbearia')
             .replace(/[^a-zA-Z0-9\sÀ-ÿ._-]/g, '')
             .substring(0, 60)
-            .trim() || 'Servico BarberHub';
+            .trim() || 'Servico Barbearia';
 
-          const mpRequestBody: Record<string, any> = {
-            transaction_amount: Number(numAmount.toFixed(2)),
-            description: cleanDescription,
-            payment_method_id: 'pix',
-            payer: {
-              email: cleanEmail,
-              first_name: payerFirstName,
-              last_name: payerLastName,
-            },
-            external_reference: (externalReference || `ref_${Date.now()}`).substring(0, 64),
+          const makeMpRequest = async (emailToUse: string) => {
+            const idempotencyKey = `mp_pix_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+            const mpRequestBody: Record<string, any> = {
+              transaction_amount: Number(numAmount.toFixed(2)),
+              description: cleanDescription,
+              payment_method_id: 'pix',
+              payer: {
+                email: emailToUse,
+                first_name: payerFirstName,
+                last_name: payerLastName,
+              },
+              external_reference: (externalReference || `ref_${Date.now()}`).substring(0, 64),
+            };
+
+            const resp = await fetch('https://api.mercadopago.com/v1/payments', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+                'X-Idempotency-Key': idempotencyKey,
+                'User-Agent': 'BarberClock/1.0',
+              },
+              body: JSON.stringify(mpRequestBody),
+              signal: AbortSignal.timeout(10000),
+            });
+
+            const text = await resp.text();
+            let parsed: any = null;
+            try {
+              parsed = JSON.parse(text);
+            } catch {
+              parsed = null;
+            }
+            return { resp, data: parsed, text };
           };
 
-          const mpResponse = await fetch('https://api.mercadopago.com/v1/payments', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-              'X-Idempotency-Key': idempotencyKey,
-            },
-            body: JSON.stringify(mpRequestBody),
-          });
+          let { resp: mpResponse, data: mpData } = await makeMpRequest(cleanEmail);
 
-          // Safely read response as text first to prevent JSON parse crash if Mercado Pago / Cloudflare returns HTML
-          const rawText = await mpResponse.text();
-          let mpData: any = null;
-          try {
-            mpData = JSON.parse(rawText);
-          } catch {
-            console.warn('Mercado Pago API returned non-JSON body:', rawText.slice(0, 100));
+          // Retry logic: If error 2067 (collector and payer cannot be the same / cannot pay to oneself)
+          const dataStr = JSON.stringify(mpData || {}).toLowerCase();
+          if (
+            !mpResponse.ok &&
+            (dataStr.includes('oneself') || dataStr.includes('collector') || dataStr.includes('2067'))
+          ) {
+            console.log('Self-payment detected on Mercado Pago. Retrying with customer surrogate email...');
+            const fallbackEmail = `cliente.pix.${Date.now()}@gmail.com`;
+            const retryResult = await makeMpRequest(fallbackEmail);
+            mpResponse = retryResult.resp;
+            mpData = retryResult.data;
           }
 
           if (mpResponse.ok && mpData && mpData.id) {
@@ -1218,11 +1273,26 @@ async function startServer() {
               },
             });
           } else {
-            console.warn('Mercado Pago API returned non-ok status:', mpResponse.status, mpData?.message || mpData?.error);
+            // Build informative error message from Mercado Pago API
+            if (mpResponse.status === 401) {
+              mpErrorMessage = 'Access Token do Mercado Pago não autorizado (Erro 401). Verifique suas Credenciais de Produção.';
+            } else if (mpResponse.status === 403) {
+              mpErrorMessage = 'Credenciais de produção não ativadas no painel do Mercado Pago Developers (Erro 403).';
+            } else if (mpData?.message) {
+              mpErrorMessage = String(mpData.message);
+            } else if (Array.isArray(mpData?.cause) && mpData.cause[0]?.description) {
+              mpErrorMessage = String(mpData.cause[0].description);
+            } else {
+              mpErrorMessage = `Erro ${mpResponse.status} na API do Mercado Pago.`;
+            }
+            console.warn('Mercado Pago API error:', mpResponse.status, mpErrorMessage);
           }
         } catch (apiErr: any) {
-          console.error('Error contacting Mercado Pago API:', apiErr?.message || apiErr);
+          mpErrorMessage = apiErr?.message || 'Falha de comunicação com Mercado Pago.';
+          console.error('Error contacting Mercado Pago API:', mpErrorMessage);
         }
+      } else if (token && isMercadoPagoPublicKey(token)) {
+        mpErrorMessage = 'Chave informada é uma Public Key. É necessário fornecer o Access Token de Produção.';
       }
 
       // Fallback: Generate real standard EMV PIX with genuine scannable QR Code using barbershop's / platform's PIX key
@@ -1283,6 +1353,9 @@ async function startServer() {
         qrCode: emvPayload,
         qrCodeBase64: cleanBase64,
         isRealMercadoPago: false,
+        mercadoPagoAttempted: mpAttempted,
+        mercadoPagoError: mpErrorMessage || undefined,
+        warning: mpErrorMessage ? `Mercado Pago: ${mpErrorMessage}` : undefined,
         payment: {
           id: localId,
           status: 'pending',
@@ -1478,7 +1551,8 @@ async function startServer() {
 
   /**
    * POST /api/mercadopago/test-token
-   * Validates a Mercado Pago Access Token using /users/me and fallback /v1/payment_methods
+   * Validates a Mercado Pago Access Token using multiple resilient endpoints:
+   * /v1/payment_methods, /v1/identification_types, /users/me, and /v1/payments/search
    */
   app.post('/api/mercadopago/test-token', async (req, res) => {
     try {
@@ -1494,127 +1568,151 @@ async function startServer() {
         });
       }
 
-      // Check 1: Try /v1/payment_methods first (Standard for Application Tokens & Payments)
-      let pmRes: Response;
+      // 1. Detect if the user erroneously pasted a Public Key instead of Access Token
+      if (isMercadoPagoPublicKey(token)) {
+        return res.status(200).json({
+          success: false,
+          isPublicKey: true,
+          error: 'Você inseriu a Public Key (Chave Pública). No Mercado Pago Developers (mercadopago.com.br/developers), acesse "Suas integrações" > sua aplicação > "Credenciais de produção" e copie o ACCESS TOKEN (código de autorização mais longo).',
+        });
+      }
+
+      const isProdToken = token.startsWith('APP_USR-');
+      const isTestToken = token.startsWith('TEST-');
+
+      if (!isProdToken && !isTestToken && token.length < 30) {
+        return res.status(200).json({
+          success: false,
+          error: 'O token informado não tem o formato padrão do Mercado Pago. O Access Token deve começar com "APP_USR-" (Produção) ou "TEST-" (Sandbox).',
+        });
+      }
+
+      // Check 1: /v1/payment_methods (Standard for payment-capable tokens)
+      let pmRes: Response | null = null;
       let pmData: any = null;
       try {
         pmRes = await fetch('https://api.mercadopago.com/v1/payment_methods', {
           headers: {
             Authorization: `Bearer ${token}`,
+            'User-Agent': 'BarberClock/1.0',
           },
           signal: AbortSignal.timeout(8000),
         });
-
         const pmRaw = await pmRes.text();
         try {
           pmData = JSON.parse(pmRaw);
         } catch {
           pmData = null;
         }
-      } catch (e: any) {
-        pmRes = new Response(null, { status: 504 });
+      } catch {
+        pmRes = null;
       }
 
-      if (pmRes.ok && pmData) {
-        const hasPix = Array.isArray(pmData) && pmData.some((pm: any) => pm.id === 'pix');
-
-        // Optional: Also try to get user details from /users/me
-        let nickname = 'Credencial Mercado Pago Válida';
-        let email: string | undefined = undefined;
+      // Check 2: /v1/identification_types (Accessible by almost all authorized app tokens)
+      let idRes: Response | null = null;
+      let idData: any = null;
+      if (!pmRes || !pmRes.ok) {
         try {
-          const userRes = await fetch('https://api.mercadopago.com/users/me', {
+          idRes = await fetch('https://api.mercadopago.com/v1/identification_types', {
             headers: {
               Authorization: `Bearer ${token}`,
+              'User-Agent': 'BarberClock/1.0',
             },
-            signal: AbortSignal.timeout(6000),
+            signal: AbortSignal.timeout(8000),
           });
-          if (userRes.ok) {
-            const userRaw = await userRes.text();
-            try {
-              const userData = JSON.parse(userRaw);
-              nickname = userData.nickname || userData.first_name || nickname;
-              email = userData.email;
-            } catch {}
+          const idRaw = await idRes.text();
+          try {
+            idData = JSON.parse(idRaw);
+          } catch {
+            idData = null;
           }
         } catch {
-          // If users/me is restricted by policy, payment_methods is sufficient!
+          idRes = null;
         }
-
-        return res.json({
-          success: true,
-          nickname: typeof nickname === 'string' ? nickname : 'Conta Mercado Pago',
-          email: typeof email === 'string' ? email : undefined,
-          hasPix,
-          message: hasPix
-            ? 'Access Token válido e autorizado para cobranças PIX!'
-            : 'Access Token conectado com sucesso ao Mercado Pago.',
-        });
       }
 
-      // Check 2: Try /users/me as fallback
-      let mpRes: Response;
+      // Check 3: /users/me (Account info)
+      let userRes: Response | null = null;
       let userData: any = null;
       try {
-        mpRes = await fetch('https://api.mercadopago.com/users/me', {
+        userRes = await fetch('https://api.mercadopago.com/users/me', {
           headers: {
             Authorization: `Bearer ${token}`,
+            'User-Agent': 'BarberClock/1.0',
           },
-          signal: AbortSignal.timeout(8000),
+          signal: AbortSignal.timeout(6000),
         });
-
-        const mpRaw = await mpRes.text();
-        try {
-          userData = JSON.parse(mpRaw);
-        } catch {
-          userData = null;
+        if (userRes.ok) {
+          const userRaw = await userRes.text();
+          try {
+            userData = JSON.parse(userRaw);
+          } catch {}
         }
-      } catch (e: any) {
-        mpRes = new Response(null, { status: 504 });
+      } catch {
+        userRes = null;
       }
 
-      if (mpRes.ok && userData) {
-        const nickname = userData.nickname || userData.first_name || 'Conta Mercado Pago';
+      const isValid = (pmRes && pmRes.ok) || (idRes && idRes.ok) || (userRes && userRes.ok);
+
+      if (isValid) {
+        const hasPix = Array.isArray(pmData) ? pmData.some((pm: any) => pm.id === 'pix') : true;
+        const nickname = userData?.nickname || userData?.first_name || (isProdToken ? 'Conta Comercial Mercado Pago' : 'Conta Sandbox Mercado Pago');
+        const email = userData?.email || undefined;
+        const siteId = userData?.site_id || 'MLB';
+
         return res.json({
           success: true,
-          nickname: typeof nickname === 'string' ? nickname : 'Conta Mercado Pago',
-          email: typeof userData.email === 'string' ? userData.email : undefined,
-          siteId: typeof userData.site_id === 'string' ? userData.site_id : undefined,
-          message: 'Access Token conectado com sucesso ao Mercado Pago.',
-        });
-      } else {
-        let rawError = '';
-        if (typeof pmData?.message === 'string') rawError = pmData.message;
-        else if (typeof pmData?.error === 'string') rawError = pmData.error;
-        else if (typeof userData?.message === 'string') rawError = userData.message;
-        else if (typeof userData?.error === 'string') rawError = userData.error;
-        else if (pmData?.cause && Array.isArray(pmData.cause) && pmData.cause[0]?.description) rawError = String(pmData.cause[0].description);
-        else if (userData?.cause && Array.isArray(userData.cause) && userData.cause[0]?.description) rawError = String(userData.cause[0].description);
-        else if (pmData) rawError = typeof pmData === 'string' ? pmData : JSON.stringify(pmData);
-        else if (userData) rawError = typeof userData === 'string' ? userData : JSON.stringify(userData);
-
-        let errorMsg = rawError;
-        const upper = (rawError || '').toUpperCase();
-        if (
-          upper.includes('UNAUTHORIZED') ||
-          upper.includes('INVALID_TOKEN') ||
-          upper.includes('POLICY') ||
-          pmRes.status === 401 ||
-          pmRes.status === 400 ||
-          mpRes.status === 401 ||
-          mpRes.status === 403
-        ) {
-          errorMsg = 'Access Token inválido ou não autorizado. Verifique se copiou o "Access Token" (e não a Public Key) no painel do Mercado Pago.';
-        }
-
-        return res.status(200).json({
-          success: false,
-          error: errorMsg || 'Access Token inválido ou não autorizado no Mercado Pago.',
+          nickname,
+          email,
+          siteId,
+          hasPix,
+          isProduction: isProdToken,
+          environment: isProdToken ? 'production' : 'sandbox',
+          message: isProdToken
+            ? `Access Token de Produção verificado e ativo! Conectado a ${nickname}.`
+            : `Access Token de Testes verificado com sucesso (${nickname}).`,
         });
       }
+
+      // Token failed: build diagnostic message
+      const latestRes = pmRes || idRes || userRes;
+      const status = latestRes ? latestRes.status : 0;
+      const errPayload = pmData || idData || userData;
+
+      let rawErrMsg = '';
+      if (errPayload?.message) rawErrMsg = String(errPayload.message);
+      else if (errPayload?.error) rawErrMsg = String(errPayload.error);
+      else if (Array.isArray(errPayload?.cause) && errPayload.cause[0]?.description) {
+        rawErrMsg = String(errPayload.cause[0].description);
+      }
+
+      let errorMsg = '';
+      if (status === 401 || rawErrMsg.toLowerCase().includes('unauthorized') || rawErrMsg.toLowerCase().includes('invalid_token')) {
+        if (isProdToken) {
+          errorMsg = 'Access Token de Produção não autorizado pelo Mercado Pago (Erro 401). Possíveis motivos:\n1. As "Credenciais de produção" ainda não foram ativadas na sua aplicação no painel Mercado Pago Developers (clique em "Ativar credenciais de produção" e preencha os dados do negócio);\n2. O token foi revogado ou expirou;\n3. O token foi copiado com partes faltando.';
+        } else if (isTestToken) {
+          errorMsg = 'Access Token de Teste não autorizado pelo Mercado Pago (Erro 401). Verifique suas "Credenciais de teste" no painel Mercado Pago Developers.';
+        } else {
+          errorMsg = 'Access Token inválido ou não autorizado no Mercado Pago. Verifique se copiou o token correto no painel Mercado Pago Developers.';
+        }
+      } else if (status === 403) {
+        errorMsg = 'Acesso restrito pelo Mercado Pago (Erro 403 Forbidden). Certifique-se de que a sua aplicação possui as credenciais de produção aprovadas no painel do Mercado Pago.';
+      } else if (rawErrMsg) {
+        errorMsg = `Mercado Pago: ${rawErrMsg}`;
+      } else {
+        errorMsg = 'Não foi possível autenticar o token no Mercado Pago. Verifique suas credenciais em mercadopago.com.br/developers.';
+      }
+
+      return res.status(200).json({
+        success: false,
+        statusCode: status,
+        rawError: rawErrMsg,
+        error: errorMsg,
+      });
     } catch (err: any) {
       return res.status(200).json({
         success: false,
-        error: 'Erro de conexão com o Mercado Pago: ' + (err?.message || 'Falha de comunicação.'),
+        error: 'Erro de comunicação ao testar token no Mercado Pago: ' + (err?.message || 'Falha de rede.'),
       });
     }
   });

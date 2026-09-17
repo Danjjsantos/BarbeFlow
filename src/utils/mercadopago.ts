@@ -306,6 +306,16 @@ export async function simulateMercadoPagoPaymentApproval(
 export const simulateApproveMercadoPagoPayment = simulateMercadoPagoPaymentApproval;
 
 /**
+ * Checks if a given string matches the standard format of a Mercado Pago Public Key
+ */
+export function isMercadoPagoPublicKey(token?: string): boolean {
+  if (!token) return false;
+  const clean = String(token).replace(/[\u200B-\u200D\uFEFF\s]/g, '').trim();
+  const uuidRegex = /^(APP_USR|TEST)-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
+  return uuidRegex.test(clean);
+}
+
+/**
  * Tests whether a provided Mercado Pago Access Token is valid
  */
 export async function testMercadoPagoCredentials(
@@ -317,13 +327,25 @@ export async function testMercadoPagoCredentials(
   message?: string;
   hasPix?: boolean;
   siteId?: string;
+  isProduction?: boolean;
+  environment?: 'production' | 'sandbox';
+  isPublicKey?: boolean;
   error?: string;
 }> {
-  const cleanToken = (accessToken || '').trim();
+  const cleanToken = (accessToken || '').replace(/[\u200B-\u200D\uFEFF\s]/g, '').trim();
   if (!cleanToken) {
     return {
       success: false,
-      error: 'Nenhum Access Token fornecido.',
+      error: 'Nenhum Access Token fornecido. Insira seu token de Produção (APP_USR-...).',
+    };
+  }
+
+  // Pre-flight check: Did the user copy the Public Key by mistake?
+  if (isMercadoPagoPublicKey(cleanToken)) {
+    return {
+      success: false,
+      isPublicKey: true,
+      error: 'Você inseriu a Public Key (Chave Pública). No Mercado Pago Developers (mercadopago.com.br/developers), vá em "Suas integrações" > sua aplicação > "Credenciais de produção" e copie o ACCESS TOKEN (código de autorização mais longo).',
     };
   }
 
@@ -361,6 +383,9 @@ export async function testMercadoPagoCredentials(
         message: extractStr(d.message),
         hasPix: Boolean(d.hasPix),
         siteId: extractStr(d.siteId),
+        isProduction: d.isProduction !== undefined ? Boolean(d.isProduction) : undefined,
+        environment: d.environment,
+        isPublicKey: Boolean(d.isPublicKey),
         error: extractStr(d.error),
       };
     }
@@ -368,7 +393,7 @@ export async function testMercadoPagoCredentials(
     if (result.isHtml) {
       return {
         success: false,
-        error: 'Servidor retornou resposta temporariamente inacessível. Verifique se o servidor está em execução.',
+        error: 'Servidor temporariamente indisponível. Aguarde alguns segundos e tente novamente.',
       };
     }
 
@@ -381,7 +406,7 @@ export async function testMercadoPagoCredentials(
   } catch (err: any) {
     return {
       success: false,
-      error: typeof err?.message === 'string' ? err.message : 'Falha ao conectar para testar credenciais.',
+      error: typeof err?.message === 'string' ? err.message : 'Falha de comunicação ao testar credenciais.',
     };
   }
 }

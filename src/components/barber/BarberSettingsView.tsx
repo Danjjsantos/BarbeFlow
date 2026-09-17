@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Barbershop, PixKeyType, PaymentMethodType, SubscriptionPlanPeriod } from '../../types';
 import { formatCurrency, formatPhone, getDayOfWeekName } from '../../utils/formatters';
-import { testMercadoPagoCredentials } from '../../utils/mercadopago';
+import { testMercadoPagoCredentials, isMercadoPagoPublicKey } from '../../utils/mercadopago';
 import { QrCodeModal } from '../common/QrCodeModal';
 import { BarberSubscriptionPayModal } from './BarberSubscriptionPayModal';
 import { ChangePasswordModal } from '../common/ChangePasswordModal';
@@ -83,10 +83,13 @@ export const BarberSettingsView: React.FC<BarberSettingsViewProps> = ({ barbersh
     barbershop.mercadoPagoAccessToken || ''
   );
   const [showMpToken, setShowMpToken] = useState(false);
+  const [showMpInstructions, setShowMpInstructions] = useState(false);
   const [isTestingMp, setIsTestingMp] = useState(false);
   const [mpTestResult, setMpTestResult] = useState<{
     success?: boolean;
     message?: string;
+    isProduction?: boolean;
+    accountName?: string;
   } | null>(null);
 
   // Working Hours State
@@ -186,18 +189,34 @@ export const BarberSettingsView: React.FC<BarberSettingsViewProps> = ({ barbersh
       });
       return;
     }
+
+    if (isMercadoPagoPublicKey(tokenToTest)) {
+      setMpTestResult({
+        success: false,
+        message: 'Você inseriu a Public Key (Chave Pública). No painel do Mercado Pago Developers, você deve copiar o ACCESS TOKEN de Produção (que começa com APP_USR-).',
+      });
+      return;
+    }
+
     setIsTestingMp(true);
     setMpTestResult(null);
     try {
       const res = await testMercadoPagoCredentials(tokenToTest);
       if (res && res.success) {
-        const accName = res.nickname || res.email || 'Mercado Pago';
+        const accName = res.nickname || res.email || 'Conta Comercial';
+        const prodTag = res.isProduction ? ' (Modo Produção)' : ' (Modo Teste/Sandbox)';
         setMpTestResult({
           success: true,
-          message: typeof res.message === 'string' ? res.message : `Conectado com sucesso à conta: ${accName}`,
+          isProduction: res.isProduction,
+          accountName: accName,
+          message: typeof res.message === 'string' 
+            ? res.message 
+            : `Conectado com sucesso ao Mercado Pago${prodTag} — Conta: ${accName}. PIX Automático pronto para receber agendamentos!`,
         });
       } else {
-        const errMsg = res && res.error ? (typeof res.error === 'string' ? res.error : JSON.stringify(res.error)) : 'Token inválido ou não autorizado.';
+        const errMsg = res && res.error 
+          ? (typeof res.error === 'string' ? res.error : JSON.stringify(res.error)) 
+          : 'Access Token recusado pelo Mercado Pago. Verifique se o token é válido e se as credenciais de produção estão ativadas.';
         setMpTestResult({
           success: false,
           message: errMsg,
@@ -995,28 +1014,80 @@ export const BarberSettingsView: React.FC<BarberSettingsViewProps> = ({ barbersh
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Seu Access Token do Mercado Pago (Produção ou Teste):
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Seu Access Token do Mercado Pago (Produção):
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowMpInstructions(!showMpInstructions)}
+                    className="text-[11px] text-sky-600 hover:text-sky-700 dark:text-sky-400 font-semibold underline flex items-center gap-1"
+                  >
+                    <span>Como obter o token de produção?</span>
+                  </button>
+                </div>
                 <div className="relative">
                   <input
                     type={showMpToken ? 'text' : 'password'}
                     placeholder="APP_USR-..."
                     value={mercadoPagoAccessToken}
-                    onChange={(e) => setMercadoPagoAccessToken(e.target.value)}
-                    className="w-full px-3 py-2.5 pr-16 bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 rounded-xl text-xs font-mono font-bold text-slate-900 dark:text-white placeholder:text-slate-400"
+                    onChange={(e) => {
+                      setMercadoPagoAccessToken(e.target.value);
+                      if (mpTestResult) setMpTestResult(null);
+                    }}
+                    className="w-full px-3 py-2.5 pr-16 bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 rounded-xl text-xs font-mono font-bold text-slate-900 dark:text-white placeholder:text-slate-400 focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
                   />
                   <button
                     type="button"
                     onClick={() => setShowMpToken(!showMpToken)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 text-slate-500 hover:text-slate-800 text-[10px] font-bold"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 text-[10px] font-bold"
                   >
                     {showMpToken ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                   </button>
                 </div>
-                <p className="text-[10px] text-slate-400 mt-1">
-                  Gere em: <strong>mercadopago.com.br/developers</strong> &gt; Suas integrações &gt; Credenciais
-                </p>
+
+                {/* Instant warning if Public Key format was entered */}
+                {isMercadoPagoPublicKey(mercadoPagoAccessToken) && (
+                  <div className="mt-2 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-xs flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-500" />
+                    <div className="space-y-1">
+                      <p className="font-bold">Atenção: Você colou a Public Key (Chave Pública)!</p>
+                      <p className="text-[11px]">
+                        Para gerar cobranças PIX, é necessário o <strong>Access Token</strong> de Produção. No painel do Mercado Pago, copie o campo <strong>Access Token</strong> (código mais longo que também começa com <code className="bg-amber-100 dark:bg-amber-950 px-1 py-0.5 rounded font-mono font-bold">APP_USR-</code>).
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Step by Step Guide Collapsible */}
+                {showMpInstructions && (
+                  <div className="mt-2.5 p-3.5 bg-sky-100/60 dark:bg-sky-900/40 rounded-xl border border-sky-300 dark:border-sky-800 text-xs text-slate-700 dark:text-slate-200 space-y-2">
+                    <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                      <ShieldCheck className="w-4 h-4 text-sky-600 dark:text-sky-400" />
+                      <span>Passo a passo para obter e ativar seu Access Token de Produção:</span>
+                    </div>
+                    <ol className="list-decimal list-inside space-y-1.5 text-[11px] leading-relaxed text-slate-600 dark:text-slate-300">
+                      <li>
+                        Acesse <strong>mercadopago.com.br/developers</strong> e faça login com a conta do Mercado Pago da sua barbearia.
+                      </li>
+                      <li>
+                        No menu superior, clique em <strong>Suas integrações</strong> e abra (ou crie) a sua aplicação.
+                      </li>
+                      <li>
+                        No menu lateral esquerdo, clique em <strong>Credenciais de produção</strong>.
+                      </li>
+                      <li>
+                        <strong>Importante:</strong> Se houver um botão azul <em>"Ativar credenciais de produção"</em>, clique nele e preencha as informações do negócio (categoria de serviços de beleza/barbearia, CPF ou CNPJ). Sem essa ativação, o Mercado Pago retorna <em>Erro 401 Não Autorizado</em>.
+                      </li>
+                      <li>
+                        Copie o campo <strong>Access Token</strong> (não copie a Public Key) e cole no campo acima.
+                      </li>
+                      <li>
+                        Clique em <strong>"Testar Conexão Mercado Pago"</strong> para validar imediatamente.
+                      </li>
+                    </ol>
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center justify-between gap-2 pt-1">
@@ -1042,18 +1113,30 @@ export const BarberSettingsView: React.FC<BarberSettingsViewProps> = ({ barbersh
 
               {mpTestResult && (
                 <div
-                  className={`p-2.5 rounded-xl text-xs font-medium flex items-center gap-2 ${
+                  className={`p-3 rounded-xl text-xs font-medium flex items-start gap-2.5 ${
                     mpTestResult.success
-                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-300'
-                      : 'bg-rose-100 text-rose-800 dark:bg-rose-950/70 dark:text-rose-300 border border-rose-300'
+                      ? 'bg-emerald-100 text-emerald-900 dark:bg-emerald-950/70 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-800'
+                      : 'bg-rose-100 text-rose-900 dark:bg-rose-950/70 dark:text-rose-200 border border-rose-300 dark:border-rose-800'
                   }`}
                 >
                   {mpTestResult.success ? (
-                    <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+                    <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400 mt-0.5" />
                   ) : (
-                    <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600" />
+                    <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600 dark:text-rose-400 mt-0.5" />
                   )}
-                  <span>{typeof mpTestResult.message === 'string' ? mpTestResult.message : JSON.stringify(mpTestResult.message)}</span>
+                  <div className="space-y-1">
+                    <div className="font-bold flex items-center gap-2">
+                      <span>{mpTestResult.success ? 'Conexão Mercado Pago Aprovada!' : 'Falha ao validar Access Token'}</span>
+                      {mpTestResult.isProduction && (
+                        <span className="px-2 py-0.5 bg-emerald-600 text-white text-[10px] rounded-full font-bold">
+                          PRODUÇÃO ATIVA
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[11px] whitespace-pre-line leading-relaxed">
+                      {typeof mpTestResult.message === 'string' ? mpTestResult.message : JSON.stringify(mpTestResult.message)}
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
