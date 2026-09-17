@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { generatePixPayload, generateQrCodeDataUrl } from '../../utils/pix';
+import { generatePixPayload, generateQrCodeDataUrl, formatPixKeyForBacen } from '../../utils/pix';
 import {
   createMercadoPagoPix,
   checkMercadoPagoPaymentStatus,
@@ -142,13 +142,14 @@ export const PixPaymentModal: React.FC<PixPaymentModalProps> = ({
               setApiError(friendlyError);
               const fallback = generatePixPayload({
                 pixKey,
+                pixKeyType,
                 receiverName,
                 amount,
                 txId: txId || 'BH' + Math.floor(Math.random() * 90000 + 10000),
                 description,
               });
               setMpQrCodePayload(fallback);
-              const url = await generateQrCodeDataUrl(fallback, 300);
+              const url = await generateQrCodeDataUrl(fallback, 320);
               if (isMounted) setGeneratedDataUrl(url);
             }
           }
@@ -158,13 +159,14 @@ export const PixPaymentModal: React.FC<PixPaymentModalProps> = ({
             setApiError('Mercado Pago em contingência. Utilize o QR Code PIX abaixo para pagar diretamente:');
             const fallback = generatePixPayload({
               pixKey,
+              pixKeyType,
               receiverName,
               amount,
               txId: txId || 'BH' + Math.floor(Math.random() * 90000 + 10000),
               description,
             });
             setMpQrCodePayload(fallback);
-            const url = await generateQrCodeDataUrl(fallback, 300);
+            const url = await generateQrCodeDataUrl(fallback, 320);
             setGeneratedDataUrl(url);
           }
         } finally {
@@ -175,13 +177,14 @@ export const PixPaymentModal: React.FC<PixPaymentModalProps> = ({
         try {
           const fallback = generatePixPayload({
             pixKey,
+            pixKeyType,
             receiverName,
             amount,
             txId: txId || 'BH' + Math.floor(Math.random() * 90000 + 10000),
             description,
           });
           setMpQrCodePayload(fallback);
-          const url = await generateQrCodeDataUrl(fallback, 300);
+          const url = await generateQrCodeDataUrl(fallback, 320);
           if (isMounted) setGeneratedDataUrl(url);
         } catch (err) {
           console.warn('Error generating QR code:', err);
@@ -194,7 +197,7 @@ export const PixPaymentModal: React.FC<PixPaymentModalProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [isOpen, isAutomaticMode, amount, description, barberAccessToken, clientEmail, clientName, txId, pixKey, receiverName]);
+  }, [isOpen, isAutomaticMode, amount, description, barberAccessToken, clientEmail, clientName, txId, pixKey, pixKeyType, receiverName]);
 
   // Polling for payment status (Automatic mode only)
   useEffect(() => {
@@ -273,6 +276,7 @@ export const PixPaymentModal: React.FC<PixPaymentModalProps> = ({
 
   const fallbackPayload = generatePixPayload({
     pixKey,
+    pixKeyType,
     receiverName,
     amount,
     txId: txId || 'BARBERHUB' + Math.floor(Math.random() * 90000 + 10000),
@@ -294,7 +298,8 @@ export const PixPaymentModal: React.FC<PixPaymentModalProps> = ({
   };
 
   const handleCopyKeyOnly = () => {
-    navigator.clipboard.writeText(pixKey);
+    const formatted = formatPixKeyForBacen(pixKey, pixKeyType) || pixKey;
+    navigator.clipboard.writeText(formatted);
     setCopiedKey(true);
     setTimeout(() => setCopiedKey(false), 2500);
   };

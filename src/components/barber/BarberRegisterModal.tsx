@@ -182,13 +182,14 @@ export const BarberRegisterModal: React.FC<BarberRegisterModalProps> = ({
             setApiError(friendlyErr);
             const fallback = generatePixPayload({
               pixKey: platformSettings.platformPixKey,
+              pixKeyType: platformSettings.platformPixKeyType,
               receiverName: platformSettings.platformPixReceiverName,
               amount: currentPlan.price,
               txId: `ADESAO${createdShop?.slug.substring(0, 8).toUpperCase()}`,
               description: `Adesão ${currentPlan.name} - ${createdShop?.name}`,
             });
             setMpQrCodePayload(fallback);
-            const url = await generateQrCodeDataUrl(fallback, 300);
+            const url = await generateQrCodeDataUrl(fallback, 320);
             if (isMounted) setGeneratedDataUrl(url);
           }
         }
@@ -198,13 +199,14 @@ export const BarberRegisterModal: React.FC<BarberRegisterModalProps> = ({
           setApiError('Mercado Pago em contingência. Utilize o QR Code PIX abaixo:');
           const fallback = generatePixPayload({
             pixKey: platformSettings.platformPixKey,
+            pixKeyType: platformSettings.platformPixKeyType,
             receiverName: platformSettings.platformPixReceiverName,
             amount: currentPlan.price,
             txId: `ADESAO${createdShop?.slug.substring(0, 8).toUpperCase()}`,
             description: `Adesão ${currentPlan.name} - ${createdShop?.name}`,
           });
           setMpQrCodePayload(fallback);
-          const url = await generateQrCodeDataUrl(fallback, 300);
+          const url = await generateQrCodeDataUrl(fallback, 320);
           setGeneratedDataUrl(url);
         }
       } finally {
@@ -386,6 +388,7 @@ export const BarberRegisterModal: React.FC<BarberRegisterModalProps> = ({
   const fallbackPayload = createdShop
     ? generatePixPayload({
         pixKey: platformSettings.platformPixKey,
+        pixKeyType: platformSettings.platformPixKeyType,
         receiverName: platformSettings.platformPixReceiverName,
         amount: currentPlan.price,
         txId: `ADESAO${createdShop.slug.substring(0, 8).toUpperCase()}`,

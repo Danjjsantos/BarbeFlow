@@ -1117,9 +1117,11 @@ async function startServer() {
         description,
         payerEmail,
         payerName,
+        payerCpf,
         accessToken: customAccessToken,
         externalReference,
         pixKey,
+        pixKeyType,
         pixReceiverName,
         city,
       } = req.body || {};
@@ -1132,8 +1134,25 @@ async function startServer() {
         });
       }
 
-      // Priority: Custom token from Barber/Platform settings -> .env MERCADO_PAGO_ACCESS_TOKEN
-      const token = sanitizeToken(customAccessToken) || sanitizeToken(process.env.MERCADO_PAGO_ACCESS_TOKEN);
+      // Priority: Custom token from body -> .env -> local database platformSettings / barbershop
+      let token = sanitizeToken(customAccessToken) || sanitizeToken(process.env.MERCADO_PAGO_ACCESS_TOKEN);
+      if (!token) {
+        try {
+          const currentDb = getLocalDatabase();
+          if (currentDb?.settings?.mercadoPagoAccessToken) {
+            token = sanitizeToken(currentDb.settings.mercadoPagoAccessToken);
+          }
+          if (!token && externalReference && Array.isArray(currentDb?.barbershops)) {
+            const matchedShop = currentDb.barbershops.find((s: any) =>
+              s.id && (externalReference === s.id || externalReference.includes(s.id))
+            );
+            if (matchedShop?.mercadoPagoAccessToken) {
+              token = sanitizeToken(matchedShop.mercadoPagoAccessToken);
+            }
+          }
+        } catch {}
+      }
+
       let mpAttempted = false;
       let mpErrorMessage: string | null = null;
 
@@ -1154,11 +1173,17 @@ async function startServer() {
           const payerFirstName = nameParts[0] || 'Cliente';
           const payerLastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : 'BarberHub';
 
-          // Clean description (max 60 chars)
+          // Clean description (max 60 chars, ASCII friendly)
           const cleanDescription = (description || 'Servico Barbearia')
-            .replace(/[^a-zA-Z0-9\sÀ-ÿ._-]/g, '')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-zA-Z0-9\s._-]/g, '')
             .substring(0, 60)
             .trim() || 'Servico Barbearia';
+
+          // Optional CPF identification
+          const rawCpf = (payerCpf || '').replace(/\D/g, '');
+          const validCpf = rawCpf.length === 11 ? rawCpf : undefined;
 
           const makeMpRequest = async (emailToUse: string) => {
             const idempotencyKey = `mp_pix_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
@@ -1170,6 +1195,7 @@ async function startServer() {
                 email: emailToUse,
                 first_name: payerFirstName,
                 last_name: payerLastName,
+                ...(validCpf ? { identification: { type: 'CPF', number: validCpf } } : {}),
               },
               external_reference: (externalReference || `ref_${Date.now()}`).substring(0, 64),
             };
@@ -1295,7 +1321,7 @@ async function startServer() {
         mpErrorMessage = 'Chave informada é uma Public Key. É necessário fornecer o Access Token de Produção.';
       }
 
-      // Fallback: Generate real standard EMV PIX with genuine scannable QR Code using barbershop's / platform's PIX key
+      // Fallback: Generate 100% BACEN & Mercado Pago compliant standard EMV BR Code using barbershop's / platform's PIX key
       const localId = `pix_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
       const targetPixKey = (pixKey && String(pixKey).trim()) ? String(pixKey).trim() : 'financeiro@barberhub.com.br';
       const targetReceiver = (pixReceiverName && String(pixReceiverName).trim()) ? String(pixReceiverName).trim() : 'BARBERHUB TECNOLOGIA LTDA';
@@ -1303,6 +1329,7 @@ async function startServer() {
 
       const emvPayload = generatePixPayload({
         pixKey: targetPixKey,
+        pixKeyType: pixKeyType || req.body?.pixKeyType,
         receiverName: targetReceiver,
         city: (city && String(city).trim()) ? String(city).trim() : 'SAO PAULO',
         amount: numAmount,

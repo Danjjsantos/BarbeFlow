@@ -7,6 +7,7 @@ export interface CreatePixOptions {
   description: string;
   payerEmail?: string;
   payerName?: string;
+  payerCpf?: string;
   accessToken?: string;
   barberAccessToken?: string;
   externalReference?: string;
@@ -129,9 +130,11 @@ export async function createMercadoPagoPix(
         description: options.description,
         payerEmail: options.payerEmail || 'cliente@barberhub.com.br',
         payerName: options.payerName || 'Cliente BarberHub',
+        payerCpf: options.payerCpf,
         accessToken: finalToken,
         externalReference: options.externalReference,
         pixKey: options.pixKey,
+        pixKeyType: options.pixKeyType,
         pixReceiverName: options.pixReceiverName,
         city: options.city,
       }),
@@ -166,6 +169,7 @@ export async function createMercadoPagoPix(
 
     const emvPayload = generatePixPayload({
       pixKey: effectiveKey,
+      pixKeyType: options.pixKeyType,
       receiverName: effectiveReceiver,
       city: options.city || 'SAO PAULO',
       amount: finalAmount,

@@ -156,13 +156,14 @@ export const BarberSubscriptionPayModal: React.FC<BarberSubscriptionPayModalProp
             setApiError(friendlyErr);
             const fallback = generatePixPayload({
               pixKey: platformSettings.platformPixKey,
+              pixKeyType: platformSettings.platformPixKeyType,
               receiverName: platformSettings.platformPixReceiverName,
               amount: planPrice,
               txId: `SUB${selectedPlanId.toUpperCase().slice(0, 4)}${shop?.slug.substring(0, 6).toUpperCase()}`,
               description: `Assinatura ${currentSelectedPlan.name} - ${shop?.name}`,
             });
             setMpQrCodePayload(fallback);
-            const url = await generateQrCodeDataUrl(fallback, 300);
+            const url = await generateQrCodeDataUrl(fallback, 320);
             if (isMounted) setGeneratedDataUrl(url);
           }
         }
@@ -172,13 +173,14 @@ export const BarberSubscriptionPayModal: React.FC<BarberSubscriptionPayModalProp
           setApiError('Mercado Pago em contingência. Utilize o QR Code PIX abaixo:');
           const fallback = generatePixPayload({
             pixKey: platformSettings.platformPixKey,
+            pixKeyType: platformSettings.platformPixKeyType,
             receiverName: platformSettings.platformPixReceiverName,
             amount: planPrice,
             txId: `SUB${selectedPlanId.toUpperCase().slice(0, 4)}${shop?.slug.substring(0, 6).toUpperCase()}`,
             description: `Assinatura ${currentSelectedPlan.name} - ${shop?.name}`,
           });
           setMpQrCodePayload(fallback);
-          const url = await generateQrCodeDataUrl(fallback, 300);
+          const url = await generateQrCodeDataUrl(fallback, 320);
           setGeneratedDataUrl(url);
         }
       } finally {
@@ -238,6 +240,7 @@ export const BarberSubscriptionPayModal: React.FC<BarberSubscriptionPayModalProp
 
   const fallbackPixPayload = generatePixPayload({
     pixKey: platformSettings.platformPixKey,
+    pixKeyType: platformSettings.platformPixKeyType,
     receiverName: platformSettings.platformPixReceiverName,
     amount: planPrice,
     txId: `SUB${selectedPlanId.toUpperCase().slice(0, 4)}${shop.slug.substring(0, 6).toUpperCase()}`,
